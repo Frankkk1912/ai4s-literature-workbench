@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI4S Literature Workbench 配置向导</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">LOCAL ONBOARDING</p>
+        <h1>AI4S Literature Workbench 配置向导</h1>
+        <p>此管理页只在本机 loopback、无 OAuth 的 HTTP 模式中启用。</p>
+      </header>
+
+      <section id="pairing" class="panel">
+        <h2>1. 配对本次会话</h2>
+        <p>从启动 MCP 的终端复制一次性配对码。配对码只可兑换一次，且不会进入 URL 或日志。</p>
+        <form id="pair-form" autocomplete="off">
+          <label for="pair-code">终端配对码</label>
+          <div class="row">
+            <input
+              id="pair-code"
+              name="pair-code"
+              type="password"
+              required
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="submit">兑换会话</button>
+          </div>
+        </form>
+        <p id="pair-result" class="result" role="status"></p>
+      </section>
+
+      <section id="wizard" class="panel" hidden>
+        <div class="section-heading">
+          <div>
+            <h2>2. 校验并保存凭证</h2>
+            <p>已存凭证永不回显；状态只显示是否存在与来源。</p>
+          </div>
+          <button id="refresh-status" class="secondary" type="button">刷新状态</button>
+        </div>
+        <div id="providers" class="provider-grid"></div>
+      </section>
+
+      <section class="panel">
+        <h2>3. Zotero Desktop XPI</h2>
+        <p>
+          本轮不核验安装状态。构建 XPI 后，在 Zotero Desktop 打开 Tools → Add-ons，齿轮菜单 →
+          Install Add-on From File…，选择
+          <code>literature-metrics/dist/literature-metrics-&lt;version&gt;.xpi</code>。
+        </p>
+      </section>
+
+      <section class="panel privacy">
+        <h2>凭证暴露边界</h2>
+        <ol>
+          <li>
+            浏览器仅以本机 loopback POST body 提交凭证；payload 在用户自己的 DevTools
+            中可见，这是固有边界。
+          </li>
+          <li>Zotero 官方校验请求通过 <code>Zotero-API-Key</code> Header 携带凭证。</li>
+          <li>
+            PubMed / EasyScholar 官方 HTTPS 校验请求按其接口设计，以 <code>api_key</code> /
+            <code>secretKey</code> 查询参数携带凭证。
+          </li>
+        </ol>
+        <p>
+          本地页面
+          URL、地址栏、链接、服务日志、响应、错误与状态报告不会包含明文凭证或含凭证的官方请求 URL。
+        </p>
+      </section>
+
+      <nav class="dashboard-entry" aria-label="状态看板入口">
+        <a href="./dashboard" title="状态看板将在 Milestone M5 提供">前往状态看板（M5）</a>
+      </nav>
+    </main>
+  </body>
+</html>

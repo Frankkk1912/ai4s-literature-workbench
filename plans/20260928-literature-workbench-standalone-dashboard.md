@@ -220,12 +220,12 @@
 
 ### M4 本机网页配置向导
 
-- [ ] T4.1 管理路由挂载与模式门禁
+- [x] T4.1 管理路由挂载与模式门禁
   - 文件：新仓 `runtime/src/transports/http.ts:147-210`、`runtime/src/index.ts:27-77`、`runtime/src/server.ts`（如需注入配置）
   - 修改：在既有 Express 应用上新增管理路由前缀（默认 `/admin/onboarding`，端口沿用 `--port`/`PORT` 默认 3939——实现细节约束，见 9.4）；**OAuth 或非 loopback 模式下管理路由整体 403/404、不注册读写端点、不产生配对码**（对照 `:57-73` 的 loopback 拒绝逻辑）
   - 验收：测试证明 OAuth 模式（`opts.oauth` 存在）与非 loopback host 下管理路由不可达；loopback 无 OAuth 下可达；`/mcp`、`/healthz`、`/readyz`、`/metrics` 行为不变
   - 依赖：M3
-- [ ] T4.2 配对码＋短时会话授权与安全中间件（D7；rev3 扩展至 GET 读接口）
+- [x] T4.2 配对码＋短时会话授权与安全中间件（D7；rev3 扩展至 GET 读接口）
   - 文件：新仓 `runtime/src/transports/admin.ts`（新建 admin 子模块）、`runtime/scripts/credential-utils.mjs`（仅复用，不改语义）
   - 修改：
   - 配对码：启动时（或首次访问时）在**终端**显示一次性配对码（≥128-bit 随机、默认 TTL 5 分钟、**仅可兑换一次**、常数时间比较、兑换尝试限流）；兑换成功立即作废；重放/过期/超限均被拒；配对码不进 URL、不进日志；
@@ -234,17 +234,17 @@
   - **Host 与 Origin 检查覆盖管理 GET 与 POST**；**每一次写操作**校验 Origin/CSRF token＋Host/Origin 白名单（`127.0.0.1/localhost/[::1]`＋实际端口，参照 `runtime/src/transports/http.ts:42` LOOPBACK 集合）；管理路由全集启用 DNS rebinding 防护（现状仅 OAuth 开启，`runtime/src/index.ts:57`、`http.ts:77-90`）；管理路由**不**使用宽松 `cors()`
   - 验收：安全测试覆盖：配对码重放被拒、过期码被拒、会话过期/重启后失效、**未配对 GET 状态与任意管理读端点被拒**、未配对写操作被拒、**每一次**写操作缺 Origin/CSRF 均被拒、GET 与 POST 均受 Host/Origin 检查（伪造 Host/Origin 被拒）、rebinding 主机名被拒、配对码出现在 URL/日志则测试失败；GitHub 博客（2025-04-03）三类攻击均有对应用例
   - 依赖：T4.1
-- [ ] T4.3 向导 API：输入/校验/保存 3 keys（暴露边界按 R12 三通路真实断言，D10）
+- [x] T4.3 向导 API：输入/校验/保存 3 keys（暴露边界按 R12 三通路真实断言，D10）
   - 文件：新仓 `runtime/src/transports/admin.ts`（或 `runtime/src/features/onboarding/http-api.ts` 新建）
   - 修改：POST 校验/保存端点（zotero|pubmed|easyscholar）：**浏览器→本机管理 API 中 key 仅经 POST body**（本地/浏览器 URL/地址栏禁止出现 key）；复用 `verify*Key`＋`save*Key`（`scripts/onboard.mjs:201-250,252-338` 语义：先校验后写、失败不落盘、网络失败不覆盖）；**服务端→官方校验请求保持三通路**（Zotero Header；PubMed `api_key`／EasyScholar `secretKey` 查询参数——D10 已批准例外）；响应只回脱敏状态，不回显 key；**日志/错误/响应过滤 key 与含 key 的官方请求 URL**（`runtime/src/lib/logger.ts` 确认无 body 记录、无完整请求 URL 回显）
   - 验收：测试断言：成功保存后 `redactedStatus` 显示 `private_config`/`environment` 来源；非法 key 不写文件；**本地/浏览器 URL/地址栏、响应、日志、错误、状态报告无明文 key**；mock fetch 断言出网 URL 集合**仅** Zotero/NCBI/EasyScholar 官方校验端点，且 PubMed/EasyScholar 请求 URL 含 key 查询参数属预期（D10）；断言中**不**要求“浏览器网络面板无 key”——通路 1（DevTools 可见本机 POST payload）与通路 3（服务商可能接收官方请求 URL）均为 R12/D10 已知边界；**HTTP 错误/重试/异常路径的任何输出不含 key、不含含 key URL**
   - 依赖：T3.1, T4.2
-- [ ] T4.4 配置向导前端页面（含首次配对流程）
+- [ ] T4.4 配置向导前端页面（含首次配对流程）（代码与自动化断言已完成，**待 V6 人工浏览器验收（Frank）后勾选**）
   - 文件：新仓 `runtime/src/public/onboarding/`（HTML/CSS/JS 静态资源，由管理路由提供服务）
   - 修改：首次打开引导用户从终端取一次性配对码并兑换会话；三凭证表单（申请链接沿用 `scripts/onboard.mjs:41-62` `PROVIDERS.apply_url`）、校验按钮、保存结果区、XPI 人工安装提示、跳转看板入口；**不回显**已存 key，只显示存在性/来源；页面提交仅 POST body，**页面/链接/地址栏永不构造含 key 的 URL**
   - 验收：人工浏览器验证（macOS＋Windows，见 V6）：配对→兑换→全流程可完成、刷新后状态正确；**页面源码、本地/浏览器 URL/地址栏与服务端响应无 key 明文**；文档与页面注明 R12 三通路边界（DevTools 可见本机提交 payload、官方校验 URL 含 key 查询参数属预期）；非 loopback 或 OAuth 模式打开返回 403/404 页面
   - 依赖：T4.3
-- [ ] T4.5 向导安全与行为测试
+- [ ] T4.5 向导安全与行为测试（本地已全绿，待 CI 通过后勾选）
   - 文件：新仓 `tests/admin-http.test.mjs`（新建）
   - 修改：覆盖 T4.1–T4.4 全部安全与行为断言（含配对码/会话生命周期、**GET/POST 全部会话门禁**、每次写操作 Origin/CSRF、GET/POST Host/Origin、限流复用、`express.json` 大小限制沿用 `http.ts:203`、**HTTP 错误/重试/异常/日志从不泄密**）
   - 验收：`node --test tests/*.test.mjs` 全绿并在 CI（T2.1/T2.2）中执行

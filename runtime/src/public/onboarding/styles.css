@@ -1,0 +1,154 @@
+:root {
+  color-scheme: light;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  color: #17332c;
+  background: #edf4f0;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(145deg, #eef6f2, #f8f3e8);
+}
+main {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 48px 0 64px;
+}
+header {
+  margin-bottom: 28px;
+}
+h1 {
+  margin: 6px 0 10px;
+  font-family: Georgia, serif;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  line-height: 1.02;
+}
+h2 {
+  margin-top: 0;
+}
+.eyebrow {
+  color: #b34f32;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+.panel {
+  margin: 18px 0;
+  padding: 24px;
+  border: 1px solid #c9d8d1;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 10px 28px rgba(30, 65, 54, 0.07);
+}
+.row,
+.section-heading,
+.actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.section-heading {
+  justify-content: space-between;
+}
+input {
+  width: 100%;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid #9bb5aa;
+  border-radius: 10px;
+  font: inherit;
+}
+button,
+.dashboard-entry a {
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 18px;
+  background: #176b55;
+  color: white;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+}
+button.secondary {
+  color: #176b55;
+  background: #dcebe5;
+}
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.provider-grid {
+  display: grid;
+  gap: 16px;
+}
+.provider {
+  padding: 18px;
+  border: 1px solid #d7e1dc;
+  border-radius: 14px;
+  background: #fff;
+}
+.provider h3 {
+  margin: 0 0 6px;
+}
+.provider .meta {
+  margin: 0 0 12px;
+  color: #516961;
+}
+.provider .status {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 4px 9px;
+  border-radius: 99px;
+  background: #edf4f0;
+  font-size: 0.85rem;
+}
+.provider label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+.actions {
+  margin-top: 10px;
+}
+.result {
+  min-height: 1.4em;
+  color: #315a4d;
+}
+.result.error {
+  color: #a13229;
+}
+.privacy code,
+.panel > p code {
+  overflow-wrap: anywhere;
+}
+.dashboard-entry {
+  margin-top: 28px;
+  text-align: right;
+}
+@media (max-width: 640px) {
+  main {
+    width: min(100% - 20px, 960px);
+    padding-top: 28px;
+  }
+  .row,
+  .section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .row button,
+  .section-heading button {
+    width: 100%;
+  }
+}

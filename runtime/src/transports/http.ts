@@ -12,6 +12,7 @@ import { requestLogger } from '../lib/request-logger.js';
 import { liveness, type Readiness } from '../lib/health.js';
 import type { Metrics } from '../lib/metrics.js';
 import type { BuiltOAuth } from '../auth/router.js';
+import { mountAdminOnboarding, type AdminOnboardingOptions } from './admin.js';
 
 /**
  * A factory that produces a fresh McpServer per MCP session. Receives the session's
@@ -35,8 +36,13 @@ export interface HttpOptions {
   readiness?: () => Promise<Readiness>;
   version?: string;
   rateLimit?: { windowMs: number; max: number };
+  /** Local-only onboarding wizard settings. Set false to disable explicitly. */
+  adminOnboarding?: AdminOnboardingOptions | false;
   /** Receives a drain handle for graceful shutdown (factory + single modes). */
-  registerLifecycle?: (h: { drainSessions: (timeoutMs: number) => Promise<void>; activeSessions: () => number }) => void;
+  registerLifecycle?: (h: {
+    drainSessions: (timeoutMs: number) => Promise<void>;
+    activeSessions: () => number;
+  }) => void;
 }
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
@@ -94,7 +100,8 @@ export async function startHttp(
   if (typeof serverOrFactory !== 'function') {
     const transport = makeTransport();
     await serverOrFactory.connect(transport);
-    route = (req, res) => transport.handleRequest(req, res, req.method === 'POST' ? req.body : undefined);
+    route = (req, res) =>
+      transport.handleRequest(req, res, req.method === 'POST' ? req.body : undefined);
     opts.registerLifecycle?.({
       activeSessions: () => 1,
       drainSessions: async () => {
@@ -153,7 +160,12 @@ export async function startHttp(
   if (opts.oauth) opts.oauth.mount(app);
 
   const guards = opts.oauth
-    ? [requireBearerAuth({ verifier: opts.oauth.provider, resourceMetadataUrl: opts.oauth.resourceMetadataUrl })]
+    ? [
+        requireBearerAuth({
+          verifier: opts.oauth.provider,
+          resourceMetadataUrl: opts.oauth.resourceMetadataUrl,
+        }),
+      ]
     : [];
 
   const wrap = (req: express.Request, res: express.Response): void => {
@@ -172,7 +184,14 @@ export async function startHttp(
     const r = await opts.readiness();
     res.status(r.ok ? 200 : 503).json(r);
   });
-  if (opts.metrics) app.get('/metrics', (_req, res) => res.type('text/plain').send(opts.metrics!.render()));
+  if (opts.metrics)
+    app.get('/metrics', (_req, res) => res.type('text/plain').send(opts.metrics!.render()));
+
+  // The management surface exists only for unauthenticated loopback mode. Its
+  // router supplies independent Host/Origin/CSRF/session guards and no CORS.
+  if (!opts.oauth && LOOPBACK.has(host) && opts.adminOnboarding !== false) {
+    await mountAdminOnboarding(app, opts.adminOnboarding ?? {});
+  }
 
   const limiter =
     opts.rateLimit && opts.rateLimit.max > 0
@@ -183,7 +202,11 @@ export async function startHttp(
             standardHeaders: true,
             legacyHeaders: false,
             validate: { trustProxy: false, xForwardedForHeader: false },
-            message: { jsonrpc: '2.0', error: { code: -32000, message: 'Too many requests' }, id: null },
+            message: {
+              jsonrpc: '2.0',
+              error: { code: -32000, message: 'Too many requests' },
+              id: null,
+            },
           }),
         ]
       : [];
