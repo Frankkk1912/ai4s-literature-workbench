@@ -32,11 +32,13 @@ class FakeAdapter implements FulltextAdapter {
   }
 }
 
+// 200 x 25ms = 5s of polling. The old 100 x 5ms budget expired on Windows CI
+// before the queued job reached its terminal state (~1.4s). Assertions are unchanged.
 async function waitFor(broker: FulltextBroker, jobId: string, state: string): Promise<Record<string, any>> {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
     const status = await broker.status(jobId);
     if (status.state === state) return status as Record<string, any>;
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    await new Promise((resolve) => setTimeout(resolve, 25));
   }
   throw new Error(`Timed out waiting for ${jobId} to reach ${state}.`);
 }

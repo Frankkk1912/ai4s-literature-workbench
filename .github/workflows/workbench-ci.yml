@@ -66,9 +66,27 @@ jobs:
         working-directory: fulltext-runtime
         run: npm ci --no-audit --no-fund && npm run typecheck && npm test
 
-      - name: Database browser install, typecheck, build, and test
+      - name: Database browser install
         working-directory: database-browser-runtime
-        run: npm ci --no-audit --no-fund && npm run typecheck && npm run build && npm test
+        run: npm ci --no-audit --no-fund
+
+      # Lockfile playwright (printed below) must exist before install. Playwright
+      # 1.61 installDeps is not portable: Linux runs apt (the CLI sudo's apt-get,
+      # so do not wrap npx in sudo); macOS is a no-op; Windows runs
+      # install_media_pack.ps1. These tests only need the Chromium binary, plus
+      # Linux shared libraries. Do not pass --with-deps off Linux.
+      - name: Install Playwright Chromium
+        working-directory: database-browser-runtime
+        run: npx playwright --version && npx playwright install chromium
+
+      - name: Install Playwright Chromium system dependencies
+        if: runner.os == 'Linux'
+        working-directory: database-browser-runtime
+        run: npx playwright install-deps chromium
+
+      - name: Database browser typecheck, build, and test
+        working-directory: database-browser-runtime
+        run: npm run typecheck && npm run build && npm test
 
       - name: Literature metrics install, check, and package
         working-directory: literature-metrics
