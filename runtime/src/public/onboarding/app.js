@@ -148,7 +148,7 @@ async function refreshStatus() {
 document.querySelector('#pair-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const input = document.querySelector('#pair-code');
-  const code = input.value;
+  const code = input.value.trim();
   input.value = '';
   try {
     const response = await fetch('./api/pair', {

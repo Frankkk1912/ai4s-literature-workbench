@@ -289,6 +289,14 @@ test("OAuth and non-loopback modes do not mount endpoints or produce a pairing c
   assert.deepEqual(remoteCodes, []);
 });
 
+test("pairing trims terminal copy-paste whitespace around the code", async () => {
+  const started = await startAdmin();
+  const page = await pairingPage(started.base);
+  const padded = `  ${started.capturedCodes[0]}\n`;
+  const paired = await pair(started.base, padded, page.cookies);
+  assert.equal(paired.response.status, 200);
+});
+
 test("pairing is single-use, rate-limited, expiring, and absent from URL/logger output", async () => {
   let now = 10_000;
   const started = await startAdmin({

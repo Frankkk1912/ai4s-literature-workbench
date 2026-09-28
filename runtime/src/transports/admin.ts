@@ -241,10 +241,13 @@ export async function createAdminOnboardingRouter(
       return;
     }
 
-    const code =
+    const rawCode =
       req.body && typeof req.body === 'object' && !Array.isArray(req.body)
         ? (req.body as Record<string, unknown>).code
         : undefined;
+    // Trim: pairing codes are base64url (no spaces), and terminal copy-paste
+    // routinely drags a trailing newline/space along.
+    const code = typeof rawCode === 'string' ? rawCode.trim() : undefined;
     if (typeof code !== 'string' || !constantTimeEqual(code, pairingDigest)) {
       pairingAttempts += 1;
       res.status(403).json({ error: 'Pairing failed.' });
