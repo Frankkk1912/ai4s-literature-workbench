@@ -8,14 +8,15 @@ import { afterEach, test } from "node:test";
 
 // Root node:test runs before the runtime build in CI. Build here so this black-box
 // suite exercises the same emitted JavaScript and copied static assets users run.
-execFileSync(
-  process.platform === "win32" ? "npm.cmd" : "npm",
-  ["run", "build"],
-  {
-    cwd: new URL("../runtime/", import.meta.url),
-    stdio: "pipe",
-  },
-);
+// Windows: Node's CVE-2024-27980 hardening refuses to spawn the npm.cmd shim
+// without a shell (spawnSync npm.cmd EINVAL). Route only this fixed-literal npm
+// invocation through cmd.exe on win32; no user input is passed to the command.
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+execFileSync(npmCommand, ["run", "build"], {
+  cwd: new URL("../runtime/", import.meta.url),
+  stdio: "pipe",
+  shell: process.platform === "win32",
+});
 
 const { McpServer } =
   await import("../runtime/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js");
