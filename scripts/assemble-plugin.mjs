@@ -182,6 +182,10 @@ function assertMcpResolution(artifacts) {
   }
 }
 
+// On Windows the npm CLI is npm.cmd; execFileSync without a shell cannot
+// resolve the .cmd extension (spawnSync npm ENOENT), so pick the shim there.
+const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+
 function run(commandName, args, cwd, timeout) {
   execFileSync(commandName, args, {
     cwd,
@@ -210,7 +214,7 @@ function assertLockfile(pkg) {
     return;
   }
   try {
-    run('npm', ['ci', '--ignore-scripts', '--dry-run', '--no-audit', '--no-fund'], dir, 180000);
+    run(npmCommand, ['ci', '--ignore-scripts', '--dry-run', '--no-audit', '--no-fund'], dir, 180000);
   } catch (error) {
     const detail = `${error.stderr || error.stdout || error.message || error}`.trim().split('\n').slice(-8).join('\n');
     fail(`${pkg.path} lockfile is not acceptable to npm ci: ${detail}`);
