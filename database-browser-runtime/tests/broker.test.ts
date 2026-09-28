@@ -58,7 +58,7 @@ async function waitFor(
   broker: DatabaseBroker,
   jobId: string,
   state: string,
-  timeoutMs = 5_000,
+  timeoutMs = 10_000,
 ): Promise<Record<string, unknown>> {
   const deadline = Date.now() + timeoutMs;
   let lastStatus: Record<string, unknown> | undefined;
@@ -68,7 +68,7 @@ async function waitFor(
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error(
-    `Timed out waiting for ${jobId} to reach ${state}; last state was ${String(lastStatus?.state ?? 'unknown')}.`,
+    `Timed out waiting for ${jobId} to reach ${state}; last status was ${JSON.stringify(lastStatus)}.`,
   );
 }
 
@@ -143,7 +143,7 @@ describe('DatabaseBroker', () => {
     const broker = new DatabaseBroker(new JobStore(await temporaryDirectory()), adapter);
     const submitted = await broker.submitSearch(searchInput());
     const failed = await waitFor(broker, submitted.jobId, 'failed');
-    expect(failed.error_code).toBe('FILTER_NOT_APPLIED');
+    expect(failed.error_code, JSON.stringify(failed)).toBe('FILTER_NOT_APPLIED');
   });
 
   it('does not accept export from an unverified job', async () => {

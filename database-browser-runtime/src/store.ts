@@ -5,6 +5,9 @@ import { DATABASE_ID } from './domain.js';
 
 const FILE_MODE = 0o600;
 const DIRECTORY_MODE = 0o700;
+const WRITE_REPLACE_ATTEMPTS = 5;
+const WRITE_REPLACE_BACKOFF_MS = 20;
+const WINDOWS_REPLACE_LOCK_CODES = new Set(['EBUSY', 'EPERM', 'EACCES']);
 
 function now(): string {
   return new Date().toISOString();
@@ -29,11 +32,38 @@ async function ensurePrivateDirectory(path: string): Promise<void> {
   await chmod(path, DIRECTORY_MODE).catch(() => undefined);
 }
 
+function isWindowsReplaceLock(error: unknown): boolean {
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' && WINDOWS_REPLACE_LOCK_CODES.has(code);
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+// Windows replace-rename and a just-created temp file can throw EBUSY/EPERM/EACCES
+// while a concurrent reader or Defender scan still holds them. POSIX rename-over
+// an open file succeeds, so this bounded retry is a no-op unless those codes appear.
+async function withWindowsReplaceRetry(operation: () => Promise<void>): Promise<void> {
+  for (let attempt = 1; attempt <= WRITE_REPLACE_ATTEMPTS; attempt += 1) {
+    try {
+      await operation();
+      return;
+    } catch (error: unknown) {
+      if (!isWindowsReplaceLock(error) || attempt === WRITE_REPLACE_ATTEMPTS) throw error;
+      await delay(WRITE_REPLACE_BACKOFF_MS * attempt);
+    }
+  }
+}
+
 async function writeJson(path: string, value: unknown): Promise<void> {
   await ensurePrivateDirectory(dirname(path));
   const temporary = `${path}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { encoding: 'utf8', mode: FILE_MODE });
-  await rename(temporary, path);
+  const payload = `${JSON.stringify(value, null, 2)}\n`;
+  await withWindowsReplaceRetry(() => writeFile(temporary, payload, { encoding: 'utf8', mode: FILE_MODE }));
+  await withWindowsReplaceRetry(() => rename(temporary, path));
   await chmod(path, FILE_MODE).catch(() => undefined);
 }
 
