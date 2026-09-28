@@ -244,7 +244,7 @@
   - 修改：首次打开引导用户从终端取一次性配对码并兑换会话；三凭证表单（申请链接沿用 `scripts/onboard.mjs:41-62` `PROVIDERS.apply_url`）、校验按钮、保存结果区、XPI 人工安装提示、跳转看板入口；**不回显**已存 key，只显示存在性/来源；页面提交仅 POST body，**页面/链接/地址栏永不构造含 key 的 URL**
   - 验收：人工浏览器验证（macOS＋Windows，见 V6）：配对→兑换→全流程可完成、刷新后状态正确；**页面源码、本地/浏览器 URL/地址栏与服务端响应无 key 明文**；文档与页面注明 R12 三通路边界（DevTools 可见本机提交 payload、官方校验 URL 含 key 查询参数属预期）；非 loopback 或 OAuth 模式打开返回 403/404 页面
   - 依赖：T4.3
-- [ ] T4.5 向导安全与行为测试（本地已全绿，待 CI 通过后勾选）
+- [x] T4.5 向导安全与行为测试（本地全绿；CI run 36430299675 三平台＋secret-scan 全绿，含 Windows npm.cmd EINVAL 修复 `20edf96`）
   - 文件：新仓 `tests/admin-http.test.mjs`（新建）
   - 修改：覆盖 T4.1–T4.4 全部安全与行为断言（含配对码/会话生命周期、**GET/POST 全部会话门禁**、每次写操作 Origin/CSRF、GET/POST Host/Origin、限流复用、`express.json` 大小限制沿用 `http.ts:203`、**HTTP 错误/重试/异常/日志从不泄密**）
   - 验收：`node --test tests/*.test.mjs` 全绿并在 CI（T2.1/T2.2）中执行
