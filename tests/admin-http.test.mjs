@@ -201,6 +201,23 @@ test("loopback mode serves only the public pairing page before authorization and
   });
   const page = await pairingPage(started.base);
   assert.match(page.text, /配置向导/);
+
+  // The page references relative assets (./app.js, ./styles.css): the bare
+  // prefix must redirect to the trailing-slash form or the browser resolves
+  // them to /admin/* and gets 404 (page loads, wizard dead).
+  const bare = await fetch(`${started.base}/admin/onboarding`, {
+    redirect: "manual",
+  });
+  assert.equal(bare.status, 302);
+  assert.equal(bare.headers.get("location"), "/admin/onboarding/");
+  const resolved = new URL(
+    bare.headers.get("location"),
+    `${started.base}/admin/onboarding`,
+  );
+  for (const asset of ["styles.css", "app.js"]) {
+    const assetUrl = new URL(asset, resolved);
+    assert.equal((await fetch(assetUrl)).status, 200, assetUrl.pathname);
+  }
   assert.doesNotMatch(page.text, /configured|private_config|environment/);
   assert.equal(started.capturedCodes.length, 1);
   assert.ok(

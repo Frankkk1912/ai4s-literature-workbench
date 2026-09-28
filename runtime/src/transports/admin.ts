@@ -208,7 +208,14 @@ export async function createAdminOnboardingRouter(
     next();
   });
 
-  const sendIndex: RequestHandler = (_req, res) => {
+  const sendIndex: RequestHandler = (req, res) => {
+    // The page uses relative asset URLs (./styles.css, ./app.js, ./api/...).
+    // Served from the bare prefix they would resolve to /admin/* and 404, so
+    // redirect the exact prefix request to its trailing-slash form first.
+    if (req.originalUrl === prefix) {
+      res.redirect(302, `${prefix}/`);
+      return;
+    }
     const pairCsrf = token(24, random);
     setCookie(res, PAIR_CSRF_COOKIE, pairCsrf, prefix, false, pairingTtlMs);
     res.sendFile(join(staticDir, 'index.html'));
