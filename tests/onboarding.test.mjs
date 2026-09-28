@@ -295,3 +295,135 @@ test("plugin default prompt advertises first-run onboarding", () => {
 	assert.match(manifest.interface.defaultPrompt[0], /EasyScholar/);
 	assert.match(manifest.interface.defaultPrompt[0], /Zotero Desktop XPI/i);
 });
+
+async function withIsolatedOnboardingEnvironment(run) {
+	const root = mkdtempSync(join(tmpdir(), "ai4s-onboarding-cli-"));
+	const names = [
+		"AI4S_ONBOARDING_STATE_FILE",
+		"AI4S_ACADEMIC_CONFIG_FILE",
+		"LITERATURE_ZOTERO_MCP_ENV_FILE",
+		"ZOTERO_API_KEY",
+		"PUBMED_API_KEY",
+		"EASYSCHOLAR_SECRET_KEY",
+		"HOME",
+		"USERPROFILE",
+	];
+	const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+	process.env.AI4S_ONBOARDING_STATE_FILE = join(root, "onboarding.json");
+	process.env.AI4S_ACADEMIC_CONFIG_FILE = join(root, "academic.json");
+	process.env.LITERATURE_ZOTERO_MCP_ENV_FILE = join(root, "zotero.env");
+	process.env.HOME = root;
+	process.env.USERPROFILE = root;
+	delete process.env.ZOTERO_API_KEY;
+	delete process.env.PUBMED_API_KEY;
+	delete process.env.EASYSCHOLAR_SECRET_KEY;
+	try {
+		await run(root);
+	} finally {
+		for (const name of names) {
+			if (previous[name] === undefined) delete process.env[name];
+			else process.env[name] = previous[name];
+		}
+	}
+}
+
+test("setup preserves skip behavior and records all providers as offered", async () => {
+	await withIsolatedOnboardingEnvironment(async (root) => {
+		const output = join(root, "setup.json");
+		const prompts = [];
+		const { main } = await import("../scripts/onboard.mjs");
+		await main(["setup", "--output", output], {
+			linePromptImpl: async (prompt) => {
+				prompts.push(prompt);
+				return "n";
+			},
+			maskedPromptImpl: async () => {
+				throw new Error("masked prompt must not run for skipped providers");
+			},
+			fetchImpl: async () => {
+				throw new Error("fetch must not run for skipped providers");
+			},
+		});
+		const report = JSON.parse(readFileSync(output, "utf8"));
+		assert.equal(prompts.length, 3);
+		assert.deepEqual(report.setup_results, {
+			zotero: { status: "skipped" },
+			pubmed: { status: "skipped" },
+			easyscholar: { status: "skipped" },
+		});
+		assert.equal(report.first_run, false);
+		assert.equal(report.onboarding_completed, true);
+	});
+});
+
+test("reconfigure keeps masked input and retry behavior before saving", async () => {
+	await withIsolatedOnboardingEnvironment(async (root) => {
+		const output = join(root, "reconfigure.json");
+		const secrets = ["first-private-value", "second-private-value"];
+		const promptReplies = ["y", "retry"];
+		let maskedCalls = 0;
+		let fetchCalls = 0;
+		const { main } = await import("../scripts/onboard.mjs");
+		await main(
+			[
+				"reconfigure",
+				"--provider",
+				"pubmed",
+				"--output",
+				output,
+			],
+			{
+				linePromptImpl: async () => promptReplies.shift(),
+				maskedPromptImpl: async () => secrets[maskedCalls++],
+				fetchImpl: async (url) => {
+					fetchCalls += 1;
+					assert.equal(
+						new URL(String(url)).searchParams.get("api_key"),
+						secrets[fetchCalls - 1],
+					);
+					return fetchCalls === 1
+						? new Response("rejected", { status: 401 })
+						: new Response(JSON.stringify({ einforesult: {} }), {
+								status: 200,
+							});
+				},
+			},
+		);
+		const reportText = readFileSync(output, "utf8");
+		const report = JSON.parse(reportText);
+		const saved = JSON.parse(readFileSync(join(root, "academic.json"), "utf8"));
+		assert.equal(maskedCalls, 2);
+		assert.equal(fetchCalls, 2);
+		assert.equal(report.setup_results.pubmed.status, "configured");
+		assert.deepEqual(report.setup_results.pubmed.capabilities, { valid: true });
+		assert.equal(saved.pubmed_api_key, secrets[1]);
+		for (const secret of secrets) assert.equal(reportText.includes(secret), false);
+	});
+});
+
+test("reconfigure can skip after a validation failure without persisting the key", async () => {
+	await withIsolatedOnboardingEnvironment(async (root) => {
+		const output = join(root, "reconfigure-skip.json");
+		const replies = ["yes", "skip"];
+		const { main } = await import("../scripts/onboard.mjs");
+		await main(
+			[
+				"reconfigure",
+				"--provider",
+				"easyscholar",
+				"--output",
+				output,
+			],
+			{
+				linePromptImpl: async () => replies.shift(),
+				maskedPromptImpl: async () => "unsaved-private-value",
+				fetchImpl: async () => new Response("rejected", { status: 403 }),
+			},
+		);
+		const reportText = readFileSync(output, "utf8");
+		const report = JSON.parse(reportText);
+		assert.equal(report.setup_results.easyscholar.status, "skipped");
+		assert.equal(existsSync(join(root, "academic.json")), false);
+		assert.equal(reportText.includes("unsaved-private-value"), false);
+	});
+});
