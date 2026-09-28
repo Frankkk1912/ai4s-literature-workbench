@@ -5,8 +5,12 @@ import { DATABASE_ID } from './domain.js';
 
 const FILE_MODE = 0o600;
 const DIRECTORY_MODE = 0o700;
-const WRITE_REPLACE_ATTEMPTS = 5;
-const WRITE_REPLACE_BACKOFF_MS = 20;
+// Round-6 CI (run 36396863414, windows-latest) showed replace-rename of
+// state.json returning EPERM for longer than the previous ~200ms budget
+// (5 attempts, 20ms * attempt). Defender scans and open read handles are the
+// typical lock source. Retry on a 5000ms deadline at a fixed 100ms interval.
+const WRITE_REPLACE_BUDGET_MS = 5_000;
+const WRITE_REPLACE_RETRY_DELAY_MS = 100;
 const WINDOWS_REPLACE_LOCK_CODES = new Set(['EBUSY', 'EPERM', 'EACCES']);
 
 function now(): string {
@@ -45,15 +49,19 @@ function delay(ms: number): Promise<void> {
 
 // Windows replace-rename and a just-created temp file can throw EBUSY/EPERM/EACCES
 // while a concurrent reader or Defender scan still holds them. POSIX rename-over
-// an open file succeeds, so this bounded retry is a no-op unless those codes appear.
+// an open file succeeds, so this retry is a no-op unless those codes appear.
+// After the first lock failure, retry every WRITE_REPLACE_RETRY_DELAY_MS until
+// the deadline; only then rethrow the original lock error. Any other error is
+// thrown immediately.
 async function withWindowsReplaceRetry(operation: () => Promise<void>): Promise<void> {
-  for (let attempt = 1; attempt <= WRITE_REPLACE_ATTEMPTS; attempt += 1) {
+  const deadline = Date.now() + WRITE_REPLACE_BUDGET_MS;
+  for (;;) {
     try {
       await operation();
       return;
     } catch (error: unknown) {
-      if (!isWindowsReplaceLock(error) || attempt === WRITE_REPLACE_ATTEMPTS) throw error;
-      await delay(WRITE_REPLACE_BACKOFF_MS * attempt);
+      if (!isWindowsReplaceLock(error) || Date.now() >= deadline) throw error;
+      await delay(WRITE_REPLACE_RETRY_DELAY_MS);
     }
   }
 }

@@ -5,17 +5,49 @@ import { sha256 as hashSha256 } from './lib/canonical.js';
 
 const FILE_MODE = 0o600;
 const DIRECTORY_MODE = 0o700;
+// 与 database-browser store 同一 Windows replace-lock 模式，预防性对齐。
+// Round-6 CI showed EPERM on replace-rename lasting past a ~200ms budget;
+// Defender scans and open read handles are the typical lock source. Retry on a
+// 5000ms deadline at a fixed 100ms interval. Non-lock errors throw immediately.
+const WRITE_REPLACE_BUDGET_MS = 5_000;
+const WRITE_REPLACE_RETRY_DELAY_MS = 100;
+const WINDOWS_REPLACE_LOCK_CODES = new Set(['EBUSY', 'EPERM', 'EACCES']);
 
 async function ensurePrivateDirectory(path: string): Promise<void> {
   await mkdir(path, { recursive: true, mode: DIRECTORY_MODE });
   await chmod(path, DIRECTORY_MODE).catch(() => undefined);
 }
 
+function isWindowsReplaceLock(error: unknown): boolean {
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' && WINDOWS_REPLACE_LOCK_CODES.has(code);
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function withWindowsReplaceRetry(operation: () => Promise<void>): Promise<void> {
+  const deadline = Date.now() + WRITE_REPLACE_BUDGET_MS;
+  for (;;) {
+    try {
+      await operation();
+      return;
+    } catch (error: unknown) {
+      if (!isWindowsReplaceLock(error) || Date.now() >= deadline) throw error;
+      await delay(WRITE_REPLACE_RETRY_DELAY_MS);
+    }
+  }
+}
+
 async function writeJson(path: string, value: unknown): Promise<void> {
   await ensurePrivateDirectory(dirname(path));
   const temporary = `${path}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { encoding: 'utf8', mode: FILE_MODE });
-  await rename(temporary, path);
+  const payload = `${JSON.stringify(value, null, 2)}\n`;
+  await withWindowsReplaceRetry(() => writeFile(temporary, payload, { encoding: 'utf8', mode: FILE_MODE }));
+  await withWindowsReplaceRetry(() => rename(temporary, path));
   await chmod(path, FILE_MODE).catch(() => undefined);
 }
 
@@ -127,8 +159,8 @@ export class FulltextStore {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
     const temporary = `${target}.${process.pid}.${Date.now()}.tmp`;
-    await writeFile(temporary, bytes, { mode: FILE_MODE });
-    await rename(temporary, target);
+    await withWindowsReplaceRetry(() => writeFile(temporary, bytes, { mode: FILE_MODE }));
+    await withWindowsReplaceRetry(() => rename(temporary, target));
     await chmod(target, FILE_MODE).catch(() => undefined);
     return target;
   }

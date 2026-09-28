@@ -54,6 +54,10 @@ class FakeAdapter implements BrowserAdapter {
   }
 }
 
+// 25ms matches fulltext broker polling and lowers read-handle pressure on
+// Windows replace-rename. If the job has already failed and that is not the
+// expected state, fail immediately with the same status JSON as a timeout
+// instead of burning the 10s budget.
 async function waitFor(
   broker: DatabaseBroker,
   jobId: string,
@@ -65,7 +69,12 @@ async function waitFor(
   while (Date.now() < deadline) {
     lastStatus = await broker.status(jobId);
     if (lastStatus.state === state) return lastStatus;
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    if (lastStatus.state === 'failed' && state !== 'failed') {
+      throw new Error(
+        `Job ${jobId} reached failed while waiting for ${state}; last status was ${JSON.stringify(lastStatus)}.`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
   }
   throw new Error(
     `Timed out waiting for ${jobId} to reach ${state}; last status was ${JSON.stringify(lastStatus)}.`,
