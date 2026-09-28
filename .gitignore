@@ -1,0 +1,48 @@
+# Dependencies & build output
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Environment & credential files (never commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Private credential / data directories
+credentials/
+private_config/
+*.env.local
+zotero.env
+academic-research.json
+
+# Runtime data (receipts, handoffs, captured browser state)
+data/
+runtime/data/
+fulltext-runtime/data/
+database-browser-runtime/data/
+
+# Caches
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+.eslintcache
+
+# Logs & reports
+*.log
+npm-debug.log*
+gitleaks-report*.json
+
+# Editors & OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Zotero XPI build artifact (built via `npm run package`)
+literature-metrics/dist/
