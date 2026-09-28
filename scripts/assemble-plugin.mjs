@@ -182,14 +182,18 @@ function assertMcpResolution(artifacts) {
   }
 }
 
-// On Windows the npm CLI is npm.cmd; execFileSync without a shell cannot
-// resolve the .cmd extension (spawnSync npm ENOENT), so pick the shim there.
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+// On Windows spawn cannot execute the npm.cmd shim directly: without a shell it
+// fails (ENOENT before Node's CVE-2024-27980 fix, EINVAL after — npm.cmd is a
+// .cmd script and Node now refuses .cmd without a shell). Route only the npm
+// invocations through cmd.exe; every argument below is a fixed literal with no
+// spaces or shell metacharacters, and no user input is ever passed.
+const isWindows = process.platform === 'win32';
 
 function run(commandName, args, cwd, timeout) {
   execFileSync(commandName, args, {
     cwd,
     timeout,
+    shell: isWindows && commandName === 'npm',
     stdio: ['ignore', 'pipe', 'pipe'],
     env: {
       ...process.env,
@@ -214,7 +218,7 @@ function assertLockfile(pkg) {
     return;
   }
   try {
-    run(npmCommand, ['ci', '--ignore-scripts', '--dry-run', '--no-audit', '--no-fund'], dir, 180000);
+    run('npm', ['ci', '--ignore-scripts', '--dry-run', '--no-audit', '--no-fund'], dir, 180000);
   } catch (error) {
     const detail = `${error.stderr || error.stdout || error.message || error}`.trim().split('\n').slice(-8).join('\n');
     fail(`${pkg.path} lockfile is not acceptable to npm ci: ${detail}`);
