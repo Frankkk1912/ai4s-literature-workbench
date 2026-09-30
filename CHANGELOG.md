@@ -1,71 +1,103 @@
 # Changelog
 
-All notable changes to the AI4S Literature Workbench plugin are documented
-here. The format follows Keep a Changelog; versions follow Semantic
-Versioning.
+All notable changes to the standalone AI4S Literature Workbench repository are
+documented in this file.
 
-## [0.1.0] - unreleased (release candidate)
+The format follows [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/).
+Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
 
-First release. An auditable literature-workflow plugin for macOS and native
-Windows: evidence retrieval and ranking, controlled Zotero operations,
-EasyScholar metrics for new imports, and OA-first verified PDF handoffs.
+## [0.1.0] - 2026-09-30
 
-### Support matrix
-
-| Platform | Status |
-| --- | --- |
-| macOS | Clean-install acceptance passed on Codex CLI and Claude Code (see `macos-acceptance.json`) |
-| Windows 11, PowerShell 5.1 and 7 | Native platform and Zotero onboarding acceptance passed |
-| WSL | Compatibility target only, not a release gate |
-| Codex CLI | Supported agent; installed via the `personal` repository marketplace |
-| Claude Code | Supported agent; installed via the `frank-ai4s-skills` repository marketplace |
+Standalone first release covering delivered milestones M1–M5 (fresh-seed
+migration, three-platform CI, shared onboarding core, local web wizard, local
+status dashboard). Host product versions for Claude Code / Codex / WorkBuddy
+are omitted (待 Frank 核对 / 未实测).
 
 ### Added
 
-- Three-skill literature workflow bundle: `literature-research`
-  (PubMed/arXiv retrieval, evidence ranking, bilingual cited reports,
-  bundled JCR 2025 journal metrics, EasyScholar enrichment),
-  `literature-manager` (hashed reviewed Zotero import plans, read-only
-  duplicate candidate detection, collection/report sync), and
-  `literature-writing` (evidence-traced review, proposal, and manuscript
-  prose with citation placeholders and bibliography plans).
-- `literature-zotero-mcp` workbench runtime (17 MCP tools): reviewed
-  imports, metrics backfill, citation plans, fulltext handoff apply,
-  semantic tag context/apply/cleanup with a persistent library-scoped
-  vocabulary, project sync with receipts, and explicitly requested
-  versioned Chinese AI Summary writes.
-- `literature-fulltext-mcp` runtime: OA-first (HTTP/PMC and reviewed
-  public PDF candidates) verified fulltext handoffs, verified before a
-  separate controlled Zotero attachment write.
-- `import-wos-export` accepts multiple manually obtained official WoS export
-  batches and merges them by WoS UT and then DOI before applying its limit.
-- Secure first-run API onboarding wizard (`scripts/onboard.mjs`) with
-  masked, validated, platform-private credential storage and a manual Zotero
-  Desktop XPI installation reminder for AI4S columns and Priority controls.
-- Native macOS and Windows bootstrap scripts with committed lockfiles
-  and a repository-level Windows acceptance report script.
-- Claude Code plugin manifest (`.claude-plugin/plugin.json`) and
-  documented install routes for Claude Code, Codex, and sync-script
-  agents.
-- `literature-metrics` Zotero Desktop plugin add-on with its own
-  manifest, validation, and XPI packaging.
+- Skills (`literature-research`, `literature-manager`, `literature-writing`),
+  Zotero / Fulltext / database-browser runtimes, plugin manifests, and the
+  first-party `literature-metrics` XPI source, migrated into this private
+  repository as a fresh seed (M1). One-time parent hash baseline is archived
+  in `docs/migration-from-parent.md` (commit `936b3cb`).
+- Local web configuration wizard on the existing Zotero MCP HTTP transport
+  (M4): loopback-only pairing-code session, credential verify/save for
+  Zotero / PubMed / EasyScholar, CLI `scripts/onboard.mjs` retained.
+- Local configuration status dashboard (M5): five sections (凭证 / MCP 构建产物 /
+  Zotero Desktop XPI / 宿主线索 / 连接证据) with evidence-graded display.
+  Unmeasured rows stay 未知 / 待人工核验 / 本轮未核验; 已连接 requires measured
+  evidence.
+- Three-platform CI (Windows, macOS, Linux) plus a secret-scan gate on every
+  push/merge (M2).
 
-### Deferred (explicitly out of scope for 0.1.0)
+### Changed
 
-- Web of Science browser MCP: live Core Collection search, filtering,
-  result-count verification, and official export. It is not registered by the
-  v0.1.0 plugin.
-- Crossref and all other commercial database adapters.
-- VPN/WebVPN automation, credential or cookie handling, CAPTCHA bypass,
-  and hidden-browser operation.
-- Institutional/SSO full-text fallback (public OA routes only).
-- Automatic Zotero duplicate merges/deletions and automatic modification
-  of user Priority.
+- None in this standalone first release. Parent `markets` / `sync` stay frozen
+  in the parent repository; this checkout does not rewrite them.
 
-### Release status
+### Deprecated
 
-Local regression (tests, builds, bundle sync/check, and MCP smoke
-verification), macOS clean-install acceptance, and Windows native platform
-and Zotero onboarding acceptance are complete. Before tagging, complete the
-known-OA Fulltext handoff and attachment acceptance. See
-`v0.1.0-release-plan.md` for the gates.
+- None.
+
+### Removed
+
+- None. Parent history was never mirrored into this fresh seed; that is an
+  exclusion, not a removal from this repository.
+
+### Fixed
+
+- None recorded as a user-facing fix in this first changelog. Platform CI
+  follow-ups during M2/M4 stay in git history rather than as a separate
+  released patch.
+
+### Security
+
+- Management routes: loopback-only; OAuth / non-loopback HTTP does not
+  register them.
+- Pairing code: 16 random bytes, 5-minute TTL, single use, constant-time
+  compare, attempt limiting; never in URL or server log. Agents may relay
+  **only** that code (D12); keys never enter chat.
+- Session: 30-minute HttpOnly SameSite=Strict cookie; in-memory; discarded on
+  restart. All management GET/POST require the session.
+- Host / Origin / CSRF / DNS-rebinding checks cover management GET and POST.
+- Credential paths follow R12: browser → local POST body; Zotero
+  `Zotero-API-Key` Header; PubMed `api_key` / EasyScholar `secretKey` query
+  parameters on official HTTPS checks only (D10). Local / browser URL,
+  address bar, logs, errors, responses, reports, and chat must not contain
+  plaintext keys or key-bearing URLs.
+- Secret-scan gate: pinned automated scanner; any hit blocks push/merge.
+
+## Non-goals (this release)
+
+From Plan §3. This repository does **not** deliver:
+
+- Zotero import-history pages (N1)
+- Remote shared web / multi-user access (N2)
+- WorkBuddy one-click install (N3); WorkBuddy / CodeBuddy remain
+  **未实测 / 待人工核验**
+- XPI feature expansion (N4)
+- Parent-repository edits (N5, V10)
+- Parent git-history mirror (N6)
+- A new always-on dashboard process or Docker service (N7)
+- Connectivity impersonation, or XPI install-state probing this round (N8)
+- MCP tool-contract changes (N9)
+- Parent → new-repository cutover (N10, Q4)
+- New multi-agent install scripts such as `sync/install.*` (N11)
+- Manual secret-scan waiver as a pass path (N12)
+
+## Support matrix (draft)
+
+Columns are **实测** vs **未实测**. This matrix does not promise that any
+agent or any host can install the workbench.
+
+| Target | 实测 | 未实测 / 待人工核验 |
+| --- | --- | --- |
+| Claude Code marketplace / plugin install path | Documented as 实测可装; V13 Frank smoke still due | Host product version 待 Frank 核对 |
+| Codex marketplace / plugin add path | Documented as 实测可装; V13 Frank smoke still due | Host product version 待 Frank 核对 |
+| Windows / macOS / Linux CI + secret-scan | M2/M5 CI jobs reported green | — |
+| Local wizard + dashboard (loopback HTTP) | Implemented and covered by automated tests | V6/V7 browser sign-off is Frank’s |
+| opencode | — | 未实测; docs only, no new install script |
+| Antigravity | — | 未实测; docs only, no new install script |
+| WorkBuddy / CodeBuddy | — | 未实测 / 待人工核验 (V12) |
+| XPI installed inside Zotero Desktop | — | 本轮未核验 |
+| Measured MCP “已连接” | — | Not displayed without measured evidence |

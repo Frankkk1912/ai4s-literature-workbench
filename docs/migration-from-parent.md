@@ -1,8 +1,60 @@
 # Migration from the parent repository
 
-Status: M1 archive (T1.2–T1.6). This file is the one-time source-to-destination hash record. It is not a daily gate.
+This document is the D8 migration policy for `Frankkk1912/ai4s-literature-workbench` plus the M1 one-time hash archive. The hash tables below are a **one-time** baseline, not a daily gate.
 
-This repository is the source of truth. `node scripts/assemble-plugin.mjs check` does not read a parent checkout, does not store fixed source hashes, and does not fail when source text evolves.
+This repository is the future source of truth. The move is **one-way**: this checkout **no longer auto-syncs from the parent**. `node scripts/assemble-plugin.mjs check` does not read a parent checkout, does not store fixed source hashes, and does not fail when source text evolves.
+
+This repository does **not** upgrade, patch, or maintain any code in the parent tree `Frankkk1912/Frank_AI4S_Skill`. Switching remaining users from the parent install surface to this repository is a separate plan (Q4).
+
+## Parent freeze (V10)
+
+**This round does not modify any parent-repository file** (V10). That includes parent `marketplace.json` files, `sync/`, assembled plugin snapshots, and literature packages.
+
+The parent **markets / `sync` old install surface remains usable and frozen**:
+
+- parent `.claude-plugin/marketplace.json` (still points at `./plugins/ai4s-literature-workbench`)
+- parent `.agents/plugins/marketplace.json` (same plugin pointer)
+- parent `sync/` installers
+
+Those paths are not deleted, not rewritten, and not redirected here. Users who still install from the parent continue to get the frozen plugin copy. This repository is not a live upgrade channel for that copy.
+
+### V10 check (how to verify, not a demand that the parent worktree is empty)
+
+1. Record parent `git status --porcelain` at the start of a round (baseline).
+2. At the end, compare. Allowed parent untracked leftovers include `forge/vpnsci`, `forge/zotero-style`, and existing explore/Plan notes — they are pre-existing state, not this round’s edits.
+3. Expect **zero new parent modifications** relative to that baseline. Do not require `git status` to be empty.
+4. At the end of M6, only this repository’s Plan / docs / CHANGELOG / README are in scope for documentation work.
+
+## D8 baseline mechanism
+
+- Layout: `skills/`, `runtime/`, `fulltext-runtime/`, `database-browser-runtime/`, repository-root `literature-metrics/`.
+- Formal parent packages were the copy baseline. Plugin-only files were checked on a separate table.
+- One-time source→destination tree hashes were recorded in M1 commit `936b3cb` and are archived in this file.
+- After that commit, this repository does not pull parent trees.
+
+## Old user configuration files — no migration step
+
+Native and legacy private files keep working. New-repository code still reads them (`runtime/src/lib/env-files.ts:12-62`). Users do **not** copy or convert:
+
+- native Zotero env (platform Application Support / LocalAppData / XDG)
+- legacy `~/.config/ai4s-literature-workbench/zotero.env`
+- `LITERATURE_ZOTERO_MCP_ENV_FILE` override
+- academic config (`academic-research.json` under `frank-ai4s`)
+
+## Exclusion list (must not enter this repository)
+
+Explicitly excluded, including parent forge content that was never a tracked package:
+
+- parent `.git/` history (fresh seed only; no `git push --mirror`)
+- `forge/vpnsci`
+- `forge/zotero-style`
+- other parent `forge/**`
+- `node_modules/`, `dist/`, `data/`, credential files, `.env*` except `.env.example`
+- parent-only design notes that were not in the M1 file table
+
+## Hash archive (M1)
+
+Status: M1 archive (T1.2–T1.6). One-time source-to-destination hash record. Not a daily gate.
 
 ## Method
 

@@ -150,7 +150,7 @@
 | M3 配置核心复用层（状态/校验/私有写入抽包＋证据分级语义） | [x] | M1 | 新增/扩展单测全绿（含 D10 通路 mock 验证与脱敏测试）；`redactedStatus` schema 只增不改（additive，见 9.4 已决约束） | CLI 行为不变；网页与 CLI 共用核心 |
 | M4 本机网页配置向导（HTTP 管理路由＋配对码会话＋安全＋保存 keys） | [ ] | M3 | 安全测试（配对码单次兑换、会话过期/重启失效、**GET/POST 全部会话门禁**、每次写操作 Origin/CSRF、日志/错误脱敏）＋保存流程测试全绿；人工浏览器验证通过 | loopback-only；OAuth/远程模式管理路由禁用 |
 | M5 配置状态看板（证据分级 UI） | [x] | M3 | 语义测试：无实测证据绝不显示“已连接”；**状态 API 未配对不可读**；人工核对看板与实际一致 | 显示依据来源 |
-| M6 文档、安装与兼容（多宿主＋XPI＋旧配置复用＋父仓不改声明） | [ ] | M1, M4, M5 | 文档评审（隐私边界按 R12 三通路表述）；WorkBuddy 部分带“未实测”标注；Claude/Codex 安装路径回归（V13） | 父仓基线 diff 白名单验证（V10） |
+| M6 文档、安装与兼容（多宿主＋XPI＋旧配置复用＋父仓不改声明） | [x] | M1, M4, M5 | 文档评审（隐私边界按 R12 三通路表述）；WorkBuddy 部分带“未实测”标注；Claude/Codex 安装路径回归（V13） | 父仓基线 diff 白名单验证（V10） |
 | M7 收尾验证与 Draft PR 转 Ready | [ ] | M2–M6 | Validation contract 全项执行并留记录；自查/待决清单随 PR 提交 | **Draft PR 自 M1/M2 起持续更新，M7 只收尾**（修正 rev1 推迟开 PR 的错误） |
 
 ## 7. 分 milestone 的 To-do checkbox 清单
@@ -271,22 +271,22 @@
 
 ### M6 文档、安装与兼容
 
-- [ ] T6.1 新仓 README／多宿主安装说明（可证实范围表述）
+- [x] T6.1 新仓 README／多宿主安装说明（可证实范围表述）
   - 文件：新仓 `README.md`（重写安装章节，参照 `README.md:19-47`）
   - 修改：Claude Code（`/plugin marketplace add Frankkk1912/ai4s-literature-workbench`）、Codex（`codex plugin marketplace/add`）为**实测可装**路径；opencode/Antigravity/others 沿用文档化接入路径（本轮不新增安装脚本，N11）；WorkBuddy/CodeBuddy 独立小节：按外部文档 A 说明 `.claude-plugin` 布局兼容的接入路径、URL-MCP 形式（文档 B），**统一标注“未实测/待人工核验”、不作成功承诺**（N3、R4、Q2）
   - 验收：文档评审；所有 WorkBuddy 结论带未实测标注；不出现未核实版本号；安装结论以可证实范围为限（修正 rev1 “任何 agent 都能安装”）
   - 依赖：M1
-- [ ] T6.2 网页向导/看板与 XPI 使用文档（含 R12 三通路真实边界，D10）
+- [x] T6.2 网页向导/看板与 XPI 使用文档（含 R12 三通路真实边界，D10）
   - 文件：新仓 `docs/onboarding.md`（扩展）、`docs/local-dashboard.md`（新建）、`docs/zotero-xpi.md`（新建）
   - 修改：向导/看板访问方式（loopback URL、终端配对码→会话兑换流程、**agent 启动服务时可向用户转述配对码（D12；仅限配对码，key 永不进 chat）**、全部管理 API 需会话）、四层级语义、隐私边界**按 R12 三通路精确表述**（通路 1 浏览器→本机 POST body：DevTools 可见属固有边界；通路 2 Zotero Header；通路 3 PubMed/EasyScholar 官方 HTTPS 查询 URL 含 key 查询参数——仅服务端可见、服务商可能接收，D10 已批准）；**本地/浏览器 URL/地址栏、日志、错误、响应、报告、chat 永不含明文 key 与含 key URL**；XPI：构建命令＋Tools → Add-ons 手动安装步骤＋“**本轮**未核验安装状态”（沿用 `docs/onboarding.md:17-24`）
   - 验收：与实现行为逐条对齐；人工按文档走通一次；不出现“网络面板无 key”“key 绝不进任何 URL”类过度承诺（官方查询参数例外须写明）
   - 依赖：M4, M5
-- [ ] T6.3 兼容与迁移说明（父仓边界＋D8 迁移基线）
+- [x] T6.3 兼容与迁移说明（父仓边界＋D8 迁移基线）
   - 文件：新仓 `docs/migration-from-parent.md`（新建）
   - 修改：写明 D8 迁移基线机制（父仓正式源码一次性哈希对照＋插件独有内容核对表，留档于迁移对照表）；父仓 `markets`/`sync` 旧版**继续可用且冻结不动**（`.claude-plugin/marketplace.json:1-19`、`.agents/plugins/marketplace.json:1-30`）；旧用户配置文件（native＋legacy 路径，`env-files.ts:12-62`）无需迁移、新仓代码继续读取；**新仓不再从父仓自动同步**；**迁移排除清单含父仓 forge 未跟踪内容（`forge/vpnsci`、`forge/zotero-style`）**；父仓→新仓切换另规划（Q4）；**不修改父仓任何文件**
   - 验收：父仓改动核验按 V10 基线 diff＋路径白名单（不要求 `git status` 空——父仓原有 untracked 如 `forge/vpnsci`、`forge/zotero-style`、既有 explore/Plan 文档属既有状态）；迁移说明经人工复核
   - 依赖：T1.6, T6.1
-- [ ] T6.4 新仓 CHANGELOG 初版
+- [x] T6.4 新仓 CHANGELOG 初版
   - 文件：新仓 `CHANGELOG.md`
   - 修改：按 Keep a Changelog 格式（参照 `CHANGELOG.md:1-8`）记录独立仓首版内容、非目标与支持矩阵初稿
   - 验收：格式与范围和本 Plan Non-goals 一致
