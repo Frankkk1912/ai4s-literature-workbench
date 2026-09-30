@@ -1,0 +1,100 @@
+{
+  "schema_version": 2,
+  "source_of_truth": "this-repository",
+  "layout": "d8",
+  "notes": "Inventory and structure metadata only. Fixed source hashes are not stored and are not a daily gate. The one-time migration hash archive is docs/migration-from-parent.md.",
+  "bundles": [
+    {
+      "id": "literature-research",
+      "path": "skills/literature-research",
+      "kind": "skill",
+      "markers": ["SKILL.md"]
+    },
+    {
+      "id": "literature-manager",
+      "path": "skills/literature-manager",
+      "kind": "skill",
+      "markers": ["SKILL.md"]
+    },
+    {
+      "id": "literature-writing",
+      "path": "skills/literature-writing",
+      "kind": "skill",
+      "markers": ["SKILL.md"]
+    },
+    {
+      "id": "runtime",
+      "path": "runtime",
+      "kind": "mcp-runtime",
+      "markers": ["package.json", "package-lock.json", "src/index.ts", "tsconfig.json"]
+    },
+    {
+      "id": "fulltext-runtime",
+      "path": "fulltext-runtime",
+      "kind": "mcp-runtime",
+      "markers": ["package.json", "package-lock.json", "src/index.ts", "tsconfig.json"]
+    },
+    {
+      "id": "database-browser-runtime",
+      "path": "database-browser-runtime",
+      "kind": "mcp-runtime",
+      "markers": ["package.json", "package-lock.json", "src/index.ts", "tsconfig.json"]
+    },
+    {
+      "id": "literature-metrics",
+      "path": "literature-metrics",
+      "kind": "zotero-xpi",
+      "markers": ["manifest.json", "package.json", "package-lock.json", "bootstrap.js"]
+    }
+  ],
+  "host_manifests": [
+    ".claude-plugin/plugin.json",
+    ".codex-plugin/plugin.json",
+    ".mcp.json"
+  ],
+  "support": ["scripts", "tests", "docs"],
+  "packages": [
+    {
+      "path": "runtime",
+      "lockfile": "package-lock.json",
+      "build_entry": "src/index.ts",
+      "build": "npm run build",
+      "typecheck": "npm run typecheck"
+    },
+    {
+      "path": "fulltext-runtime",
+      "lockfile": "package-lock.json",
+      "build_entry": "src/index.ts",
+      "build": "npm run build",
+      "typecheck": "npm run typecheck"
+    },
+    {
+      "path": "database-browser-runtime",
+      "lockfile": "package-lock.json",
+      "build_entry": "src/index.ts",
+      "build": "npm run build",
+      "typecheck": "npm run typecheck"
+    },
+    {
+      "path": "literature-metrics",
+      "lockfile": "package-lock.json",
+      "build_entry": "bootstrap.js",
+      "build": "npm run package",
+      "typecheck": "npm run check"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "runtime/dist/index.js",
+      "role": "mcp-stdio-entry",
+      "mcp_server": "ai4s-literature-zotero",
+      "produced_by": "cd runtime && npm ci && npm run build"
+    },
+    {
+      "path": "fulltext-runtime/dist/index.js",
+      "role": "mcp-stdio-entry",
+      "mcp_server": "ai4s-literature-fulltext",
+      "produced_by": "cd fulltext-runtime && npm ci && npm run build"
+    }
+  ]
+}

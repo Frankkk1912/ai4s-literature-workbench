@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI4S Literature Workbench 配置向导</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./app.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">LOCAL ONBOARDING</p>
+        <h1>AI4S Literature Workbench 配置向导</h1>
+      </header>
+
+      <section id="pairing" class="panel">
+        <h2>配对本次会话</h2>
+        <p>从启动 MCP 的终端复制一次性配对码。配对码仅限本次会话有效，请在五分钟内填入。</p>
+        <form id="pair-form" autocomplete="off">
+          <label for="pair-code">终端配对码</label>
+          <div class="row">
+            <input
+              id="pair-code"
+              name="pair-code"
+              type="password"
+              required
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="submit">配对会话</button>
+          </div>
+        </form>
+        <p id="pair-result" class="result" role="status"></p>
+      </section>
+
+      <section id="wizard" class="panel" hidden>
+        <div class="section-heading">
+          <div>
+            <h2>校验并保存凭证</h2>
+            <p>已存凭证永不回显；状态只显示是否存在与来源。</p>
+          </div>
+          <button id="refresh-status" class="secondary" type="button">刷新状态</button>
+        </div>
+        <div id="providers" class="provider-grid"></div>
+      </section>
+
+      <section id="status-view" class="panel status-view" hidden>
+        <div class="section-heading">
+          <div>
+            <h2>配置状态</h2>
+            <p id="dashboard-read-meta" class="dashboard-meta"></p>
+            <p class="dashboard-note">读取状态不代表执行连接测试。</p>
+          </div>
+          <button id="refresh-dashboard" class="secondary" type="button">刷新状态</button>
+        </div>
+        <p id="dashboard-status" class="result" role="status"></p>
+        <div id="dashboard-root" class="dashboard-root"></div>
+      </section>
+    </main>
+  </body>
+</html>

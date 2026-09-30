@@ -1,0 +1,9 @@
+{
+  "name": "personal",
+  "plugins": [
+    {
+      "name": "ai4s-literature-workbench",
+      "source": "./"
+    }
+  ]
+}

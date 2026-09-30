@@ -1,0 +1,150 @@
+# Workbench CI (Plan M2 / T2.1 / T2.2, V11, D9, D11, R9, R13).
+#
+# Required status-check names for branch protection (not configured here):
+#   test (windows-latest), test (macos-latest), test (ubuntu-latest), secret-scan
+#
+# Triggers: push and pull_request whose base/target branch is main or feat/**.
+# pull_request.branches filters the base branch, so PRs into main or feat/** run.
+
+name: Workbench CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+  pull_request:
+    branches:
+      - main
+      - 'feat/**'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # engines require Node >=20.19 (runtime/package.json). '20.19' selects the
+      # latest 20.19.x (verified locally against v20.19.6). Do not float to '20':
+      # that can resolve past the 20.19 line this job was checked against.
+      - name: Setup Node.js 20.19
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20.19'
+
+      - name: Print Node and npm versions
+        run: node --version && npm --version
+
+      # npm ci must precede the root node:test step. tests/env-file-fallback.test.mjs
+      # imports runtime/src/lib/env-files.ts. Node 20.19 has no type stripping, so the
+      # import is loaded with the lockfile-pinned tsx loader installed by this step.
+      - name: Runtime install, typecheck, and test
+        working-directory: runtime
+        run: npm ci --no-audit --no-fund && npm run typecheck && npm test
+
+      # Node 20.19 does not expand globs. On windows-latest the default shell is
+      # pwsh, which also leaves tests/*.test.mjs literal, so that argument fails
+      # with "Could not find". `node --test tests` is the stable form: Node 20.19
+      # recursively collects *.test.mjs (and the other documented test-name
+      # patterns) under tests/. Forward slashes keep the loader path portable.
+      - name: Root node tests
+        run: node --import ./runtime/node_modules/tsx/dist/loader.mjs --test tests
+
+      - name: Fulltext install, typecheck, and test
+        working-directory: fulltext-runtime
+        run: npm ci --no-audit --no-fund && npm run typecheck && npm test
+
+      - name: Database browser install
+        working-directory: database-browser-runtime
+        run: npm ci --no-audit --no-fund
+
+      # Lockfile playwright (printed below) must exist before install. Playwright
+      # 1.61 installDeps is not portable: Linux runs apt (the CLI sudo's apt-get,
+      # so do not wrap npx in sudo); macOS is a no-op; Windows runs
+      # install_media_pack.ps1. These tests only need the Chromium binary, plus
+      # Linux shared libraries. Do not pass --with-deps off Linux.
+      - name: Install Playwright Chromium
+        working-directory: database-browser-runtime
+        run: npx playwright --version && npx playwright install chromium
+
+      - name: Install Playwright Chromium system dependencies
+        if: runner.os == 'Linux'
+        working-directory: database-browser-runtime
+        run: npx playwright install-deps chromium
+
+      - name: Database browser typecheck, build, and test
+        working-directory: database-browser-runtime
+        run: npm run typecheck && npm run build && npm test
+
+      - name: Literature metrics install, check, and package
+        working-directory: literature-metrics
+        run: npm ci --no-audit --no-fund && npm run check && npm run package
+
+      # assemble-plugin check requires existing dist entries plus each package's
+      # typescript (installed above). It does not build dist itself.
+      - name: Build runtime dist
+        working-directory: runtime
+        run: npm run build
+
+      - name: Build fulltext dist
+        working-directory: fulltext-runtime
+        run: npm run build
+
+      - name: Workbench structure and artifact check
+        run: node scripts/assemble-plugin.mjs check
+
+  # One shared scan job, not a per-OS copy. D9 still requires the three test
+  # jobs. D11/R13 require this scan to be a merge gate with the same pinned
+  # binary and default rules. ubuntu-latest is the required scan runner:
+  # gitleaks/gitleaks-action was not used because its action.yml does not pin
+  # the gitleaks binary to v8.30.1, and its default mode is not an explicit
+  # `gitleaks git` plus `gitleaks dir` pair under contents:read only.
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # Official release asset, not the floating action. SHA-256 was checked
+      # against gitleaks_8.30.1_checksums.txt and a local download of
+      # gitleaks_8.30.1_linux_x64.tar.gz (551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb).
+      - name: Install gitleaks v8.30.1
+        run: |
+          set -euo pipefail
+          version="8.30.1"
+          asset="gitleaks_${version}_linux_x64.tar.gz"
+          expected="551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${version}/${asset}"
+          curl --fail --silent --show-error --location --retry 3 --output "${asset}" "${url}"
+          echo "${expected}  ${asset}" | sha256sum -c -
+          tar -xzf "${asset}" gitleaks
+          mkdir -p "${HOME}/.local/bin"
+          install -m 0755 gitleaks "${HOME}/.local/bin/gitleaks"
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+          installed="$("${HOME}/.local/bin/gitleaks" version)"
+          test "${installed}" = "${version}"
+          echo "Installed gitleaks ${installed} from ${url}"
+
+      - name: Scan full git history
+        run: gitleaks git . --redact --no-banner
+
+      - name: Scan working tree
+        run: gitleaks dir . --redact --no-banner
