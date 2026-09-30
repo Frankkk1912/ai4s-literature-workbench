@@ -27,8 +27,16 @@ export interface ProviderStatus {
   configured: boolean;
   source: 'environment' | 'private_config' | 'none';
   optional: boolean;
+  /** Partial preview of a real credential; never the full value. */
+  masked_key?: string | null;
 }
 
+/**
+ * Status payload returned by the onboarding API.
+ * `providers.*.masked_key` is a partial preview (first 6 chars + `******`
+ * for keys of length ≥ 12; shorter keys use a stricter mask) and never
+ * the full credential.
+ */
 export interface RedactedOnboardingStatus {
   providers: Record<ProviderName, ProviderStatus>;
   application_links: Record<ProviderName, string>;

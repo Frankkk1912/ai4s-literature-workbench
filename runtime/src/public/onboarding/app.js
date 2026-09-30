@@ -6,10 +6,6 @@ const PROVIDER_NAMES = {
   pubmed: 'PubMed',
   easyscholar: 'EasyScholar',
 };
-const SOURCE_EVIDENCE = {
-  environment: '来源：环境变量。',
-  private_config: '来源：私有配置。',
-};
 const XPI_RELEASES_HREF = 'https://github.com/Frankkk1912/ai4s-literature-workbench/releases';
 const XPI_EVIDENCE =
   '在 Zotero 中选择 Tools → Add-ons → 齿轮菜单 → Install Add-on From File…，选择下载的 .xpi 文件。';
@@ -98,13 +94,16 @@ export function mapProvider(id, provider, applicationLinks) {
     };
   }
   if (provider.configured) {
-    const sourceKey = typeof provider.source === 'string' ? provider.source : '';
+    const masked =
+      typeof provider.masked_key === 'string' && provider.masked_key.trim()
+        ? provider.masked_key
+        : '';
     return {
       name,
       statusLabel: '凭证存在',
       statusTone: 'verified',
       action,
-      evidence: fieldMark(SOURCE_EVIDENCE[sourceKey] ?? '未设置。'),
+      evidence: fieldMark(masked || '已设置'),
     };
   }
   const optional = provider.optional === true;

@@ -111,6 +111,24 @@ export function onboardingPaths(
 	};
 }
 
+/** Partial credential preview: never the full value. Length is measured after trim. */
+export function maskKey(value) {
+	if (value == null) return null;
+	const key = String(value).trim();
+	if (!key) return null;
+	if (key.length >= 12) return `${key.slice(0, 6)}******`;
+	if (key.length >= 6) return `${key.slice(0, 2)}****`;
+	return "****";
+}
+
+function readEnvFileKey(path, name) {
+	if (!path || !existsSync(path)) return "";
+	const match = readFileSync(path, "utf8").match(
+		new RegExp(`^\\s*(?:export\\s+)?${name}\\s*=(.*)$`, "m"),
+	);
+	return match ? String(match[1] ?? "").trim() : "";
+}
+
 export function academicKeyConfigured(
 	path,
 	legacyPath,
@@ -118,14 +136,21 @@ export function academicKeyConfigured(
 	envName,
 	env = process.env,
 ) {
-	if (env[envName]?.trim()) return { configured: true, source: "environment" };
+	const envValue = env[envName]?.trim() ?? "";
+	if (envValue) {
+		return {
+			configured: true,
+			source: "environment",
+			masked_key: maskKey(envValue),
+		};
+	}
 	const sourcePath = existsSync(path) ? path : legacyPath;
 	const config = readJsonObject(sourcePath);
+	const configValue = String(config[configName] ?? "").trim();
 	return {
-		configured: Boolean(String(config[configName] ?? "").trim()),
-		source: String(config[configName] ?? "").trim()
-			? "private_config"
-			: "none",
+		configured: Boolean(configValue),
+		source: configValue ? "private_config" : "none",
+		masked_key: maskKey(configValue),
 	};
 }
 
@@ -188,8 +213,13 @@ export function redactedStatus(
 ) {
 	const repositoryRoot = observations.repositoryRoot || REPOSITORY_ROOT;
 	const state = readJsonObject(paths.state);
+	const zoteroEnvValue = env.ZOTERO_API_KEY?.trim() ?? "";
+	const zoteroFileValue =
+		readEnvFileKey(paths.zoteroEnv, "ZOTERO_API_KEY") ||
+		readEnvFileKey(paths.legacyZoteroEnv, "ZOTERO_API_KEY");
+	const zoteroValue = zoteroEnvValue || zoteroFileValue;
 	const zoteroConfigured =
-		Boolean(env.ZOTERO_API_KEY?.trim()) ||
+		Boolean(zoteroEnvValue) ||
 		envKeyExists(paths.zoteroEnv, "ZOTERO_API_KEY") ||
 		envKeyExists(paths.legacyZoteroEnv, "ZOTERO_API_KEY");
 	const pubmed = academicKeyConfigured(
@@ -244,12 +274,13 @@ export function redactedStatus(
 		providers: {
 			zotero: {
 				configured: zoteroConfigured,
-				source: env.ZOTERO_API_KEY?.trim()
+				source: zoteroEnvValue
 					? "environment"
 					: zoteroConfigured
 						? "private_config"
 						: "none",
 				optional: true,
+				masked_key: maskKey(zoteroValue),
 			},
 			pubmed: { ...pubmed, optional: true },
 			easyscholar: { ...easyscholar, optional: true },

@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -15,6 +14,7 @@ import {
   renderDashboard,
   serializeRendered,
 } from "../runtime/src/public/onboarding/app.js";
+import { maskKey, redactedStatus } from "../scripts/onboarding-core.mjs";
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 execFileSync(npmCommand, ["run", "build"], {
@@ -93,9 +93,24 @@ function render(view) {
 function fixtureStatus(overrides = {}) {
   return {
     providers: {
-      zotero: { configured: true, source: "environment", optional: true },
-      pubmed: { configured: true, source: "private_config", optional: true },
-      easyscholar: { configured: false, source: "none", optional: true },
+      zotero: {
+        configured: true,
+        source: "environment",
+        optional: true,
+        masked_key: "abcdef******",
+      },
+      pubmed: {
+        configured: true,
+        source: "private_config",
+        optional: true,
+        masked_key: "ab****",
+      },
+      easyscholar: {
+        configured: false,
+        source: "none",
+        optional: true,
+        masked_key: null,
+      },
     },
     build_artifacts: {
       runtime: {
@@ -169,13 +184,13 @@ function rowNamed(view, sectionId, name) {
   return section(view, sectionId).rows.find((row) => row.name === name);
 }
 
-test("configured credentials show existence and source, never verified or connected", () => {
+test("configured credentials show existence and masked key, never verified or connected", () => {
   const view = mapDashboard(fixtureStatus());
   const zotero = rowNamed(view, "credentials", "Zotero");
   const pubmed = rowNamed(view, "credentials", "PubMed");
   assert.equal(zotero.statusLabel, "凭证存在");
   assert.equal(zotero.statusTone, "verified");
-  assert.equal(zotero.evidence, "来源：环境变量。");
+  assert.equal(zotero.evidence, "abcdef******");
   assert.equal(zotero.action.label, "重新申请");
   assert.equal(zotero.action.href, "https://www.zotero.org/settings/keys");
   assert.equal(zotero.action.target, "_blank");
@@ -183,7 +198,7 @@ test("configured credentials show existence and source, never verified or connec
   assert.equal(zotero.action.variant, "action-pill");
   assert.equal(zotero.details, undefined);
   assert.equal(pubmed.statusLabel, "凭证存在");
-  assert.equal(pubmed.evidence, "来源：私有配置。");
+  assert.equal(pubmed.evidence, "ab****");
   assert.equal(pubmed.action.label, "重新申请");
   assert.equal(
     pubmed.action.href,
@@ -193,6 +208,7 @@ test("configured credentials show existence and source, never verified or connec
   for (const row of [zotero, pubmed]) {
     assert.doesNotMatch(row.statusLabel, /已校验|已连接/);
     assert.doesNotMatch(row.evidence, /已校验|已连接/);
+    assert.doesNotMatch(row.evidence, /来源：环境变量|来源：私有配置/);
   }
 });
 
@@ -267,10 +283,123 @@ test("missing or unrecognized states stay unknown and never succeed", () => {
 
 test("every visible evidence line includes a verifiable field source mark", () => {
   const view = mapDashboard(fixtureStatus());
-  const mark = /来源：环境变量|来源：私有配置|未设置|Install Add-on From File/;
+  const mark = /abcdef\*{6}|ab\*{4}|未设置|Install Add-on From File/;
   for (const row of view.sections.flatMap((item) => item.rows)) {
     assert.match(row.evidence, mark, row.name);
   }
+});
+
+test("maskKey previews by length and never returns the full value", () => {
+  assert.equal(maskKey("abcdefghijklmnop"), "abcdef******");
+  assert.equal(maskKey("abcdefgh"), "ab****");
+  assert.equal(maskKey("abcde"), "****");
+  assert.equal(maskKey(""), null);
+  assert.equal(maskKey(null), null);
+  assert.equal(maskKey(undefined), null);
+});
+
+test("redactedStatus masks real env and config keys without returning them", () => {
+  const longSecret = "abcdefghijklmnop";
+  const shortSecret = "abcdefgh";
+  const tinySecret = "xyz12";
+  const root = mkdtempSync(join(tmpdir(), "ai4s-masked-key-"));
+  mkdirSync(join(root, "native"), { recursive: true });
+  const paths = {
+    zoteroEnv: join(root, "native", "zotero.env"),
+    legacyZoteroEnv: join(root, "legacy", "zotero.env"),
+    academicConfig: join(root, "native", "academic.json"),
+    legacyAcademicConfig: join(root, "legacy", "academic.json"),
+    state: join(root, "native", "onboarding.json"),
+  };
+  writeFileSync(paths.zoteroEnv, `ZOTERO_API_KEY=${longSecret}\n`);
+  writeFileSync(
+    paths.academicConfig,
+    JSON.stringify({
+      pubmed_api_key: shortSecret,
+      easyscholar_secret_key: tinySecret,
+    }),
+  );
+  const fromFiles = redactedStatus(paths, {});
+  assert.equal(fromFiles.providers.zotero.configured, true);
+  assert.equal(fromFiles.providers.zotero.source, "private_config");
+  assert.equal(fromFiles.providers.zotero.masked_key, "abcdef******");
+  assert.equal(fromFiles.providers.pubmed.masked_key, "ab****");
+  assert.equal(fromFiles.providers.easyscholar.masked_key, "****");
+  const fromEnv = redactedStatus(paths, { ZOTERO_API_KEY: longSecret });
+  assert.equal(fromEnv.providers.zotero.source, "environment");
+  assert.equal(fromEnv.providers.zotero.masked_key, "abcdef******");
+  const serialized = `${JSON.stringify(fromFiles)}${JSON.stringify(fromEnv)}`;
+  for (const secret of [longSecret, shortSecret, tinySecret]) {
+    assert.equal(serialized.includes(secret), false);
+  }
+  const empty = redactedStatus(temporaryPaths(), {});
+  assert.equal(empty.providers.zotero.masked_key, null);
+  assert.equal(empty.providers.pubmed.masked_key, null);
+  assert.equal(empty.providers.easyscholar.masked_key, null);
+});
+
+test("credential evidence renders masked_key length boundaries and omits unset keys", () => {
+  const view = mapDashboard(
+    fixtureStatus({
+      providers: {
+        zotero: {
+          configured: true,
+          source: "environment",
+          optional: true,
+          masked_key: "abcdef******",
+        },
+        pubmed: {
+          configured: true,
+          source: "private_config",
+          optional: true,
+          masked_key: "ab****",
+        },
+        easyscholar: {
+          configured: true,
+          source: "private_config",
+          optional: true,
+          masked_key: "****",
+        },
+      },
+    }),
+  );
+  assert.equal(rowNamed(view, "credentials", "Zotero").evidence, "abcdef******");
+  assert.equal(rowNamed(view, "credentials", "PubMed").evidence, "ab****");
+  assert.equal(rowNamed(view, "credentials", "EasyScholar").evidence, "****");
+
+  const missingKey = mapDashboard(
+    fixtureStatus({
+      providers: {
+        zotero: {
+          configured: true,
+          source: "environment",
+          optional: true,
+          masked_key: null,
+        },
+        pubmed: {
+          configured: false,
+          source: "none",
+          optional: true,
+          masked_key: null,
+        },
+        easyscholar: {
+          configured: false,
+          source: "none",
+          optional: true,
+          masked_key: null,
+        },
+      },
+    }),
+  );
+  assert.equal(rowNamed(missingKey, "credentials", "Zotero").evidence, "已设置");
+  assert.doesNotMatch(
+    rowNamed(missingKey, "credentials", "Zotero").evidence,
+    /来源：/,
+  );
+  assert.equal(
+    rowNamed(missingKey, "credentials", "PubMed").evidence,
+    "未设置，可选。",
+  );
 });
 
 test("paths and evidence render as text and redact credential-bearing URLs", () => {
@@ -499,6 +628,7 @@ test("unpaired status GET is 401/403 and contains no status fields", async () =>
     "zotero_desktop_xpi",
     "private_config",
     "environment",
+    "masked_key",
   ]) {
     assert.equal(body.includes(field), false, `leaked ${field}`);
   }
@@ -519,6 +649,9 @@ test("paired dashboard API returns artifacts, hosts, and connections without sec
   const body = JSON.parse(text);
   assert.equal(body.providers.zotero.configured, true);
   assert.equal(body.providers.zotero.source, "environment");
+  assert.equal(body.providers.zotero.masked_key, "dashbo******");
+  assert.equal(body.providers.pubmed.masked_key, null);
+  assert.equal(body.providers.easyscholar.masked_key, null);
   assert.equal(typeof body.build_artifacts.runtime.path, "string");
   assert.equal(typeof body.build_artifacts.runtime.exists, "boolean");
   assert.match(body.build_artifacts.runtime.evidence, /connectivity/i);
