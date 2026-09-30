@@ -330,18 +330,6 @@ export async function createAdminOnboardingRouter(
   };
   router.get('/api/dashboard', (_req, res) => res.json(dashboardStatus()));
 
-  const sendDashboard: RequestHandler = (req, res) => {
-    if (req.originalUrl === `${prefix}/dashboard/` || req.path === '/dashboard/') {
-      res.redirect(302, `${prefix}/dashboard`);
-      return;
-    }
-    res.sendFile(join(staticDir, 'dashboard.html'));
-  };
-  router.get('/dashboard', sendDashboard);
-  router.get('/dashboard/', sendDashboard);
-  router.get('/dashboard.html', sendDashboard);
-  router.get('/dashboard.js', (_req, res) => res.sendFile(join(staticDir, 'dashboard.js')));
-
   const verify = async (provider: ProviderName, key: string): Promise<Record<string, unknown>> => {
     if (provider === 'zotero') return core.verifyZoteroKey(key, fetchImpl);
     if (provider === 'pubmed') return core.verifyPubmedKey(key, fetchImpl);

@@ -8,11 +8,13 @@ import { request as httpRequest } from "node:http";
 import { afterEach, test } from "node:test";
 
 import {
+  applyOnboardingLayout,
   mapDashboard,
+  providersFullyConfigured,
   redactSensitive,
   renderDashboard,
   serializeRendered,
-} from "../runtime/src/public/onboarding/dashboard.js";
+} from "../runtime/src/public/onboarding/app.js";
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 execFileSync(npmCommand, ["run", "build"], {
@@ -200,23 +202,29 @@ test("build artifacts distinguish file existence from connectivity", () => {
   const fulltext = rowNamed(view, "artifacts", "Fulltext Runtime");
   assert.equal(runtime.statusLabel, "构建文件存在");
   assert.match(runtime.evidence, /已找到/);
-  assert.match(runtime.evidence, /runtime\/dist\/index\.js/);
+  assert.doesNotMatch(runtime.evidence, /代表运行/);
   assert.doesNotMatch(runtime.statusLabel, /已连接/);
   assert.doesNotMatch(runtime.evidence, /已连接/);
   assert.equal(fulltext.statusLabel, "未找到构建文件");
   assert.match(fulltext.evidence, /未找到/);
-  assert.match(fulltext.evidence, /fulltext-runtime\/dist\/index\.js/);
+  const runtimeDetails = runtime.details.map((d) => `${d.label}\n${d.value}`).join("\n");
+  const fulltextDetails = fulltext.details.map((d) => `${d.label}\n${d.value}`).join("\n");
+  assert.match(runtimeDetails, /runtime\/dist\/index\.js/);
+  assert.match(fulltextDetails, /fulltext-runtime\/dist\/index\.js/);
 });
 
-test("XPI is unverified this round and includes build and install details", () => {
+test("XPI requires manual install and includes a download link", () => {
   const view = mapDashboard(fixtureStatus());
   const xpi = section(view, "xpi").rows[0];
-  assert.equal(xpi.statusLabel, "本轮未核验");
-  assert.match(xpi.evidence, /verification\.level/);
-  assert.match(xpi.evidence, /本轮未检查/);
-  const detailText = xpi.details.map((item) => item.value).join("\n");
-  assert.match(detailText, /npm run package/);
-  assert.match(detailText, /Install Add-on From File/);
+  assert.equal(xpi.statusLabel, "需要手动安装");
+  assert.match(xpi.evidence, /GitHub Releases/);
+  assert.match(xpi.evidence, /手动加载/);
+  const detailText = xpi.details.map((item) => `${item.label}\n${item.value}`).join("\n");
+  assert.match(detailText, /下载[\s\S]*github\.com\/Frankkk1912\/ai4s-literature-workbench\/releases/);
+  assert.match(detailText, /打包命令[\s\S]*npm run package/);
+  assert.match(detailText, /安装步骤[\s\S]*Install Add-on From File/);
+  assert.doesNotMatch(detailText, /verification\.level/);
+  assert.doesNotMatch(detailText, /本轮未检查/);
   assert.doesNotMatch(xpi.statusLabel, /已安装|已连接/);
 });
 
@@ -269,7 +277,7 @@ test("missing or unrecognized states stay unknown and never succeed", () => {
 test("every visible evidence line includes a verifiable field source mark", () => {
   const view = mapDashboard(fixtureStatus());
   const mark =
-    /环境变量|私有配置|未检测|已找到|未找到|verification\.level|兼容|实测|未知|No measured|source|exists|level|compatibility clue|返回依据/;
+    /环境变量|私有配置|未检测|已找到|未找到|verification\.level|兼容|实测|未知|No measured|source|exists|level|compatibility clue|返回依据|GitHub|releases|下载|Releases/;
   for (const row of view.sections.flatMap((item) => item.rows)) {
     assert.match(row.evidence, mark, row.name);
   }
@@ -299,23 +307,93 @@ test("paths and evidence render as text and redact credential-bearing URLs", () 
   );
 });
 
-test("dashboard renderer never assigns innerHTML", () => {
+test("status view renderer never assigns innerHTML", () => {
   const source = readFileSync(
-    new URL("../runtime/src/public/onboarding/dashboard.js", import.meta.url),
+    new URL("../runtime/src/public/onboarding/app.js", import.meta.url),
     "utf8",
   );
   assert.doesNotMatch(source, /innerHTML\s*=/);
 });
 
+test("status view uses five named sections and collapsed details", () => {
+  const view = mapDashboard(fixtureStatus());
+  assert.deepEqual(
+    view.sections.map((item) => item.id),
+    ["credentials", "artifacts", "xpi", "hosts", "connections"],
+  );
+  assert.deepEqual(
+    view.sections.map((item) => item.title),
+    ["凭证", "工作台核心", "Zotero 插件", "客户端工具", "agent 连接"],
+  );
+  const { html, root } = render(view);
+  assert.match(html, /status status-neutral/);
+  assert.match(html, /完整路径、命令与技术说明/);
+  const openDetails = [];
+  const walk = (node) => {
+    if (!node) return;
+    if (String(node.tagName || "").toLowerCase() === "details") {
+      openDetails.push(Boolean(node.open));
+    }
+    for (const child of node.childNodes ?? []) walk(child);
+  };
+  walk(root);
+  assert.ok(openDetails.length > 0);
+  assert.ok(openDetails.every((open) => open === false));
+});
+
+test("wizard stays visible until every provider is configured", () => {
+  assert.equal(providersFullyConfigured(fixtureStatus()), false);
+  assert.equal(
+    providersFullyConfigured(
+      fixtureStatus({
+        providers: {
+          zotero: { configured: true, source: "environment", optional: true },
+          pubmed: { configured: true, source: "private_config", optional: true },
+          easyscholar: { configured: true, source: "private_config", optional: true },
+        },
+      }),
+    ),
+    true,
+  );
+  assert.equal(providersFullyConfigured({ providers: {} }), false);
+
+  const pairing = { hidden: true };
+  const wizard = { hidden: true };
+  const statusView = { hidden: true };
+  applyOnboardingLayout(
+    { pairing, wizard, statusView },
+    { paired: false, fullyConfigured: false },
+  );
+  assert.equal(pairing.hidden, false);
+  assert.equal(wizard.hidden, true);
+  assert.equal(statusView.hidden, true);
+
+  applyOnboardingLayout(
+    { pairing, wizard, statusView },
+    { paired: true, fullyConfigured: false },
+  );
+  assert.equal(pairing.hidden, true);
+  assert.equal(wizard.hidden, false);
+  assert.equal(statusView.hidden, false);
+
+  applyOnboardingLayout(
+    { pairing, wizard, statusView },
+    { paired: true, fullyConfigured: true },
+  );
+  assert.equal(pairing.hidden, true);
+  assert.equal(wizard.hidden, true);
+  assert.equal(statusView.hidden, false);
+});
+
 function bareServer() {
   return new McpServer(
-    { name: "dashboard-semantics-test", version: "0.0.0" },
+    { name: "onboarding-status-test", version: "0.0.0" },
     { capabilities: { tools: {} } },
   );
 }
 
 function temporaryPaths() {
-  const root = mkdtempSync(join(tmpdir(), "ai4s-dashboard-"));
+  const root = mkdtempSync(join(tmpdir(), "ai4s-onboarding-status-"));
   return {
     zoteroEnv: join(root, "native", "zotero.env"),
     legacyZoteroEnv: join(root, "legacy", "zotero.env"),
@@ -405,31 +483,24 @@ async function pairSession(started) {
   return responseCookies(paired);
 }
 
-test("unpaired dashboard GET is 401/403 and contains no status fields", async () => {
+test("unpaired status GET is 401/403 and contains no status fields", async () => {
   const started = await startAdmin();
-  for (const path of [
-    "/admin/onboarding/api/dashboard",
-    "/admin/onboarding/dashboard",
-    "/admin/onboarding/dashboard/",
-    "/admin/onboarding/dashboard.html",
+  const response = await fetch(`${started.base}/admin/onboarding/api/dashboard`);
+  assert.ok(
+    response.status === 401 || response.status === 403,
+    `/api/dashboard ${response.status}`,
+  );
+  const body = await response.text();
+  for (const field of [
+    "providers",
+    "build_artifacts",
+    "hosts",
+    "connections",
+    "zotero_desktop_xpi",
+    "private_config",
+    "environment",
   ]) {
-    const response = await fetch(`${started.base}${path}`);
-    assert.ok(
-      response.status === 401 || response.status === 403,
-      `${path} ${response.status}`,
-    );
-    const body = await response.text();
-    for (const field of [
-      "providers",
-      "build_artifacts",
-      "hosts",
-      "connections",
-      "zotero_desktop_xpi",
-      "private_config",
-      "environment",
-    ]) {
-      assert.equal(body.includes(field), false, `${path} leaked ${field}`);
-    }
+    assert.equal(body.includes(field), false, `leaked ${field}`);
   }
 });
 
@@ -464,31 +535,28 @@ test("paired dashboard API returns artifacts, hosts, and connections without sec
   assert.equal(text.includes("api_key="), false);
 });
 
-test("paired dashboard HTML and trailing slash stay session-bound", async () => {
+test("onboarding page embeds the status view and has no separate dashboard page", async () => {
   const started = await startAdmin();
-  const session = await pairSession(started);
-  const headers = { Cookie: cookieHeader(session) };
-  const page = await fetch(`${started.base}/admin/onboarding/dashboard`, {
-    headers,
-  });
+  const page = await fetch(`${started.base}/admin/onboarding/`);
   assert.equal(page.status, 200);
   const html = await page.text();
+  assert.match(html, /id="status-view"/);
+  assert.match(html, /id="dashboard-root"/);
   assert.match(html, /配置状态/);
-  assert.match(html, /正在读取状态/);
   assert.match(html, /读取状态不代表执行连接测试/);
+  assert.doesNotMatch(html, /前往状态看板/);
+  assert.doesNotMatch(html, /href="\.\/dashboard"/);
+  assert.doesNotMatch(html, /1\.\s*配对本次会话/);
   assert.doesNotMatch(html, /private_config|ZOTERO_API_KEY=/);
 
-  const slash = await fetch(`${started.base}/admin/onboarding/dashboard/`, {
-    headers,
-    redirect: "manual",
-  });
-  assert.equal(slash.status, 302);
-  assert.equal(slash.headers.get("location"), "/admin/onboarding/dashboard");
-
-  const script = await fetch(`${started.base}/admin/onboarding/dashboard.js`, {
-    headers,
-  });
-  assert.equal(script.status, 200);
+  const session = await pairSession(started);
+  const headers = { Cookie: cookieHeader(session) };
+  for (const path of ["/dashboard", "/dashboard.html", "/dashboard.js"]) {
+    const response = await fetch(`${started.base}/admin/onboarding${path}`, {
+      headers,
+    });
+    assert.equal(response.status, 404, path);
+  }
 });
 
 test("Host and Origin guards cover GET /api/dashboard", async () => {

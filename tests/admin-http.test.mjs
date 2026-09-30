@@ -225,7 +225,7 @@ test("loopback mode serves only the public pairing page before authorization and
     "16 random bytes must provide at least 128 bits",
   );
 
-  for (const endpoint of ["/api/status", "/api/dashboard", "/dashboard", "/api/other"]) {
+  for (const endpoint of ["/api/status", "/api/dashboard", "/api/other"]) {
     const response = await fetch(`${started.base}/admin/onboarding${endpoint}`);
     assert.equal(response.status, 401, `${endpoint} must require pairing`);
     const body = await response.text();
@@ -689,7 +689,7 @@ test("admin JSON body limit remains 8mb and oversized errors are redacted", asyn
   );
 });
 
-test("pairing page assets expose forms and privacy boundaries without constructing credential URLs", async () => {
+test("pairing page assets expose forms and status view without credential URLs", async () => {
   const started = await startAdmin();
   const page = await pairingPage(started.base);
   const script = await (
@@ -698,9 +698,9 @@ test("pairing page assets expose forms and privacy boundaries without constructi
   const css = await fetch(`${started.base}/admin/onboarding/styles.css`);
   assert.equal(css.status, 200);
   assert.match(script, /Zotero Web API/);
-  assert.match(page.text, /PubMed \/ EasyScholar/);
-  assert.match(page.text, /DevTools/);
-  assert.match(page.text, /前往状态看板/);
+  assert.match(page.text, /id="status-view"/);
+  assert.match(page.text, /id="dashboard-root"/);
+  assert.doesNotMatch(page.text, /前往状态看板/);
   assert.match(script, /JSON\.stringify\(\{ key \}\)/);
   assert.doesNotMatch(script, /searchParams|location\.(?:search|hash)|\?key=/);
 });

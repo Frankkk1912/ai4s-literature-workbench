@@ -149,7 +149,7 @@
 | M2 跨平台 CI 基线 | [x] | M1 | Windows＋macOS＋Linux 三平台**全必过**（D9）；**CI 泄密扫描 job 必过（关联 G2，R13）** | node:test＋vitest＋typecheck＋产物/manifest 校验＋XPI check/package＋固定版本扫描 |
 | M3 配置核心复用层（状态/校验/私有写入抽包＋证据分级语义） | [x] | M1 | 新增/扩展单测全绿（含 D10 通路 mock 验证与脱敏测试）；`redactedStatus` schema 只增不改（additive，见 9.4 已决约束） | CLI 行为不变；网页与 CLI 共用核心 |
 | M4 本机网页配置向导（HTTP 管理路由＋配对码会话＋安全＋保存 keys） | [x] | M3 | 安全测试（配对码单次兑换、会话过期/重启失效、**GET/POST 全部会话门禁**、每次写操作 Origin/CSRF、日志/错误脱敏）＋保存流程测试全绿；人工浏览器验证通过 | loopback-only；OAuth/远程模式管理路由禁用 |
-| M5 配置状态看板（证据分级 UI） | [x] | M3 | 语义测试：无实测证据绝不显示“已连接”；**状态 API 未配对不可读**；人工核对看板与实际一致 | 显示依据来源 |
+| M5 配置状态看板（证据分级 UI） | [x] | M3 | 语义测试：无实测证据绝不显示“已连接”；**状态 API 未配对不可读**；人工核对 onboarding 页面内嵌状态视图与实际一致 | 状态视图内嵌于配置向导单页 |
 | M6 文档、安装与兼容（多宿主＋XPI＋旧配置复用＋父仓不改声明） | [x] | M1, M4, M5 | 文档评审（隐私边界按 R12 三通路表述）；WorkBuddy 部分带“未实测”标注；Claude/Codex 安装路径回归（V13） | 父仓基线 diff 白名单验证（V10） |
 | M7 收尾验证与 Draft PR 转 Ready | [x] | M2–M6 | Validation contract 全项执行并留记录；自查/待决清单随 PR 提交 | **Draft PR 自 M1/M2 起持续更新，M7 只收尾**（修正 rev1 推迟开 PR 的错误） |
 
@@ -259,12 +259,12 @@
   - 验收：API 单测断言字段齐全且无敏感值；**未配对 GET 状态返回 401/403 且响应体不含任何状态内容**；无实测证据时 `connections` 全部为 `unknown`/`pending_manual`
   - 依赖：T3.2, T4.1, T4.2
 - [x] T5.2 看板 UI
-  - 文件：新仓 `runtime/src/public/onboarding/dashboard.html`（或同目录 SPA 页）
-  - 修改：分区展示：凭证（3 项，存在性＋来源）、MCP 构建产物（Zotero/Fulltext，标注“产物存在≠已连接”）、XPI（人工安装步骤＋“**本轮**未核验安装状态”）、宿主线索（Claude Code/Codex/WorkBuddy）、连接状态（仅实测显示“已连接”，余为未知/待人工核验＋依据）
+  - 文件：新仓 `runtime/src/public/onboarding/index.html` / `app.js`（状态视图整合到 onboarding 页面；`dashboard.html` / `dashboard.js` 已删除）
+  - 修改：状态视图整合到 onboarding 页面。分区展示：凭证（3 项，存在性＋来源）、工作台核心（Zotero/Fulltext，标注“产物存在≠已连接”）、Zotero 插件（人工安装步骤＋“需要手动安装”）、客户端工具（Claude Code/Codex/WorkBuddy）、agent 连接（仅实测显示“已连接”，余为未知/待人工核验＋依据）
   - 验收：人工核对（V7）：每一行都带依据；四层级（存在/校验/产物/连接）视觉可区分；截图留档于 PR 描述
   - 依赖：T5.1
 - [x] T5.3 看板语义测试
-  - 文件：新仓 `tests/dashboard-semantics.test.mjs`（新建）
+  - 文件：新仓 `tests/onboarding-status.test.mjs`
   - 修改：断言“无实测证据不得显示已连接”、XPI 不显示已安装、构建产物不冒充连通、**未配对不可读状态**（与 T5.1 门禁联动断言）
   - 验收：测试全绿并进入 CI 必跑集合
   - 依赖：T5.1, T5.2
@@ -336,7 +336,7 @@
 | `.gitignore`、`.gitattributes` | 新建 | 首 commit 安全基线（R8、fresh seed） |
 | `README.md`、`LICENSE`、`THIRD_PARTY_NOTICES.md` | 新建/迁入 | T1.1/T6.1 |
 | `skills/literature-research/`、`skills/literature-manager/`、`skills/literature-writing/` | 迁入 | 基线：父仓正式源码（R11、T1.2）；一次性哈希对照留档 |
-| `runtime/` | 迁入＋修改 | D8 布局（目录名沿用插件命名）；内容基线：父仓 `literature-zotero-mcp/`；修改 `src/transports/http.ts`、`src/index.ts`、新增 `src/transports/admin.ts`、`src/lib/onboarding-core.ts`、`src/public/onboarding/**`（T3.1/T4.x/T5.x） |
+| `runtime/` | 迁入＋修改 | D8 布局（目录名沿用插件命名）；内容基线：父仓 `literature-zotero-mcp/`；修改 `src/transports/http.ts`、`src/index.ts`、新增 `src/transports/admin.ts`、`src/lib/onboarding-core.ts`、`src/public/onboarding/**`（T3.1/T4.x/T5.x；`dashboard.html` / `dashboard.js` **已删除**，状态视图内嵌 `index.html` / `app.js`） |
 | `fulltext-runtime/` | 迁入 | 基线：父仓 `literature-fulltext-mcp/`；不改行为（T1.3） |
 | `database-browser-runtime/` | 迁入 | 插件独有内容，另核对（R7/R11、T1.3）；纳入安全扫描（R9/R13） |
 | `literature-metrics/`（仓根） | 迁入 | XPI 源码，仅构建维持（T1.4、N4、D8 置根）；纳入安全扫描（R9/R13） |
@@ -346,7 +346,7 @@
 | `.claude-plugin/plugin.json`、`.codex-plugin/plugin.json`、`.mcp.json` | 迁入＋路径自洽修正 | 插件独有内容，另核对（T1.2） |
 | `.claude-plugin/marketplace.json`、`.agents/plugins/marketplace.json` | **新建** | 新仓自身的 marketplace 声明（供 `/plugin marketplace add`），与父仓文件无关 |
 | `tests/onboarding.test.mjs` | 迁入＋扩展 | 插件独有内容；T1.6/T3.3（含 D10 mock 与脱敏测试） |
-| `tests/onboarding-core.test.mjs`、`tests/admin-http.test.mjs`、`tests/dashboard-semantics.test.mjs` | 新建 | T3.3/T4.5/T5.3 |
+| `tests/onboarding-core.test.mjs`、`tests/admin-http.test.mjs`、`tests/onboarding-status.test.mjs` | 新建 | T3.3/T4.5/T5.3；`tests/dashboard-semantics.test.mjs` **已删除** |
 | `.github/workflows/workbench-ci.yml` | 新建 | T2.1/T2.2（三平台必过＋**固定版本泄密扫描 job 必过**，D11） |
 | `docs/onboarding.md`、`docs/windows-acceptance.md` | 迁入＋扩展 | T6.2 |
 | `docs/local-dashboard.md`、`docs/zotero-xpi.md`、`docs/migration-from-parent.md`、`docs/validation-*.md` | 新建 | T6.2/T6.3/T7.1 |
@@ -415,6 +415,8 @@
 | 编号 | 决议 | 落点 |
 | --- | --- | --- |
 | D12（agent 转述配对码） | 已决（2026-09-28 用户批准）：**允许** agent 把配对码告知用户（UX 门槛考虑：用户可能不熟悉终端）；**护栏**：码机制不变（5 分钟/单次/常数时间/限流）、**key 永不进 chat/agent 输出**（R12 不动）、仅限本会话刚启动的服务且不写入持久记录、码仍不进 URL/服务端日志 | 决策区 D12、T6.2 文档措辞；V6 人工验收可覆盖“agent 启动→转述码→兑换”路径 |
+
+**2026-09-30 同步：** 独立 dashboard 页已合并进 onboarding 单页；保留 `/api/dashboard`。§4 D 方案硬约束 10 条仍适用于内嵌状态视图，本文不改写这些约束。
 
 （rev3 的 Q5 已由 D11 决断并移入上表“已决”区；**不再存在“降级/豁免可过”选项**。）
 

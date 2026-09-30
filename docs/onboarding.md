@@ -58,7 +58,6 @@ when OAuth is off.
 | Page | URL |
 | --- | --- |
 | Pairing / wizard | `http://127.0.0.1:3939/admin/onboarding/` |
-| Status dashboard | `http://127.0.0.1:3939/admin/onboarding/dashboard` |
 
 The pairing page is the **only** management document served without a session.
 It contains no configuration status and no secrets.

@@ -3,7 +3,7 @@
 Standalone, private source-of-truth repository for the AI4S Literature
 Workbench. This checkout is the future maintenance source for the skills, MCP
 runtimes, first-party `literature-metrics` Zotero Desktop XPI, local web
-configuration wizard, and configuration status dashboard delivered in
+configuration wizard, and an embedded configuration status view delivered in
 milestones M1–M5.
 
 The parent repository `Frankkk1912/Frank_AI4S_Skill` keeps its older
@@ -31,8 +31,8 @@ and no claim that every agent host can install it.
   `literature-metrics` XPI source, migrated as a fresh-seed repository
 - A local web configuration wizard for optional Zotero, PubMed, and
   EasyScholar credentials (CLI `scripts/onboard.mjs` is fully retained)
-- A local configuration status dashboard with five sections and four evidence
-  kinds (existence / validation / artifact / connection)
+- A local configuration status view on the onboarding page, with five sections
+  and four evidence kinds (existence / validation / artifact / connection)
 - Windows, macOS, and Linux CI plus a secret-scan gate
 
 Non-goals for this release include Zotero import-history pages, remote web
@@ -148,10 +148,10 @@ This repository:
 
 - does **not** ship a WorkBuddy one-click installer
 - **不承诺** WorkBuddy / CodeBuddy 安装或使用成功（未实测 / 待人工核验）
-- does **not** show WorkBuddy as connected on the dashboard without measured
+- does **not** show WorkBuddy as connected on the status view without measured
   evidence
 
-## Local configuration wizard and dashboard
+## Local configuration wizard and status view
 
 The web wizard is an extra UX entry beside the CLI. It is not a replacement.
 
@@ -165,13 +165,12 @@ The web wizard is an extra UX entry beside the CLI. It is not a replacement.
 3. Redeem the one-time pairing code from the process stderr (an agent that
    started the server may relay **only** that pairing code; keys must never
    enter chat)
-4. Configure optional credentials, then open the dashboard at
-   `http://127.0.0.1:3939/admin/onboarding/dashboard`
+4. Configure optional credentials. 配置状态在配置向导页面底部展示.
 
 Details:
 
 - [`docs/onboarding.md`](docs/onboarding.md) — CLI + web wizard, pairing, R12
-- [`docs/local-dashboard.md`](docs/local-dashboard.md) — status dashboard
+- [`docs/local-dashboard.md`](docs/local-dashboard.md) — embedded status view
 - [`docs/zotero-xpi.md`](docs/zotero-xpi.md) — manual XPI build and install
 
 The CLI remains:
@@ -202,15 +201,15 @@ Never paste an API key into Agent chat or pass it as a command argument.
      as query parameters (D10-approved exception; server-side request only)
 - Local / browser URLs, address bar, logs, errors, responses, reports, and
   chat must not contain plaintext keys or key-bearing URLs.
-- The dashboard never shows **已连接** without measured connection evidence.
-  Unverified hosts stay 未知 / 待人工核验. XPI stays **本轮未核验**.
+- The status view never shows **已连接** without measured connection evidence.
+  Unverified hosts stay 未知 / 待人工核验. XPI stays **需要手动安装**.
 
 ## Docs
 
 | Document | Contents |
 | --- | --- |
 | [`docs/onboarding.md`](docs/onboarding.md) | Credential wizard (CLI + web), pairing, R12 |
-| [`docs/local-dashboard.md`](docs/local-dashboard.md) | Status dashboard |
+| [`docs/local-dashboard.md`](docs/local-dashboard.md) | Embedded status view |
 | [`docs/zotero-xpi.md`](docs/zotero-xpi.md) | XPI build and manual install |
 | [`docs/migration-from-parent.md`](docs/migration-from-parent.md) | D8 baseline, parent freeze, V10 |
 | [`CHANGELOG.md`](CHANGELOG.md) | Standalone first release notes |
