@@ -225,9 +225,12 @@ test("loopback mode serves only the public pairing page before authorization and
     "16 random bytes must provide at least 128 bits",
   );
 
-  for (const endpoint of ["/api/status", "/dashboard", "/api/other"]) {
+  for (const endpoint of ["/api/status", "/api/dashboard", "/dashboard", "/api/other"]) {
     const response = await fetch(`${started.base}/admin/onboarding${endpoint}`);
     assert.equal(response.status, 401, `${endpoint} must require pairing`);
+    const body = await response.text();
+    assert.equal(body.includes("providers"), false, `${endpoint} must omit status`);
+    assert.equal(body.includes("build_artifacts"), false, `${endpoint} must omit status`);
   }
   const write = await fetch(
     `${started.base}/admin/onboarding/api/providers/zotero/verify`,
@@ -697,7 +700,7 @@ test("pairing page assets expose forms and privacy boundaries without constructi
   assert.match(script, /Zotero Web API/);
   assert.match(page.text, /PubMed \/ EasyScholar/);
   assert.match(page.text, /DevTools/);
-  assert.match(page.text, /状态看板（M5）/);
+  assert.match(page.text, /前往状态看板/);
   assert.match(script, /JSON\.stringify\(\{ key \}\)/);
   assert.doesNotMatch(script, /searchParams|location\.(?:search|hash)|\?key=/);
 });

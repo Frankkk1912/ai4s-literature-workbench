@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI4S Literature Workbench 配置状态</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./dashboard.js"></script>
+  </head>
+  <body>
+    <main class="dashboard">
+      <header>
+        <p class="eyebrow">AI4S LITERATURE WORKBENCH</p>
+        <div class="dashboard-heading">
+          <h1>配置状态</h1>
+          <div class="dashboard-actions">
+            <a class="button-secondary" href="./">返回配置向导</a>
+            <button id="refresh-dashboard" type="button">刷新状态</button>
+          </div>
+        </div>
+        <p id="dashboard-read-meta" class="dashboard-meta"></p>
+        <p class="dashboard-note">读取状态不代表执行连接测试。</p>
+      </header>
+
+      <p id="dashboard-status" class="result" role="status">正在读取状态</p>
+
+      <section class="panel dashboard-panel">
+        <div id="dashboard-root"></div>
+      </section>
+    </main>
+  </body>
+</html>

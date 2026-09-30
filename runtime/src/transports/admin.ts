@@ -160,6 +160,28 @@ function publicDirectory(explicit?: string): string {
   return fileURLToPath(new URL('../../src/public/onboarding/', import.meta.url));
 }
 
+function repositoryRoot(): string {
+  return fileURLToPath(new URL('../../../', import.meta.url));
+}
+
+function probeBuildArtifact(
+  root: string,
+  artifactPath: string,
+): {
+  path: string;
+  exists: boolean;
+  evidence: string;
+} {
+  const exists = existsSync(join(root, artifactPath));
+  return {
+    path: artifactPath,
+    exists,
+    evidence: exists
+      ? 'Build artifact exists; existence is not proof of connectivity.'
+      : 'Build artifact is absent; artifact existence would not be proof of connectivity.',
+  };
+}
+
 export async function createAdminOnboardingRouter(
   options: AdminOnboardingOptions = {},
 ): Promise<express.Router> {
@@ -291,6 +313,34 @@ export async function createAdminOnboardingRouter(
 
   const status = (): RedactedOnboardingStatus => core.redactedStatus(paths, env);
   router.get('/api/status', (_req, res) => res.json(status()));
+
+  // Decoupled from /api/status so the wizard contract stays credential-focused.
+  // Host overlay uses T3.2 compatibility clues only; this endpoint never scans
+  // host configuration directories and never passes measured connection observations.
+  const dashboardStatus = (): RedactedOnboardingStatus => {
+    const root = repositoryRoot();
+    const current = core.redactedStatus(paths, env, { repositoryRoot: root });
+    return {
+      ...current,
+      build_artifacts: {
+        runtime: probeBuildArtifact(root, 'runtime/dist/index.js'),
+        fulltext_runtime: probeBuildArtifact(root, 'fulltext-runtime/dist/index.js'),
+      },
+    };
+  };
+  router.get('/api/dashboard', (_req, res) => res.json(dashboardStatus()));
+
+  const sendDashboard: RequestHandler = (req, res) => {
+    if (req.originalUrl === `${prefix}/dashboard/` || req.path === '/dashboard/') {
+      res.redirect(302, `${prefix}/dashboard`);
+      return;
+    }
+    res.sendFile(join(staticDir, 'dashboard.html'));
+  };
+  router.get('/dashboard', sendDashboard);
+  router.get('/dashboard/', sendDashboard);
+  router.get('/dashboard.html', sendDashboard);
+  router.get('/dashboard.js', (_req, res) => res.sendFile(join(staticDir, 'dashboard.js')));
 
   const verify = async (provider: ProviderName, key: string): Promise<Record<string, unknown>> => {
     if (provider === 'zotero') return core.verifyZoteroKey(key, fetchImpl);

@@ -152,3 +152,170 @@ button:disabled {
     width: 100%;
   }
 }
+
+.dashboard {
+  padding-top: 32px;
+}
+.dashboard > header h1 {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  line-height: 1.2;
+  margin: 8px 0;
+}
+.dashboard .eyebrow {
+  font-family: Georgia, serif;
+}
+.dashboard-heading,
+.dashboard-actions,
+.row-primary {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.dashboard-heading {
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.dashboard-meta,
+.dashboard-note,
+.row-evidence {
+  margin: 0;
+  color: #516961;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.dashboard-note {
+  margin-top: 6px;
+}
+.dashboard-panel {
+  padding: 8px 24px 16px;
+}
+.dashboard-section + .dashboard-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #d7e1dc;
+}
+.dashboard-section h2 {
+  margin: 16px 0 4px;
+  font-size: 1rem;
+}
+.dashboard-row {
+  padding: 14px 0;
+  border-bottom: 1px solid #d7e1dc;
+}
+.dashboard-row:last-child {
+  border-bottom: 0;
+}
+.row-primary {
+  justify-content: space-between;
+}
+.row-primary h3 {
+  margin: 0;
+  flex: 1 1 12rem;
+  font-size: 1rem;
+}
+.dashboard .status {
+  margin: 0;
+  flex: 0 0 auto;
+}
+.status-neutral {
+  color: #17332c;
+  background: #edf4f0;
+}
+.status-verified {
+  color: #fff;
+  background: #176b55;
+}
+.row-evidence {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.row-action,
+.button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 12px;
+  color: #176b55;
+  background: #dcebe5;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.row-action {
+  background: transparent;
+  text-decoration: underline;
+}
+.dashboard-actions .button-secondary,
+.dashboard-actions button {
+  min-height: 44px;
+  min-width: 44px;
+}
+.dashboard-actions .button-secondary {
+  color: #176b55;
+  background: #dcebe5;
+}
+.dashboard details {
+  margin: 0;
+}
+.dashboard summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+  color: #176b55;
+  font-weight: 600;
+}
+.row-detail {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+}
+.dashboard-expired {
+  margin: 12px 0;
+}
+.dashboard-panel[data-stale='true'] .dashboard-row,
+#dashboard-root[data-stale='true'] {
+  opacity: 0.82;
+}
+.dashboard :focus-visible {
+  outline: 3px solid #176b55;
+  outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  .dashboard-heading,
+  .dashboard-actions,
+  .row-primary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .dashboard-actions .button-secondary,
+  .dashboard-actions button,
+  .row-action {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dashboard,
+  .dashboard * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
