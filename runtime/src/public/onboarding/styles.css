@@ -171,13 +171,30 @@ button:disabled {
   margin-top: 6px;
 }
 .dashboard-section + .dashboard-section {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #d7e1dc;
+  margin-top: 12px;
 }
 .dashboard-section h2 {
   margin: 16px 0 4px;
   font-size: 1rem;
+}
+.dashboard-section-credentials {
+  padding: 8px 14px 10px;
+  border: 1px solid #c9d8d1;
+  border-radius: 14px;
+  background: #fff;
+}
+.dashboard-section-credentials h2 {
+  margin-top: 12px;
+  font-size: 1.125rem;
+}
+.dashboard-section-xpi {
+  padding: 8px 14px 10px;
+  border: 1px solid #d7e1dc;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+}
+.dashboard-section-xpi h2 {
+  font-size: 1.125rem;
 }
 .dashboard-row {
   padding: 14px 0;
@@ -204,13 +221,14 @@ button:disabled {
   background: #edf4f0;
   font-size: 0.85rem;
 }
-.status-neutral {
+.status--neutral {
   color: #17332c;
   background: #edf4f0;
 }
-.status-verified {
+.status--verified {
   color: #fff;
   background: #176b55;
+  font-weight: 700;
 }
 .row-evidence {
   margin: 8px 0;
@@ -222,35 +240,19 @@ button:disabled {
   justify-content: center;
   min-height: 44px;
   min-width: 44px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   color: #176b55;
-  background: transparent;
+  background: #dcebe5;
   border: 0;
   border-radius: 10px;
   font: inherit;
   font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.row-action:hover,
+.row-action:focus-visible {
   text-decoration: underline;
-  cursor: pointer;
-}
-#status-view details {
-  margin: 0;
-}
-#status-view summary {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  cursor: pointer;
-  color: #176b55;
-  font-weight: 600;
-}
-.row-detail {
-  margin: 8px 0;
-  overflow-wrap: anywhere;
-  line-height: 1.5;
-}
-.mono {
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 0.8125rem;
 }
 #status-view[data-stale='true'] .dashboard-row,
 #dashboard-root[data-stale='true'] {
@@ -260,8 +262,7 @@ button:disabled {
 .row :focus-visible,
 button:focus-visible,
 a:focus-visible,
-input:focus-visible,
-summary:focus-visible {
+input:focus-visible {
   outline: 3px solid #176b55;
   outline-offset: 2px;
 }

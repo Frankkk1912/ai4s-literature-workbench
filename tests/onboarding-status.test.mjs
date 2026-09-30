@@ -174,11 +174,20 @@ test("configured credentials show existence and source, never verified or connec
   const zotero = rowNamed(view, "credentials", "Zotero");
   const pubmed = rowNamed(view, "credentials", "PubMed");
   assert.equal(zotero.statusLabel, "凭证存在");
-  assert.equal(zotero.statusTone, "neutral");
-  assert.match(zotero.evidence, /环境变量/);
-  assert.match(zotero.evidence, /来源/);
+  assert.equal(zotero.statusTone, "verified");
+  assert.equal(zotero.evidence, "来源：环境变量。");
+  assert.equal(zotero.action.label, "重新申请");
+  assert.equal(zotero.action.href, "https://www.zotero.org/settings/keys");
+  assert.equal(zotero.action.target, "_blank");
+  assert.equal(zotero.action.rel, "noreferrer");
+  assert.equal(zotero.details, undefined);
   assert.equal(pubmed.statusLabel, "凭证存在");
-  assert.match(pubmed.evidence, /私有配置/);
+  assert.equal(pubmed.evidence, "来源：私有配置。");
+  assert.equal(pubmed.action.label, "重新申请");
+  assert.equal(
+    pubmed.action.href,
+    "https://www.ncbi.nlm.nih.gov/datasets/docs/v2/api/api-keys/",
+  );
   for (const row of [zotero, pubmed]) {
     assert.doesNotMatch(row.statusLabel, /已校验|已连接/);
     assert.doesNotMatch(row.evidence, /已校验|已连接/);
@@ -191,67 +200,40 @@ test("optional unconfigured credentials are optional, not faults", () => {
   assert.equal(easy.statusLabel, "未配置 · 可选");
   assert.equal(easy.statusTone, "neutral");
   assert.notEqual(easy.statusTone, "error");
-  assert.match(easy.evidence, /未检测/);
-  assert.match(easy.evidence, /可选/);
+  assert.equal(easy.evidence, "未设置，可选。");
+  assert.equal(easy.action.label, "前往配置");
+  assert.equal(easy.action.href, "./");
   assert.doesNotMatch(easy.statusLabel, /失败|故障/);
 });
 
-test("build artifacts distinguish file existence from connectivity", () => {
+test("workbench core and host sections are omitted from the status view", () => {
   const view = mapDashboard(fixtureStatus());
-  const runtime = rowNamed(view, "artifacts", "Runtime（Zotero MCP）");
-  const fulltext = rowNamed(view, "artifacts", "Fulltext Runtime");
-  assert.equal(runtime.statusLabel, "构建文件存在");
-  assert.match(runtime.evidence, /已找到/);
-  assert.doesNotMatch(runtime.evidence, /代表运行/);
-  assert.doesNotMatch(runtime.statusLabel, /已连接/);
-  assert.doesNotMatch(runtime.evidence, /已连接/);
-  assert.equal(fulltext.statusLabel, "未找到构建文件");
-  assert.match(fulltext.evidence, /未找到/);
-  const runtimeDetails = runtime.details.map((d) => `${d.label}\n${d.value}`).join("\n");
-  const fulltextDetails = fulltext.details.map((d) => `${d.label}\n${d.value}`).join("\n");
-  assert.match(runtimeDetails, /runtime\/dist\/index\.js/);
-  assert.match(fulltextDetails, /fulltext-runtime\/dist\/index\.js/);
+  assert.equal(section(view, "artifacts"), undefined);
+  assert.equal(section(view, "hosts"), undefined);
+  assert.equal(section(view, "connections"), undefined);
+  const { text } = render(view);
+  assert.doesNotMatch(text, /工作台核心|客户端工具|agent 连接/);
 });
 
-test("XPI requires manual install and includes a download link", () => {
+test("XPI is a download action with a one-line install hint", () => {
   const view = mapDashboard(fixtureStatus());
   const xpi = section(view, "xpi").rows[0];
-  assert.equal(xpi.statusLabel, "需要手动安装");
-  assert.match(xpi.evidence, /GitHub Releases/);
-  assert.match(xpi.evidence, /手动加载/);
-  const detailText = xpi.details.map((item) => `${item.label}\n${item.value}`).join("\n");
-  assert.match(detailText, /下载[\s\S]*github\.com\/Frankkk1912\/ai4s-literature-workbench\/releases/);
-  assert.match(detailText, /打包命令[\s\S]*npm run package/);
-  assert.match(detailText, /安装步骤[\s\S]*Install Add-on From File/);
-  assert.doesNotMatch(detailText, /verification\.level/);
-  assert.doesNotMatch(detailText, /本轮未检查/);
+  assert.equal(xpi.statusLabel, "点击下载");
+  assert.equal(xpi.statusTone, "verified");
+  assert.equal(xpi.action.label, "下载");
+  assert.equal(
+    xpi.action.href,
+    "https://github.com/Frankkk1912/ai4s-literature-workbench/releases",
+  );
+  assert.equal(xpi.action.target, "_blank");
+  assert.equal(xpi.action.rel, "noreferrer");
+  assert.equal(
+    xpi.evidence,
+    "在 Zotero 中选择 Tools → Add-ons → 齿轮菜单 → Install Add-on From File…，选择下载的 .xpi 文件。",
+  );
+  assert.equal(xpi.details, undefined);
   assert.doesNotMatch(xpi.statusLabel, /已安装|已连接/);
-});
-
-test("host verified is host availability only; pending_manual and unknown stay explicit", () => {
-  const view = mapDashboard(fixtureStatus());
-  const claude = rowNamed(view, "hosts", "Claude Code");
-  const codex = rowNamed(view, "hosts", "Codex");
-  const workbuddy = rowNamed(view, "hosts", "WorkBuddy");
-  assert.equal(claude.statusLabel, "待人工核验");
-  assert.match(claude.evidence, /兼容/);
-  assert.equal(codex.statusLabel, "未知");
-  assert.notEqual(codex.statusLabel, "");
-  assert.doesNotMatch(codex.statusLabel, /成功|已连接/);
-  assert.equal(workbuddy.statusLabel, "宿主可用性已实测");
-  assert.match(workbuddy.evidence, /宿主/);
-  assert.match(workbuddy.evidence, /不表示 MCP 已连接/);
-  assert.doesNotMatch(workbuddy.statusLabel, /MCP 已连接|已连接（实测）/);
-});
-
-test("connection unknown is unknown, not connected or failed", () => {
-  const view = mapDashboard(fixtureStatus());
-  for (const row of section(view, "connections").rows) {
-    assert.equal(row.statusLabel, "未知");
-    assert.match(row.evidence, /尚无连接实测证据/);
-    assert.match(row.evidence, /No measured connection evidence/);
-    assert.doesNotMatch(row.statusLabel, /已连接|失败/);
-  }
+  assert.doesNotMatch(xpi.evidence, /verification\.level|本轮未检查/);
 });
 
 test("missing or unrecognized states stay unknown and never succeed", () => {
@@ -263,10 +245,10 @@ test("missing or unrecognized states stay unknown and never succeed", () => {
   });
   assert.equal(rowNamed(view, "credentials", "Zotero").statusLabel, "状态未知");
   assert.equal(rowNamed(view, "credentials", "PubMed").statusLabel, "状态未知");
-  assert.equal(section(view, "artifacts").rows[0].statusLabel, "状态未知");
   assert.equal(section(view, "xpi").rows[0].statusLabel, "状态未知");
-  assert.equal(section(view, "hosts").rows[0].statusLabel, "状态未知");
-  assert.equal(section(view, "connections").rows[0].statusLabel, "状态未知");
+  assert.equal(section(view, "artifacts"), undefined);
+  assert.equal(section(view, "hosts"), undefined);
+  assert.equal(section(view, "connections"), undefined);
   for (const row of view.sections.flatMap((item) => item.rows)) {
     assert.notEqual(row.statusLabel, "凭证存在");
     assert.notEqual(row.statusLabel, "已连接（实测）");
@@ -276,8 +258,7 @@ test("missing or unrecognized states stay unknown and never succeed", () => {
 
 test("every visible evidence line includes a verifiable field source mark", () => {
   const view = mapDashboard(fixtureStatus());
-  const mark =
-    /环境变量|私有配置|未检测|已找到|未找到|verification\.level|兼容|实测|未知|No measured|source|exists|level|compatibility clue|返回依据|GitHub|releases|下载|Releases/;
+  const mark = /来源：环境变量|来源：私有配置|未设置|Install Add-on From File/;
   for (const row of view.sections.flatMap((item) => item.rows)) {
     assert.match(row.evidence, mark, row.name);
   }
@@ -285,17 +266,15 @@ test("every visible evidence line includes a verifiable field source mark", () =
 
 test("paths and evidence render as text and redact credential-bearing URLs", () => {
   const poisoned = fixtureStatus({
-    build_artifacts: {
-      runtime: {
-        path: "<script>alert(1)</script>",
-        exists: false,
-        evidence: "未找到 <script>alert(1)</script> example.com/key?api_key=xxx",
-      },
+    zotero_desktop_xpi: {
+      status: "manual_install_required",
+      artifact: "<script>alert(1)</script>",
+      install: "<script>alert(1)</script> example.com/key?api_key=xxx",
     },
   });
   const view = mapDashboard(poisoned);
   const { html, text, root } = render(view);
-  assert.match(text, /<script>alert\(1\)<\/script>/);
+  assert.match(text, /Install Add-on From File/);
   assert.equal(html.includes("<script>"), false);
   assert.equal(html.includes("api_key=xxx"), false);
   assert.equal(text.includes("api_key=xxx"), false);
@@ -315,19 +294,25 @@ test("status view renderer never assigns innerHTML", () => {
   assert.doesNotMatch(source, /innerHTML\s*=/);
 });
 
-test("status view uses five named sections and collapsed details", () => {
+test("status view uses credentials and XPI sections without details", () => {
   const view = mapDashboard(fixtureStatus());
   assert.deepEqual(
     view.sections.map((item) => item.id),
-    ["credentials", "artifacts", "xpi", "hosts", "connections"],
+    ["credentials", "xpi"],
   );
   assert.deepEqual(
     view.sections.map((item) => item.title),
-    ["凭证", "工作台核心", "Zotero 插件", "客户端工具", "agent 连接"],
+    ["凭证", "Zotero 插件"],
   );
   const { html, root } = render(view);
-  assert.match(html, /status status-neutral/);
-  assert.match(html, /完整路径、命令与技术说明/);
+  assert.match(html, /status status--verified/);
+  assert.match(html, /status status--neutral/);
+  assert.match(html, /重新申请/);
+  assert.match(html, />下载</);
+  assert.match(html, /target="_blank"/);
+  assert.match(html, /rel="noreferrer"/);
+  assert.doesNotMatch(html, /完整路径、命令与技术说明/);
+  assert.doesNotMatch(html, /<details/);
   const openDetails = [];
   const walk = (node) => {
     if (!node) return;
@@ -337,8 +322,7 @@ test("status view uses five named sections and collapsed details", () => {
     for (const child of node.childNodes ?? []) walk(child);
   };
   walk(root);
-  assert.ok(openDetails.length > 0);
-  assert.ok(openDetails.every((open) => open === false));
+  assert.equal(openDetails.length, 0);
 });
 
 test("wizard stays visible until every provider is configured", () => {

@@ -121,7 +121,18 @@
 - **A. 独立仓＋fresh seed 迁移（采纳，D1/D2/D8）**：新仓自为 source-of-truth；`assemble-plugin.mjs` 的“父仓 source_root”模型取消（D8：不再自动同步），迁移期一次性基线哈希对照（R11），此后只验证打包产物/manifest/可重建性。代价：一次性迁移＋CI 成本；收益：唯一维护源、独立发版、供多 agent 消费。
 - **B. 网页挂在 Zotero MCP HTTP 模式＋配对码会话（采纳，D5/D7）**：复用 `startHttp` 的 Express 应用与生命周期/限流/日志，新增 **loopback-only 管理路由**；授权模型为“终端一次性配对码→短时受限会话”，**全部管理 API（GET/POST）会话后才可读写**，每次写操作校验 Origin/CSRF。取舍：比独立服务少一个常驻进程；会话状态在内存、重启失效符合本机单用户场景；需把现有“仅 MCP path CORS、DNS rebinding 仅 OAuth 开启”的安全面补强（`runtime/src/transports/http.ts:77-90,147-210`）。
 - **C. 复用 `onboard.mjs` 核心（采纳，R6/E3）**：把 `redactedStatus` / `verify*Key` / `save*Key` / 私有写入抽成可 import 的共享模块，CLI 与网页共用同一校验与落盘语义；网页是入口扩展而非替代（修正 rev1 “替代 CLI”表述）。
-- **D. 看板“证据分级”（采纳，R4）**：`存在(来源) → 在线校验通过 → 构建产物存在 → 实测连接` 四级标签，连接级只允许实测证据驱动；XPI 本轮显示“人工安装、未核验”（修正 rev1 “永不核验”绝对化表述）。
+- **D. 看板“证据分级”（采纳，R4；2026-09-30 精简后状态视图只渲染凭证 + Zotero 插件）**：连接级只允许实测证据驱动。§4 D 方案硬约束 10 条适应如下：
+  - **A.1** 凭证不显示校验：仍生效——标签为「凭证存在」+ 来源词，无「已校验」；`statusTone=verified` 仅为绿色 pill 视觉。
+  - **A.2** 可选未配置不渲染故障：仍生效。
+  - **A.3** 产物中性：工作台核心 section 已删除（API 端点保留 build_artifacts 字段）。
+  - **A.4** XPI 文案：「需要手动安装」→「点击下载」（语义未变）。
+  - **A.5** 宿主 ≠ MCP 已连接：客户端工具 section 已删除（API 端点保留 hosts 字段）。
+  - **A.6** 缺字段 → 状态未知：状态视图已精简，凭证/XPI 缺字段时显示「状态未知」，不回退为成功。
+  - **A.7** evidence 含字段来源标识：保留的 evidence（凭证 + XPI）由实际返回字段生成。
+  - **A.8** 时间只标「状态读取时间」：仍生效（顶部 metaEl）。
+  - **A.9** textContent 无 innerHTML：仍生效。
+  - **A.10** 会话门禁：仍生效。
+  - agent 连接 section 已删除（API 端点保留 connections 字段），前端不渲染。
 - **E. key 暴露边界三通路精确断言（rev3 依 D10 修正 rev2）**：浏览器→本机 POST payload 对用户 DevTools 可见、Zotero 走 Header、PubMed/EasyScholar 官方校验 URL 含 key 查询参数（仅服务端可见、服务商可能接收）均为**已知且获准**边界；承诺收敛为 R12 的精确表述，测试与文档一致。
 - **F. 推送前固定版本自动化扫描门禁（rev4/D11）**：自动化扫描器（固定版本 gitleaks，等效工具须用户批准）是每次 push/merge 的前置条件；命中即停、审查/修复或 fresh seed 重建；手工扫描**不构成**通过路径。取舍：实施期增加一次安装与 CI 步骤成本，换来“敏感历史绝不外泄”的硬门禁；本机当前未安装（`command -v gitleaks` 无输出），安装只在获批后进行。
 - 曾比较的替代路径（explore §4）：保留父仓所有权只改分发包（否决：D1 要求唯一维护源）；独立常驻 dashboard 服务（否决：D5）；导入历史视图（否决：D3/D6）；每请求一次性凭证（否决：D7 明确一次性码只用于兑换会话，见 R5）；改为 Header 携带 PubMed/EasyScholar key（不采纳：现有官方 API 以查询参数为设计形态，D10 批准保持现状，避免改协议引入兼容风险）；手工扫描＋书面豁免兜底（否决：D11 明确禁止）。
@@ -149,7 +160,7 @@
 | M2 跨平台 CI 基线 | [x] | M1 | Windows＋macOS＋Linux 三平台**全必过**（D9）；**CI 泄密扫描 job 必过（关联 G2，R13）** | node:test＋vitest＋typecheck＋产物/manifest 校验＋XPI check/package＋固定版本扫描 |
 | M3 配置核心复用层（状态/校验/私有写入抽包＋证据分级语义） | [x] | M1 | 新增/扩展单测全绿（含 D10 通路 mock 验证与脱敏测试）；`redactedStatus` schema 只增不改（additive，见 9.4 已决约束） | CLI 行为不变；网页与 CLI 共用核心 |
 | M4 本机网页配置向导（HTTP 管理路由＋配对码会话＋安全＋保存 keys） | [x] | M3 | 安全测试（配对码单次兑换、会话过期/重启失效、**GET/POST 全部会话门禁**、每次写操作 Origin/CSRF、日志/错误脱敏）＋保存流程测试全绿；人工浏览器验证通过 | loopback-only；OAuth/远程模式管理路由禁用 |
-| M5 配置状态看板（证据分级 UI） | [x] | M3 | 语义测试：无实测证据绝不显示“已连接”；**状态 API 未配对不可读**；人工核对 onboarding 页面内嵌状态视图与实际一致 | 状态视图内嵌于配置向导单页 |
+| M5 配置状态看板（证据分级 UI） | [x] | M3 | 语义测试：无实测证据绝不显示“已连接”；**状态 API 未配对不可读**；人工核对 onboarding 页面内嵌状态视图与实际一致 | 精简后状态视图：仅凭证 + Zotero 插件（API 仍返回 build_artifacts / hosts / connections） |
 | M6 文档、安装与兼容（多宿主＋XPI＋旧配置复用＋父仓不改声明） | [x] | M1, M4, M5 | 文档评审（隐私边界按 R12 三通路表述）；WorkBuddy 部分带“未实测”标注；Claude/Codex 安装路径回归（V13） | 父仓基线 diff 白名单验证（V10） |
 | M7 收尾验证与 Draft PR 转 Ready | [x] | M2–M6 | Validation contract 全项执行并留记录；自查/待决清单随 PR 提交 | **Draft PR 自 M1/M2 起持续更新，M7 只收尾**（修正 rev1 推迟开 PR 的错误） |
 
@@ -260,7 +271,7 @@
   - 依赖：T3.2, T4.1, T4.2
 - [x] T5.2 看板 UI
   - 文件：新仓 `runtime/src/public/onboarding/index.html` / `app.js`（状态视图整合到 onboarding 页面；`dashboard.html` / `dashboard.js` 已删除）
-  - 修改：状态视图整合到 onboarding 页面。分区展示：凭证（3 项，存在性＋来源）、工作台核心（Zotero/Fulltext，标注“产物存在≠已连接”）、Zotero 插件（人工安装步骤＋“需要手动安装”）、客户端工具（Claude Code/Codex/WorkBuddy）、agent 连接（仅实测显示“已连接”，余为未知/待人工核验＋依据）
+  - 修改：精简后状态视图只渲染两分区：凭证（3 项，存在性＋来源；已配置绿色 pill、「重新申请」跳转申请 URL）、Zotero 插件（「点击下载」／「下载」跳转 GitHub Releases）。工作台核心 / 客户端工具 / agent 连接 section 已删除（API 仍返回 `build_artifacts` / `hosts` / `connections`，前端不渲染）
   - 验收：人工核对（V7）：每一行都带依据；四层级（存在/校验/产物/连接）视觉可区分；截图留档于 PR 描述
   - 依赖：T5.1
 - [x] T5.3 看板语义测试
@@ -336,7 +347,7 @@
 | `.gitignore`、`.gitattributes` | 新建 | 首 commit 安全基线（R8、fresh seed） |
 | `README.md`、`LICENSE`、`THIRD_PARTY_NOTICES.md` | 新建/迁入 | T1.1/T6.1 |
 | `skills/literature-research/`、`skills/literature-manager/`、`skills/literature-writing/` | 迁入 | 基线：父仓正式源码（R11、T1.2）；一次性哈希对照留档 |
-| `runtime/` | 迁入＋修改 | D8 布局（目录名沿用插件命名）；内容基线：父仓 `literature-zotero-mcp/`；修改 `src/transports/http.ts`、`src/index.ts`、新增 `src/transports/admin.ts`、`src/lib/onboarding-core.ts`、`src/public/onboarding/**`（T3.1/T4.x/T5.x；`dashboard.html` / `dashboard.js` **已删除**，状态视图内嵌 `index.html` / `app.js`） |
+| `runtime/` | 迁入＋修改 | D8 布局（目录名沿用插件命名）；内容基线：父仓 `literature-zotero-mcp/`；修改 `src/transports/http.ts`、`src/index.ts`、新增 `src/transports/admin.ts`、`src/lib/onboarding-core.ts`、`src/public/onboarding/**`（T3.1/T4.x/T5.x；`dashboard.html` / `dashboard.js` **已删除**，状态视图内嵌 `index.html` / `app.js`；精简后 `app.js` 只渲染凭证 + XPI） |
 | `fulltext-runtime/` | 迁入 | 基线：父仓 `literature-fulltext-mcp/`；不改行为（T1.3） |
 | `database-browser-runtime/` | 迁入 | 插件独有内容，另核对（R7/R11、T1.3）；纳入安全扫描（R9/R13） |
 | `literature-metrics/`（仓根） | 迁入 | XPI 源码，仅构建维持（T1.4、N4、D8 置根）；纳入安全扫描（R9/R13） |
@@ -416,7 +427,8 @@
 | --- | --- | --- |
 | D12（agent 转述配对码） | 已决（2026-09-28 用户批准）：**允许** agent 把配对码告知用户（UX 门槛考虑：用户可能不熟悉终端）；**护栏**：码机制不变（5 分钟/单次/常数时间/限流）、**key 永不进 chat/agent 输出**（R12 不动）、仅限本会话刚启动的服务且不写入持久记录、码仍不进 URL/服务端日志 | 决策区 D12、T6.2 文档措辞；V6 人工验收可覆盖“agent 启动→转述码→兑换”路径 |
 
-**2026-09-30 同步：** 独立 dashboard 页已合并进 onboarding 单页；保留 `/api/dashboard`。§4 D 方案硬约束 10 条仍适用于内嵌状态视图，本文不改写这些约束。
+**2026-09-30 同步：** 独立 dashboard 页已合并进 onboarding 单页；保留 `/api/dashboard`。
+**2026-09-30 精简状态视图：** 前端只渲染凭证与 Zotero 插件。A.3：工作台核心 section 已删除（API 端点保留 build_artifacts 字段）。A.4：XPI 文案「需要手动安装」→「点击下载」。A.5：客户端工具 section 已删除（API 端点保留 hosts 字段）。A.6：状态视图已精简，凭证/XPI 缺字段时显示「状态未知」，不回退为成功。A.7：保留的 evidence（凭证 + XPI）由实际返回字段生成。agent 连接 section 已删除（API 端点保留 connections 字段）。
 
 （rev3 的 Q5 已由 D11 决断并移入上表“已决”区；**不再存在“降级/豁免可过”选项**。）
 

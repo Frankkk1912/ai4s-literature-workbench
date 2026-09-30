@@ -6,16 +6,13 @@ const PROVIDER_NAMES = {
   pubmed: 'PubMed',
   easyscholar: 'EasyScholar',
 };
-const SOURCE_LABELS = {
-  environment: '环境变量',
-  private_config: '私有配置',
-  none: '无',
+const SOURCE_EVIDENCE = {
+  environment: '来源：环境变量。',
+  private_config: '来源：私有配置。',
 };
-const ARTIFACT_NAMES = {
-  runtime: 'Runtime（Zotero MCP）',
-  fulltext_runtime: 'Fulltext Runtime',
-};
-const XPI_BUILD_COMMAND = 'cd literature-metrics && npm run package';
+const XPI_RELEASES_HREF = 'https://github.com/Frankkk1912/ai4s-literature-workbench/releases';
+const XPI_EVIDENCE =
+  '在 Zotero 中选择 Tools → Add-ons → 齿轮菜单 → Install Add-on From File…，选择下载的 .xpi 文件。';
 const SENSITIVE_URL = /[^\s"'<>]*((?:api_key|secretKey|secret_key)=)[^\s"'<>]*/gi;
 
 const providers = {
@@ -55,16 +52,33 @@ export function unknownRow(name, reason) {
     statusTone: 'neutral',
     action: undefined,
     evidence: fieldMark(reason),
-    details: [{ label: '说明', value: reason, mono: false }],
   };
 }
 
-export function mapProvider(id, provider) {
-  const name = PROVIDER_NAMES[id] ?? id;
-  const action = {
-    label: provider?.configured ? '管理凭证' : '前往配置',
+function providerApplyHref(id, applicationLinks) {
+  const fromApi = asRecord(applicationLinks)?.[id];
+  if (typeof fromApi === 'string' && fromApi) return fromApi;
+  return providers[id]?.applyUrl || './';
+}
+
+function providerAction(id, configured, applicationLinks) {
+  if (configured) {
+    return {
+      label: '重新申请',
+      href: providerApplyHref(id, applicationLinks),
+      target: '_blank',
+      rel: 'noreferrer',
+    };
+  }
+  return {
+    label: '前往配置',
     href: './',
   };
+}
+
+export function mapProvider(id, provider, applicationLinks) {
+  const name = PROVIDER_NAMES[id] ?? id;
+  const action = providerAction(id, provider?.configured === true, applicationLinks);
   if (!asRecord(provider)) {
     return unknownRow(name, '缺少该凭证的状态字段，不能判断为已配置或未配置。');
   }
@@ -76,18 +90,12 @@ export function mapProvider(id, provider) {
   }
   if (provider.configured) {
     const sourceKey = typeof provider.source === 'string' ? provider.source : '';
-    const sourceLabel = SOURCE_LABELS[sourceKey] ?? (sourceKey || '未知');
     return {
       name,
       statusLabel: '凭证存在',
-      statusTone: 'neutral',
+      statusTone: 'verified',
       action,
-      evidence: fieldMark(`来源：${sourceLabel}；仅确认检测到凭证，未据此判断在线校验或连接。`),
-      details: [
-        { label: 'configured', value: 'true', mono: true },
-        { label: 'source', value: sourceKey || '（缺字段）', mono: true },
-        { label: 'optional', value: String(Boolean(provider.optional)), mono: true },
-      ],
+      evidence: fieldMark(SOURCE_EVIDENCE[sourceKey] ?? '未设置。'),
     };
   }
   const optional = provider.optional === true;
@@ -96,52 +104,7 @@ export function mapProvider(id, provider) {
     statusLabel: optional ? '未配置 · 可选' : '未配置',
     statusTone: 'neutral',
     action,
-    evidence: fieldMark(optional ? '未检测到凭证。该凭证为可选，不作为故障。' : '未检测到凭证。'),
-    details: [
-      { label: 'configured', value: 'false', mono: true },
-      { label: 'source', value: String(provider.source ?? 'none'), mono: true },
-      { label: 'optional', value: String(optional), mono: true },
-    ],
-  };
-}
-
-export function mapArtifact(id, artifact) {
-  const name = ARTIFACT_NAMES[id] ?? id;
-  if (!asRecord(artifact) || typeof artifact.exists !== 'boolean') {
-    return unknownRow(name, '缺少构建产物 exists 字段，不能判断为存在或不存在。');
-  }
-  const path = typeof artifact.path === 'string' ? artifact.path : '';
-  const apiEvidence =
-    typeof artifact.evidence === 'string' && artifact.evidence.trim()
-      ? artifact.evidence
-      : artifact.exists
-        ? 'Build artifact exists; existence is not proof of connectivity.'
-        : 'Build artifact is absent; artifact existence would not be proof of connectivity.';
-  if (artifact.exists) {
-    return {
-      name,
-      statusLabel: '构建文件存在',
-      statusTone: 'neutral',
-      action: { label: '查看路径', openDetails: true },
-      evidence: fieldMark(path ? '已找到构建产物。' : '已找到构建产物。'),
-      details: [
-        { label: 'path', value: path || '（缺字段）', mono: true },
-        { label: 'exists', value: 'true', mono: true },
-        { label: 'evidence', value: apiEvidence, mono: false },
-      ],
-    };
-  }
-  return {
-    name,
-    statusLabel: '未找到构建文件',
-    statusTone: 'neutral',
-    action: { label: '查看路径', openDetails: true },
-    evidence: fieldMark(path ? '未找到构建产物。' : '未找到构建产物。'),
-    details: [
-      { label: 'path', value: path || '（缺字段）', mono: true },
-      { label: 'exists', value: 'false', mono: true },
-      { label: 'evidence', value: apiEvidence, mono: false },
-    ],
+    evidence: fieldMark(optional ? '未设置，可选。' : '未设置。'),
   };
 }
 
@@ -150,180 +113,36 @@ export function mapXpi(xpi) {
   if (!record) {
     return unknownRow('literature-metrics', '缺少 zotero_desktop_xpi 字段，不能判断安装状态。');
   }
-  const artifact = typeof record.artifact === 'string' ? record.artifact : '';
-  const install = typeof record.install === 'string' ? record.install : '';
-  const note = typeof record.note === 'string' ? record.note : '';
   return {
     name: 'literature-metrics',
-    statusLabel: '需要手动安装',
-    statusTone: 'neutral',
-    action: { label: '查看安装步骤', openDetails: true },
-    evidence: fieldMark('请从 GitHub Releases 下载最新版本 XPI 后在 Zotero 里手动加载。'),
-    details: [
-      {
-        label: '下载',
-        value: 'https://github.com/Frankkk1912/ai4s-literature-workbench/releases',
-        mono: false,
-      },
-      { label: '打包命令', value: XPI_BUILD_COMMAND, mono: true },
-      { label: '安装步骤', value: install || '（参考 Zotero 文档）', mono: false },
-      { label: '版本/校验', value: artifact || '（未提供）', mono: true },
-      { label: '备注', value: note || '（无）', mono: false },
-    ],
-  };
-}
-
-export function mapHost(host) {
-  const record = asRecord(host);
-  if (!record) {
-    return unknownRow('未知宿主', '缺少宿主状态字段，不能判断为已安装或已连接。');
-  }
-  const name = typeof record.name === 'string' && record.name ? record.name : '未知宿主';
-  const level = typeof record.level === 'string' ? record.level : '';
-  const apiEvidence = typeof record.evidence === 'string' ? record.evidence : '';
-  const action = { label: '查看接入说明', openDetails: true };
-  const details = [
-    { label: 'id', value: String(record.id ?? '（缺字段）'), mono: true },
-    { label: 'level', value: level || '（缺字段）', mono: true },
-    { label: 'evidence', value: apiEvidence || '（缺字段）', mono: false },
-  ];
-  if (level === 'verified') {
-    return {
-      name,
-      statusLabel: '宿主可用性已实测',
-      statusTone: 'verified',
-      action,
-      evidence: fieldMark(
-        `宿主可用性已实测；该结论仅针对宿主本身，不表示 MCP 已连接。返回依据：${apiEvidence || '缺少 evidence 字段'}。`,
-      ),
-      details,
-    };
-  }
-  if (level === 'pending_manual') {
-    return {
-      name,
-      statusLabel: '待人工核验',
-      statusTone: 'neutral',
-      action,
-      evidence: fieldMark(
-        `兼容清单仅为线索，不是宿主已安装或 MCP 已连接的证据。返回依据：${apiEvidence || '缺少 evidence 字段'}。`,
-      ),
-      details,
-    };
-  }
-  if (level === 'unknown') {
-    return {
-      name,
-      statusLabel: '未知',
-      statusTone: 'neutral',
-      action,
-      evidence: fieldMark(
-        `未知：未观察到宿主兼容线索，不等于未安装或失败。返回依据：${apiEvidence || '缺少 evidence 字段'}。`,
-      ),
-      details,
-    };
-  }
-  return {
-    ...unknownRow(name, `宿主 level 无法识别（${level || '缺字段'}），不能回退为成功。`),
-    action,
-    details,
-  };
-}
-
-export function mapConnection(connection) {
-  const record = asRecord(connection);
-  if (!record) {
-    return unknownRow('未知连接', '缺少连接状态字段，不能判断为已连接或失败。');
-  }
-  const name = typeof record.name === 'string' && record.name ? record.name : '未知连接';
-  const level = typeof record.level === 'string' ? record.level : '';
-  const apiEvidence = typeof record.evidence === 'string' ? record.evidence : '';
-  const details = [
-    { label: 'id', value: String(record.id ?? '（缺字段）'), mono: true },
-    { label: 'level', value: level || '（缺字段）', mono: true },
-    { label: 'evidence', value: apiEvidence || '（缺字段）', mono: false },
-  ];
-  if (level === 'verified') {
-    return {
-      name,
-      statusLabel: '已连接（实测）',
-      statusTone: 'verified',
-      action: undefined,
-      evidence: fieldMark(
-        `已连接（实测）；该结论仅针对此连接对象。返回依据：${apiEvidence || '缺少 evidence 字段'}。`,
-      ),
-      details,
-    };
-  }
-  if (level === 'pending_manual') {
-    return {
-      name,
-      statusLabel: '待人工核验',
-      statusTone: 'neutral',
-      action: undefined,
-      evidence: fieldMark(
-        `连接仍待人工核验，不推断成功或失败。返回依据：${apiEvidence || '缺少 evidence 字段'}。`,
-      ),
-      details,
-    };
-  }
-  if (level === 'unknown') {
-    return {
-      name,
-      statusLabel: '未知',
-      statusTone: 'neutral',
-      action: undefined,
-      evidence: fieldMark(
-        `尚无连接实测证据。未知不等于已连接或失败。返回依据：${apiEvidence || '缺少 evidence 字段'}。`,
-      ),
-      details,
-    };
-  }
-  return {
-    ...unknownRow(name, `连接 level 无法识别（${level || '缺字段'}），不能回退为成功。`),
-    details,
+    statusLabel: '点击下载',
+    statusTone: 'verified',
+    action: {
+      label: '下载',
+      href: XPI_RELEASES_HREF,
+      target: '_blank',
+      rel: 'noreferrer',
+    },
+    evidence: fieldMark(XPI_EVIDENCE),
   };
 }
 
 export function mapDashboard(status) {
   const record = asRecord(status) ?? {};
   const providerStatus = asRecord(record.providers) ?? {};
-  const artifacts = asRecord(record.build_artifacts);
-  const hosts = Array.isArray(record.hosts) ? record.hosts : undefined;
-  const connections = Array.isArray(record.connections) ? record.connections : undefined;
+  const applicationLinks = asRecord(record.application_links);
 
   return {
     sections: [
       {
         id: 'credentials',
         title: '凭证',
-        rows: PROVIDER_ORDER.map((id) => mapProvider(id, providerStatus[id])),
-      },
-      {
-        id: 'artifacts',
-        title: '工作台核心',
-        rows: artifacts
-          ? Object.entries(artifacts).map(([id, artifact]) => mapArtifact(id, artifact))
-          : [unknownRow('构建产物', '缺少 build_artifacts 字段，不能判断为存在或不存在。')],
+        rows: PROVIDER_ORDER.map((id) => mapProvider(id, providerStatus[id], applicationLinks)),
       },
       {
         id: 'xpi',
         title: 'Zotero 插件',
         rows: [mapXpi(record.zotero_desktop_xpi)],
-      },
-      {
-        id: 'hosts',
-        title: '客户端工具',
-        rows: hosts
-          ? hosts.map((host) => mapHost(host))
-          : [unknownRow('宿主线索', '缺少 hosts 字段，不能判断宿主安装或连接。')],
-      },
-      {
-        id: 'connections',
-        title: 'agent 连接',
-        rows: connections
-          ? connections.map((connection) => mapConnection(connection))
-          : [unknownRow('连接证据', '缺少 connections 字段，不能判断为已连接或失败。')],
       },
     ],
   };
@@ -341,7 +160,7 @@ export function renderDashboard(root, view, doc) {
 
   for (const section of view.sections) {
     const block = documentRef.createElement('section');
-    block.className = 'dashboard-section';
+    block.className = `dashboard-section dashboard-section-${section.id}`;
     const heading = documentRef.createElement('h2');
     setText(heading, section.title);
     const list = documentRef.createElement('div');
@@ -356,7 +175,7 @@ export function renderDashboard(root, view, doc) {
       const name = documentRef.createElement('h3');
       setText(name, row.name);
       const pill = documentRef.createElement('p');
-      pill.className = `status status-${row.statusTone}`;
+      pill.className = `status status--${row.statusTone}`;
       setText(pill, row.statusLabel);
       primary.append(name, pill);
 
@@ -364,35 +183,23 @@ export function renderDashboard(root, view, doc) {
       evidence.className = 'row-evidence';
       setText(evidence, row.evidence);
 
-      const details = documentRef.createElement('details');
-      const summary = documentRef.createElement('summary');
-      setText(summary, '完整路径、命令与技术说明');
-      details.append(summary);
-
       if (row.action?.href) {
         const link = documentRef.createElement('a');
         link.className = 'row-action';
         link.href = row.action.href;
+        if (row.action.target) {
+          link.target = row.action.target;
+          link.setAttribute('target', row.action.target);
+        }
+        if (row.action.rel) {
+          link.rel = row.action.rel;
+          link.setAttribute('rel', row.action.rel);
+        }
         setText(link, row.action.label);
         primary.append(link);
-      } else if (row.action?.openDetails) {
-        const button = documentRef.createElement('button');
-        button.type = 'button';
-        button.className = 'row-action';
-        setText(button, row.action.label);
-        primary.append(button);
-        button.addEventListener?.('click', () => {
-          details.open = true;
-        });
-      }
-      for (const item of row.details) {
-        const line = documentRef.createElement('p');
-        line.className = item.mono ? 'row-detail mono' : 'row-detail';
-        setText(line, `${item.label}：${item.value}`);
-        details.append(line);
       }
 
-      article.append(primary, evidence, details);
+      article.append(primary, evidence);
       list.append(article);
     }
 
@@ -419,6 +226,8 @@ export function serializeRendered(root) {
     };
     if (node.className && !attrEntries.class) attrEntries.class = node.className;
     if (node.href && !attrEntries.href) attrEntries.href = node.href;
+    if (node.target && !attrEntries.target) attrEntries.target = node.target;
+    if (node.rel && !attrEntries.rel) attrEntries.rel = node.rel;
     const attrs = Object.entries(attrEntries)
       .map(
         ([key, value]) =>
