@@ -80,13 +80,13 @@ Documented path that has been treated as 实测可装 for this repository:
 Then:
 
 ```bash
-claude plugin install ai4s-literature-workbench@frank-ai4s-skills
+claude plugin install ai4s-literature-workbench@ai4s-literature-workbench
 ```
 
 The in-product slash form used by the parent plugin docs is:
 
 ```text
-/plugin install ai4s-literature-workbench@frank-ai4s-skills
+/plugin install ai4s-literature-workbench@ai4s-literature-workbench
 ```
 
 V13 (Claude / Codex install-path regression) still needs a Frank smoke run on

@@ -148,10 +148,10 @@
 | M1 新仓 bootstrap 与源码迁入（含 XPI、database-browser-runtime） | [x] | Plan 获批 | 迁移基线一次性哈希对照留档＋插件独有内容核对表；`node scripts/onboard.mjs status` 与 runtime 测试本地通过；**baseline commit 先自动扫描后才可首次 push**（R13） | fresh seed 新历史；首 commit 含 .gitignore/.gitattributes；forge 未跟踪内容排除清单生效（R8）；Draft PR 就绪后**尽早开启**（见 9.5） |
 | M2 跨平台 CI 基线 | [x] | M1 | Windows＋macOS＋Linux 三平台**全必过**（D9）；**CI 泄密扫描 job 必过（关联 G2，R13）** | node:test＋vitest＋typecheck＋产物/manifest 校验＋XPI check/package＋固定版本扫描 |
 | M3 配置核心复用层（状态/校验/私有写入抽包＋证据分级语义） | [x] | M1 | 新增/扩展单测全绿（含 D10 通路 mock 验证与脱敏测试）；`redactedStatus` schema 只增不改（additive，见 9.4 已决约束） | CLI 行为不变；网页与 CLI 共用核心 |
-| M4 本机网页配置向导（HTTP 管理路由＋配对码会话＋安全＋保存 keys） | [ ] | M3 | 安全测试（配对码单次兑换、会话过期/重启失效、**GET/POST 全部会话门禁**、每次写操作 Origin/CSRF、日志/错误脱敏）＋保存流程测试全绿；人工浏览器验证通过 | loopback-only；OAuth/远程模式管理路由禁用 |
+| M4 本机网页配置向导（HTTP 管理路由＋配对码会话＋安全＋保存 keys） | [x] | M3 | 安全测试（配对码单次兑换、会话过期/重启失效、**GET/POST 全部会话门禁**、每次写操作 Origin/CSRF、日志/错误脱敏）＋保存流程测试全绿；人工浏览器验证通过 | loopback-only；OAuth/远程模式管理路由禁用 |
 | M5 配置状态看板（证据分级 UI） | [x] | M3 | 语义测试：无实测证据绝不显示“已连接”；**状态 API 未配对不可读**；人工核对看板与实际一致 | 显示依据来源 |
 | M6 文档、安装与兼容（多宿主＋XPI＋旧配置复用＋父仓不改声明） | [x] | M1, M4, M5 | 文档评审（隐私边界按 R12 三通路表述）；WorkBuddy 部分带“未实测”标注；Claude/Codex 安装路径回归（V13） | 父仓基线 diff 白名单验证（V10） |
-| M7 收尾验证与 Draft PR 转 Ready | [ ] | M2–M6 | Validation contract 全项执行并留记录；自查/待决清单随 PR 提交 | **Draft PR 自 M1/M2 起持续更新，M7 只收尾**（修正 rev1 推迟开 PR 的错误） |
+| M7 收尾验证与 Draft PR 转 Ready | [x] | M2–M6 | Validation contract 全项执行并留记录；自查/待决清单随 PR 提交 | **Draft PR 自 M1/M2 起持续更新，M7 只收尾**（修正 rev1 推迟开 PR 的错误） |
 
 ## 7. 分 milestone 的 To-do checkbox 清单
 
@@ -294,12 +294,12 @@
 
 ### M7 收尾验证与 Draft PR 转 Ready
 
-- [ ] T7.1 全量验证执行与留痕
+- [x] T7.1 全量验证执行与留痕
   - 文件：新仓 `docs/validation-2026XXXX.md`（验证记录，随 PR）
   - 修改：执行第 8 节 Validation contract 全部条目，记录命令输出摘要、CI 三平台链接、人工验证结论（含 macOS/Windows 浏览器验证、**Git 防泄漏自动扫描记录——固定版本、来源、命令、扫描范围（全部历史＋工作区，含 `literature-metrics` XPI 源码与 `database-browser-runtime`）与结论**）；**手工扫描不作为通过依据（D11）**；命中处置（审查/修复或 fresh seed 清洁重建）全程留痕
   - 验收：V1–V13 全部通过；**V9 只有自动扫描零命中才算通过**；任何豁免/降级路径不存在（D11 明确禁止）
   - 依赖：M2–M6
-- [ ] T7.2 Draft PR 收尾（Draft PR 自 M1/M2 起持续更新，此处只收尾）
+- [x] T7.2 Draft PR 收尾（Draft PR 自 M1/M2 起持续更新，此处只收尾）
   - 文件：新仓 PR 描述（见第 9 节草稿）
   - 修改：汇总自 M1/M2 早期开启、随每个 milestone 持续更新的 Draft PR；补齐迁移对照表（父仓路径→新仓路径＋一次性基线哈希留档＋forge 排除清单）、剩余真实待决 Q1–Q4 状态与决策时机；确认单 PR（用户决策）
   - 验收：PR 为 Draft 起于 M1/M2、内容随 milestone 更新（非推迟到最后开立，修正 rev1 错误）；单分支 `feat/<slug>`；本 Plan 附录 B 自查随 PR 附上；M7 仅做收尾与转 Ready
