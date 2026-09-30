@@ -180,6 +180,7 @@ test("configured credentials show existence and source, never verified or connec
   assert.equal(zotero.action.href, "https://www.zotero.org/settings/keys");
   assert.equal(zotero.action.target, "_blank");
   assert.equal(zotero.action.rel, "noreferrer");
+  assert.equal(zotero.action.variant, "action-pill");
   assert.equal(zotero.details, undefined);
   assert.equal(pubmed.statusLabel, "凭证存在");
   assert.equal(pubmed.evidence, "来源：私有配置。");
@@ -188,6 +189,7 @@ test("configured credentials show existence and source, never verified or connec
     pubmed.action.href,
     "https://www.ncbi.nlm.nih.gov/datasets/docs/v2/api/api-keys/",
   );
+  assert.equal(pubmed.action.variant, "action-pill");
   for (const row of [zotero, pubmed]) {
     assert.doesNotMatch(row.statusLabel, /已校验|已连接/);
     assert.doesNotMatch(row.evidence, /已校验|已连接/);
@@ -218,9 +220,10 @@ test("workbench core and host sections are omitted from the status view", () => 
 test("XPI is a download action with a one-line install hint", () => {
   const view = mapDashboard(fixtureStatus());
   const xpi = section(view, "xpi").rows[0];
-  assert.equal(xpi.statusLabel, "点击下载");
+  assert.equal(xpi.statusLabel, "安装步骤");
   assert.equal(xpi.statusTone, "verified");
-  assert.equal(xpi.action.label, "下载");
+  assert.equal(xpi.action.label, "点击下载");
+  assert.equal(xpi.action.variant, "action-pill");
   assert.equal(
     xpi.action.href,
     "https://github.com/Frankkk1912/ai4s-literature-workbench/releases",
@@ -231,8 +234,14 @@ test("XPI is a download action with a one-line install hint", () => {
     xpi.evidence,
     "在 Zotero 中选择 Tools → Add-ons → 齿轮菜单 → Install Add-on From File…，选择下载的 .xpi 文件。",
   );
-  assert.equal(xpi.details, undefined);
-  assert.doesNotMatch(xpi.statusLabel, /已安装|已连接/);
+  assert.equal(xpi.details.length, 1);
+  assert.equal(xpi.details[0].label, "完整步骤");
+  assert.equal(xpi.details[0].mono, false);
+  assert.match(xpi.details[0].value, /访问 GitHub Releases/);
+  assert.match(xpi.details[0].value, /下载最新的 \.xpi 文件/);
+  assert.match(xpi.details[0].value, /Install Add-on From File/);
+  assert.match(xpi.details[0].value, /重启 Zotero/);
+  assert.doesNotMatch(xpi.statusLabel, /已安装|已连接|需要手动安装/);
   assert.doesNotMatch(xpi.evidence, /verification\.level|本轮未检查/);
 });
 
@@ -294,7 +303,7 @@ test("status view renderer never assigns innerHTML", () => {
   assert.doesNotMatch(source, /innerHTML\s*=/);
 });
 
-test("status view uses credentials and XPI sections without details", () => {
+test("status view uses credentials and XPI sections with XPI details", () => {
   const view = mapDashboard(fixtureStatus());
   assert.deepEqual(
     view.sections.map((item) => item.id),
@@ -307,12 +316,18 @@ test("status view uses credentials and XPI sections without details", () => {
   const { html, root } = render(view);
   assert.match(html, /status status--verified/);
   assert.match(html, /status status--neutral/);
+  assert.match(html, /action-pill/);
   assert.match(html, /重新申请/);
-  assert.match(html, />下载</);
+  assert.match(html, />点击下载</);
   assert.match(html, /target="_blank"/);
   assert.match(html, /rel="noreferrer"/);
+  assert.match(html, /完整步骤/);
+  assert.match(html, /<details/);
   assert.doesNotMatch(html, /完整路径、命令与技术说明/);
-  assert.doesNotMatch(html, /<details/);
+  const credentialRows = section(view, "credentials").rows;
+  for (const row of credentialRows) {
+    assert.equal(row.details, undefined);
+  }
   const openDetails = [];
   const walk = (node) => {
     if (!node) return;
@@ -322,7 +337,8 @@ test("status view uses credentials and XPI sections without details", () => {
     for (const child of node.childNodes ?? []) walk(child);
   };
   walk(root);
-  assert.equal(openDetails.length, 0);
+  assert.equal(openDetails.length, 1);
+  assert.equal(openDetails[0], false);
 });
 
 test("wizard stays visible until every provider is configured", () => {

@@ -13,6 +13,14 @@ const SOURCE_EVIDENCE = {
 const XPI_RELEASES_HREF = 'https://github.com/Frankkk1912/ai4s-literature-workbench/releases';
 const XPI_EVIDENCE =
   '在 Zotero 中选择 Tools → Add-ons → 齿轮菜单 → Install Add-on From File…，选择下载的 .xpi 文件。';
+const XPI_DETAILS = [
+  {
+    label: '完整步骤',
+    value:
+      '1. 访问 GitHub Releases：https://github.com/Frankkk1912/ai4s-literature-workbench/releases\n2. 下载最新的 .xpi 文件\n3. 在 Zotero 中选择 Tools → Add-ons → 齿轮菜单 → Install Add-on From File…\n4. 选择下载的 .xpi 文件\n5. 重启 Zotero',
+    mono: false,
+  },
+];
 const SENSITIVE_URL = /[^\s"'<>]*((?:api_key|secretKey|secret_key)=)[^\s"'<>]*/gi;
 
 const providers = {
@@ -68,6 +76,7 @@ function providerAction(id, configured, applicationLinks) {
       href: providerApplyHref(id, applicationLinks),
       target: '_blank',
       rel: 'noreferrer',
+      variant: 'action-pill',
     };
   }
   return {
@@ -115,15 +124,17 @@ export function mapXpi(xpi) {
   }
   return {
     name: 'literature-metrics',
-    statusLabel: '点击下载',
+    statusLabel: '安装步骤',
     statusTone: 'verified',
     action: {
-      label: '下载',
+      label: '点击下载',
       href: XPI_RELEASES_HREF,
       target: '_blank',
       rel: 'noreferrer',
+      variant: 'action-pill',
     },
     evidence: fieldMark(XPI_EVIDENCE),
+    details: XPI_DETAILS,
   };
 }
 
@@ -174,10 +185,18 @@ export function renderDashboard(root, view, doc) {
       primary.className = 'row-primary';
       const name = documentRef.createElement('h3');
       setText(name, row.name);
-      const pill = documentRef.createElement('p');
+      const pills = documentRef.createElement('div');
+      pills.className = 'row-pills';
+      const hasDetails = Array.isArray(row.details) && row.details.length > 0;
+      const pill = documentRef.createElement(hasDetails ? 'button' : 'p');
       pill.className = `status status--${row.statusTone}`;
+      if (hasDetails) {
+        pill.type = 'button';
+        pill.setAttribute('type', 'button');
+        pill.setAttribute('aria-expanded', 'false');
+      }
       setText(pill, row.statusLabel);
-      primary.append(name, pill);
+      pills.append(pill);
 
       const evidence = documentRef.createElement('p');
       evidence.className = 'row-evidence';
@@ -185,7 +204,7 @@ export function renderDashboard(root, view, doc) {
 
       if (row.action?.href) {
         const link = documentRef.createElement('a');
-        link.className = 'row-action';
+        link.className = row.action.variant === 'action-pill' ? 'action-pill' : 'row-action';
         link.href = row.action.href;
         if (row.action.target) {
           link.target = row.action.target;
@@ -196,10 +215,35 @@ export function renderDashboard(root, view, doc) {
           link.setAttribute('rel', row.action.rel);
         }
         setText(link, row.action.label);
-        primary.append(link);
+        pills.append(link);
       }
 
+      primary.append(name, pills);
       article.append(primary, evidence);
+
+      if (hasDetails) {
+        const details = documentRef.createElement('details');
+        details.className = 'row-details';
+        const summary = documentRef.createElement('summary');
+        setText(summary, '完整步骤');
+        details.append(summary);
+        for (const item of row.details) {
+          const line = documentRef.createElement('p');
+          line.className = item.mono ? 'row-detail mono' : 'row-detail';
+          setText(line, `${item.label}：${item.value}`);
+          details.append(line);
+        }
+        const syncExpanded = () => {
+          pill.setAttribute('aria-expanded', details.open ? 'true' : 'false');
+        };
+        pill.addEventListener?.('click', () => {
+          details.open = !details.open;
+          syncExpanded();
+        });
+        details.addEventListener?.('toggle', syncExpanded);
+        article.append(details);
+      }
+
       list.append(article);
     }
 

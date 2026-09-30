@@ -125,7 +125,7 @@
   - **A.1** 凭证不显示校验：仍生效——标签为「凭证存在」+ 来源词，无「已校验」；`statusTone=verified` 仅为绿色 pill 视觉。
   - **A.2** 可选未配置不渲染故障：仍生效。
   - **A.3** 产物中性：工作台核心 section 已删除（API 端点保留 build_artifacts 字段）。
-  - **A.4** XPI 文案：「需要手动安装」→「点击下载」（语义未变）。
+  - **A.4** XPI 文案：「需要手动安装」→ 状态「安装步骤」（深绿 pill）+ action「点击下载」（浅绿 pill）。
   - **A.5** 宿主 ≠ MCP 已连接：客户端工具 section 已删除（API 端点保留 hosts 字段）。
   - **A.6** 缺字段 → 状态未知：状态视图已精简，凭证/XPI 缺字段时显示「状态未知」，不回退为成功。
   - **A.7** evidence 含字段来源标识：保留的 evidence（凭证 + XPI）由实际返回字段生成。
@@ -160,7 +160,7 @@
 | M2 跨平台 CI 基线 | [x] | M1 | Windows＋macOS＋Linux 三平台**全必过**（D9）；**CI 泄密扫描 job 必过（关联 G2，R13）** | node:test＋vitest＋typecheck＋产物/manifest 校验＋XPI check/package＋固定版本扫描 |
 | M3 配置核心复用层（状态/校验/私有写入抽包＋证据分级语义） | [x] | M1 | 新增/扩展单测全绿（含 D10 通路 mock 验证与脱敏测试）；`redactedStatus` schema 只增不改（additive，见 9.4 已决约束） | CLI 行为不变；网页与 CLI 共用核心 |
 | M4 本机网页配置向导（HTTP 管理路由＋配对码会话＋安全＋保存 keys） | [x] | M3 | 安全测试（配对码单次兑换、会话过期/重启失效、**GET/POST 全部会话门禁**、每次写操作 Origin/CSRF、日志/错误脱敏）＋保存流程测试全绿；人工浏览器验证通过 | loopback-only；OAuth/远程模式管理路由禁用 |
-| M5 配置状态看板（证据分级 UI） | [x] | M3 | 语义测试：无实测证据绝不显示“已连接”；**状态 API 未配对不可读**；人工核对 onboarding 页面内嵌状态视图与实际一致 | 精简后状态视图：仅凭证 + Zotero 插件（API 仍返回 build_artifacts / hosts / connections） |
+| M5 配置状态看板（证据分级 UI） | [x] | M3 | 语义测试：无实测证据绝不显示“已连接”；**状态 API 未配对不可读**；人工核对 onboarding 页面内嵌状态视图与实际一致 | 精简后状态视图：仅凭证 + Zotero 插件（API 仍返回 build_artifacts / hosts / connections）；视觉 pill 层级（深绿状态 / 浅绿操作） |
 | M6 文档、安装与兼容（多宿主＋XPI＋旧配置复用＋父仓不改声明） | [x] | M1, M4, M5 | 文档评审（隐私边界按 R12 三通路表述）；WorkBuddy 部分带“未实测”标注；Claude/Codex 安装路径回归（V13） | 父仓基线 diff 白名单验证（V10） |
 | M7 收尾验证与 Draft PR 转 Ready | [x] | M2–M6 | Validation contract 全项执行并留记录；自查/待决清单随 PR 提交 | **Draft PR 自 M1/M2 起持续更新，M7 只收尾**（修正 rev1 推迟开 PR 的错误） |
 
@@ -271,7 +271,7 @@
   - 依赖：T3.2, T4.1, T4.2
 - [x] T5.2 看板 UI
   - 文件：新仓 `runtime/src/public/onboarding/index.html` / `app.js`（状态视图整合到 onboarding 页面；`dashboard.html` / `dashboard.js` 已删除）
-  - 修改：精简后状态视图只渲染两分区：凭证（3 项，存在性＋来源；已配置绿色 pill、「重新申请」跳转申请 URL）、Zotero 插件（「点击下载」／「下载」跳转 GitHub Releases）。工作台核心 / 客户端工具 / agent 连接 section 已删除（API 仍返回 `build_artifacts` / `hosts` / `connections`，前端不渲染）
+  - 修改：精简后状态视图只渲染两分区：凭证（3 项，存在性＋来源；已配置深绿状态 pill「凭证存在」+ 浅绿操作 pill「重新申请」跳转申请 URL）、Zotero 插件（深绿状态 pill「安装步骤」可展开 details 完整下载与安装步骤；浅绿操作 pill「点击下载」跳转 GitHub Releases）。工作台核心 / 客户端工具 / agent 连接 section 已删除（API 仍返回 `build_artifacts` / `hosts` / `connections`，前端不渲染）
   - 验收：人工核对（V7）：每一行都带依据；四层级（存在/校验/产物/连接）视觉可区分；截图留档于 PR 描述
   - 依赖：T5.1
 - [x] T5.3 看板语义测试
