@@ -4,7 +4,7 @@
   "description": "A Zotero MCP for evidence workflows with auditable duplicate candidate detection.",
   "version": "0.1.0",
   "repository": {
-    "url": "https://github.com/Frankkk1912/Frank_AI4S_Skill",
+    "url": "https://github.com/Frankkk1912/ai4s-literature-workbench",
     "source": "github"
   },
   "packages": [

@@ -53,3 +53,8 @@ windows-acceptance*.json
 onboarding-result*.json
 onboarding-status*.json
 *.tgz
+
+# agent / dispatch artifacts (not project source)
+hermes.status
+pi.log
+*.status

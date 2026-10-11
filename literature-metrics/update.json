@@ -4,7 +4,7 @@
       "updates": [
         {
           "version": "0.1.13",
-          "update_link": "https://github.com/Frankkk1912/Frank_AI4S_Skill/releases/download/literature-metrics-v0.1.13/literature-metrics-0.1.13.xpi",
+          "update_link": "https://github.com/Frankkk1912/ai4s-literature-workbench/releases/download/literature-metrics-v0.1.13/literature-metrics-0.1.13.xpi",
           "applications": {
             "zotero": {
               "strict_min_version": "7.0",
