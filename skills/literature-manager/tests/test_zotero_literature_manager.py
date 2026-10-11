@@ -54,9 +54,9 @@ def plan_args(tmp: Path, snapshot: str = "zotero_items_unique_sample.json") -> a
         evidence=str(FIXTURES / "evidence_sample.json"),
         selection_json=str(FIXTURES / "selection_sample.json"),
         select_id=None,
-        project="gpld1-cvd",
+        project="example-gene-cvd",
         search_date="2026-07-12",
-        collection_name="GPLD1 cardiovascular disease",
+        collection_name="EXAMPLE-GENE cardiovascular disease",
         library_type="user",
         library_id="19552201",
         candidate_limit=50,
@@ -201,7 +201,7 @@ class TestImportPlanning(unittest.TestCase):
             plan = zlm.load_json(args.output)
             self.assertEqual(plan["summary"], {"selected": 2, "create": 1, "reuse": 1, "check": 0, "skip": 0})
             self.assertRegex(plan["plan_hash"], r"^sha256:[0-9a-f]{64}$")
-            self.assertEqual(plan["target"]["tags"], ["import-run:gpld1-cvd-20260712", "project:gpld1-cvd"])
+            self.assertEqual(plan["target"]["tags"], ["import-run:example-gene-cvd-20260712", "project:example-gene-cvd"])
             for action in plan["actions"]:
                 self.assertIn({"tag": "AI4S:ArticleType:Article"}, action["item"]["tags"])
 
@@ -283,7 +283,7 @@ class TestImportPlanning(unittest.TestCase):
             sidecar.write_text(json.dumps({
                 "schema_version": "1.0",
                 "artifact_type": "literature-priority-recommendations",
-                "scope": "gpld1-cvd",
+                "scope": "example-gene-cvd",
                 "review_depth": "abstract",
                 "default_for_selected": 1,
                 "recommendations": {
@@ -297,7 +297,7 @@ class TestImportPlanning(unittest.TestCase):
             args.priority_recommendations = str(sidecar)
             zlm.command_plan_import(args)
             plan = zlm.load_json(args.output)
-            self.assertEqual(plan["priority"]["scope"], "gpld1-cvd")
+            self.assertEqual(plan["priority"]["scope"], "example-gene-cvd")
             self.assertRegex(plan["priority"]["source_sha256"], r"^[0-9a-f]{64}$")
             explicit = next(action for action in plan["actions"] if action["evidence_id"].endswith("example.1"))
             defaulted = next(action for action in plan["actions"] if action["evidence_id"].endswith("example.2"))
@@ -320,7 +320,7 @@ class TestImportPlanning(unittest.TestCase):
             sidecar = tmp / "priority.json"
             sidecar.write_text(json.dumps({
                 "schema_version": "1.0", "artifact_type": "literature-priority-recommendations",
-                "scope": "gpld1-cvd", "review_depth": "abstract", "default_for_selected": 1,
+                "scope": "example-gene-cvd", "review_depth": "abstract", "default_for_selected": 1,
                 "recommendations": {"doi:10.1000/example.1": {"priority": 3, "reason_codes": ["core-conclusion"]}},
             }), encoding="utf-8")
             args = plan_args(tmp)

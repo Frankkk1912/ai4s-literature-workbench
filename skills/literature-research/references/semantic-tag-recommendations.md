@@ -30,7 +30,7 @@ vocabulary after import and decide `reuse` versus `new` before applying them.
   "schema_version": "1.0",
   "artifact_type": "literature-semantic-tag-candidates",
   "language": "en",
-  "scope": "gpld1-cvd",
+  "scope": "example-gene-cvd",
   "items": {
     "doi:10.1000/example": {
       "evidence_depth": "title-abstract",

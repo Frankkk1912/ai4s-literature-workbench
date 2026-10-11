@@ -58,3 +58,6 @@ onboarding-status*.json
 hermes.status
 pi.log
 *.status
+
+# internal planning documents (not published)
+plans/

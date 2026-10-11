@@ -3,8 +3,8 @@
   <title>ArXiv Query</title>
   <entry>
     <id>http://arxiv.org/abs/2301.01234v1</id>
-    <title>GPLD1 as a biomarker for cardiovascular risk assessment</title>
-    <summary>We propose GPLD1 as a novel biomarker for cardiovascular risk stratification. Analysis of patient cohorts reveals that circulating GPLD1 levels correlate with major adverse cardiac events.</summary>
+    <title>EXAMPLE-GENE as a biomarker for cardiovascular risk assessment</title>
+    <summary>We propose EXAMPLE-GENE as a novel biomarker for cardiovascular risk stratification. Analysis of patient cohorts reveals that circulating EXAMPLE-GENE levels correlate with major adverse cardiac events.</summary>
     <published>2023-01-15T00:00:00Z</published>
     <author><name>Chen Y</name></author>
     <author><name>Wang L</name></author>
