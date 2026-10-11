@@ -4,12 +4,12 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Express, NextFunction, Request, RequestHandler, Response } from 'express';
 import express from 'express';
-import {
-  loadOnboardingCore,
-  type OnboardingPaths,
-  type ProviderName,
-  type RedactedOnboardingStatus,
-} from '../lib/onboarding-core.js';
+import * as core from '../lib/onboarding-core.mjs';
+import type {
+  OnboardingPaths,
+  ProviderName,
+  RedactedOnboardingStatus,
+} from '../lib/onboarding-core.mjs';
 
 export const ADMIN_ONBOARDING_PREFIX = '/admin/onboarding';
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
@@ -185,7 +185,6 @@ function probeBuildArtifact(
 export async function createAdminOnboardingRouter(
   options: AdminOnboardingOptions = {},
 ): Promise<express.Router> {
-  const core = await loadOnboardingCore();
   const prefix = options.prefix ?? ADMIN_ONBOARDING_PREFIX;
   const pairingTtlMs = options.pairingTtlMs ?? 5 * 60_000;
   const sessionTtlMs = options.sessionTtlMs ?? 30 * 60_000;

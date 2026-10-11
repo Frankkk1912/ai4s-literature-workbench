@@ -47,8 +47,7 @@ test("packed runtime loads the onboarding core from inside the package", () => {
     const probe = join(consumer, "probe.mjs");
     writeFileSync(
       probe,
-      `const m = await import("literature-zotero-mcp/dist/lib/onboarding-core.js");
-       const c = await m.loadOnboardingCore();
+      `const c = await import("literature-zotero-mcp/dist/lib/onboarding-core.mjs");
        console.log(JSON.stringify({ ok: typeof c.verifyZoteroKey === "function" && typeof c.saveAcademicKey === "function" }));`,
     );
     // On failure, record what the consumer actually contains so a CI-only
