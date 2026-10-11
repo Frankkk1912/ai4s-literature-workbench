@@ -11,6 +11,7 @@ import {
 	writePrivateFile,
 } from "./credential-utils.mjs";
 
+import { scanZoteroAddon } from "./zotero-addon-status.mjs";
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const LEVELS = new Set(["unknown", "pending_manual", "verified"]);
 
@@ -27,6 +28,42 @@ export const ZOTERO_XPI_ONBOARDING = {
 		evidence: "Installation status was not verified in this milestone.",
 	},
 };
+
+// Map the read-only profile scan onto the existing evidence levels. A file that
+// is present and active proves installation, not that the add-on works, so the
+// highest level here is "pending_manual", never "verified".
+export function zoteroXpiStatus(scan = scanZoteroAddon()) {
+	const base = { ...ZOTERO_XPI_ONBOARDING };
+	if (scan.profileCount === 0) {
+		base.verification = {
+			level: "unknown",
+			evidence: "No Zotero profile was found on this machine, so the add-on cannot be checked here.",
+		};
+		return { ...base, profiles: scan.profiles };
+	}
+	const active = scan.profiles.filter((p) => p.state === "installed_active");
+	const unconfirmed = scan.profiles.filter((p) => p.state === "installed_unconfirmed");
+	const disabled = scan.profiles.filter((p) => p.evidence?.includes("disabled"));
+	let verification;
+	if (active.length > 0) {
+		verification = {
+			level: "pending_manual",
+			evidence: `Installed and active in ${active.length} of ${scan.profileCount} Zotero profile(s), from this repository. Whether it loads and works still needs a manual check in Zotero.`,
+		};
+	} else if (unconfirmed.length > 0) {
+		verification = {
+			level: "pending_manual",
+			evidence: `Found in ${unconfirmed.length} profile(s), but not confirmed: active from another source, or disabled. Reinstall the release XPI.`,
+		};
+	} else {
+		verification = {
+			level: "unknown",
+			evidence: `Not installed in any of the ${scan.profileCount} Zotero profile(s) found.`,
+		};
+	}
+	base.verification = verification;
+	return { ...base, profiles: scan.profiles };
+}
 
 export const PROVIDERS = {
 	zotero: {
@@ -291,7 +328,7 @@ export function redactedStatus(
 				provider.apply_url,
 			]),
 		),
-		zotero_desktop_xpi: ZOTERO_XPI_ONBOARDING,
+		zotero_desktop_xpi: zoteroXpiStatus(),
 		privacy: "No credential values are included in this report.",
 		build_artifacts: {
 			runtime: artifactStatus(repositoryRoot, "runtime/dist/index.js"),
