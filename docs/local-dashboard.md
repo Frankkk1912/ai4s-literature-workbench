@@ -6,9 +6,7 @@ and how strongly do we know that?” It does **not** run connection tests,
 自动轮询, or 自动连接测试.
 
 Wizard and pairing details: [`onboarding.md`](onboarding.md). XPI install:
-[`zotero-xpi.md`](zotero-xpi.md). Visual constraints summarized from D-scheme
-§1: `plans/m5-dashboard-visual-options-20260930.md` (review draft; do not copy
-its historical example data).
+[`zotero-xpi.md`](zotero-xpi.md). Visual constraints for the dashboard are listed in the section below.
 
 ## Where it appears
 
@@ -92,11 +90,10 @@ The status view is not a second pairing UI.
 
 Do not treat a 401 body as a screenshot of “all unconfigured”.
 
-## D-scheme §1 constraint index
+## Dashboard constraint index
 
-Source: `plans/m5-dashboard-visual-options-20260930.md` §1 (and §4 as the
-implementation direction). Historical A/B/C examples in that file are not
-data.
+The constraints are maintained in the code and tests
+(`tests/admin-http.test.mjs`, `tests/onboarding-status.test.mjs`), not in a separate planning document.
 
 1. Five sections as in T5.2 (凭证 / 工作台核心 / Zotero 插件 / 客户端工具 / agent 连接).
 2. Four evidence kinds are visually distinct by section name, object label,

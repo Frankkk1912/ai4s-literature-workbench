@@ -253,7 +253,7 @@ codex plugin add ai4s-literature-workbench@personal
 
 ## 附录 B 自查
 
-Plan 附录 B（rev4 规划期自查）存在于 `plans/20260928-literature-workbench-standalone-dashboard.md`。M7 按清单重核：
+规划期自查（rev4 附录 B）保存在维护者的本地记录中，不随仓库发布。M7 按清单重核：
 
 | 附录 B 项 | M7 结论 |
 | --- | --- |
