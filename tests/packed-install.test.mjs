@@ -12,6 +12,13 @@ const runtimeDir = resolve("runtime");
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 
 test("packed runtime loads the onboarding core from inside the package", () => {
+  // Build first: dist/ is not produced by npm ci, and the root test step runs
+  // before the workflow's runtime build. Without this the tarball has no dist.
+  execFileSync(npm, ["run", "build"], {
+    cwd: runtimeDir,
+    stdio: "ignore",
+    shell: process.platform === "win32",
+  });
   const work = mkdtempSync(join(tmpdir(), "packed-install-"));
   try {
     const packOut = execFileSync(npm, ["pack", "--pack-destination", work, "--silent"], {
