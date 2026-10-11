@@ -4,9 +4,9 @@
     <MedlineCitation>
       <PMID>12345678</PMID>
       <Article>
-        <ArticleTitle>GPLD1 regulates cardiac function in heart failure</ArticleTitle>
+        <ArticleTitle>EXAMPLE-GENE regulates cardiac function in heart failure</ArticleTitle>
         <Abstract>
-          <AbstractText>GPLD1 (phosphatidylinositol-glycan-specific phospholipase D) plays a critical role in cardiovascular disease. We show that GPLD1 expression is elevated in patients with heart failure and contributes to myocardial remodeling.</AbstractText>
+          <AbstractText>EXAMPLE-GENE (phosphatidylinositol-glycan-specific phospholipase D) plays a critical role in cardiovascular disease. We show that EXAMPLE-GENE expression is elevated in patients with heart failure and contributes to myocardial remodeling.</AbstractText>
         </Abstract>
         <Journal>
           <Title>Journal of Cardiovascular Research</Title>
@@ -24,7 +24,7 @@
         </PublicationTypeList>
       </Article>
       <MeshHeadingList>
-        <MeshHeading><DescriptorName>GPLD1 protein, human</DescriptorName></MeshHeading>
+        <MeshHeading><DescriptorName>EXAMPLE-GENE protein, human</DescriptorName></MeshHeading>
         <MeshHeading><DescriptorName>Heart Failure</DescriptorName></MeshHeading>
       </MeshHeadingList>
     </MedlineCitation>
@@ -39,9 +39,9 @@
     <MedlineCitation>
       <PMID>87654321</PMID>
       <Article>
-        <ArticleTitle>Exercise-induced GPLD1 secretion improves vascular health</ArticleTitle>
+        <ArticleTitle>Exercise-induced EXAMPLE-GENE secretion improves vascular health</ArticleTitle>
         <Abstract>
-          <AbstractText>Physical exercise promotes the secretion of GPLD1 from liver, which enhances vascular function through GPI-anchor cleavage. This mechanism may explain the cardiovascular benefits of exercise.</AbstractText>
+          <AbstractText>Physical exercise promotes the secretion of EXAMPLE-GENE from liver, which enhances vascular function through GPI-anchor cleavage. This mechanism may explain the cardiovascular benefits of exercise.</AbstractText>
         </Abstract>
         <Journal>
           <Title>Nature Medicine</Title>
@@ -61,7 +61,7 @@
         </PublicationTypeList>
       </Article>
       <MeshHeadingList>
-        <MeshHeading><DescriptorName>GPLD1 protein, human</DescriptorName></MeshHeading>
+        <MeshHeading><DescriptorName>EXAMPLE-GENE protein, human</DescriptorName></MeshHeading>
         <MeshHeading><DescriptorName>Exercise</DescriptorName></MeshHeading>
         <MeshHeading><DescriptorName>Vascular Dysfunction</DescriptorName></MeshHeading>
       </MeshHeadingList>

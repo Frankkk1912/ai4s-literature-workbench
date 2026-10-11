@@ -91,9 +91,9 @@ Create one reviewed import plan from explicitly selected stable evidence IDs:
 uv run literature-manager/scripts/zotero_literature_manager.py plan-import \
   --evidence ranked_all.json \
   --selection-json selection.json \
-  --project gpld1-cvd \
+  --project example-gene-cvd \
   --search-date 2026-07-12 \
-  --collection-name "GPLD1 cardiovascular disease" \
+  --collection-name "EXAMPLE-GENE cardiovascular disease" \
   --library-type user \
   --library-id 19552201 \
   --candidate-limit 50 \
@@ -107,9 +107,9 @@ Windows PowerShell equivalent:
 uv run literature-manager/scripts/zotero_literature_manager.py plan-import `
   --evidence ranked_all.json `
   --selection-json selection.json `
-  --project gpld1-cvd `
+  --project example-gene-cvd `
   --search-date 2026-07-12 `
-  --collection-name "GPLD1 cardiovascular disease" `
+  --collection-name "EXAMPLE-GENE cardiovascular disease" `
   --library-type user `
   --library-id 19552201 `
   --candidate-limit 50 `
@@ -196,9 +196,9 @@ Prepare a collection/tag/note sync plan:
 ```bash
 uv run literature-manager/scripts/zotero_literature_manager.py plan-sync \
   --matches zotero_match.json \
-  --project gpld1-cvd \
+  --project example-gene-cvd \
   --search-date 2026-07-10 \
-  --collection-name "GPLD1 cardiovascular disease" \
+  --collection-name "EXAMPLE-GENE cardiovascular disease" \
   --collection-key ABCD1234 \
   --tag domain:cardiovascular-disease \
   --output zotero_sync_plan.json

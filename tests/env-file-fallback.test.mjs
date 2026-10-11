@@ -14,8 +14,8 @@ import {
 
 test("historic ~/.config/ai4s-literature-workbench/zotero.env remains the legacy path", () => {
 	assert.equal(
-		legacyPrivateEnvFile("/Users/frank"),
-		"/Users/frank/.config/ai4s-literature-workbench/zotero.env",
+		legacyPrivateEnvFile("/Users/example"),
+		"/Users/example/.config/ai4s-literature-workbench/zotero.env",
 	);
 	assert.equal(
 		legacyPrivateEnvFile("C:\\Users\\Frank"),
@@ -25,8 +25,8 @@ test("historic ~/.config/ai4s-literature-workbench/zotero.env remains the legacy
 
 test("native private env paths stay platform-specific", () => {
 	assert.equal(
-		defaultPrivateEnvFile({}, "darwin", "/Users/frank"),
-		"/Users/frank/Library/Application Support/ai4s-literature-workbench/zotero.env",
+		defaultPrivateEnvFile({}, "darwin", "/Users/example"),
+		"/Users/example/Library/Application Support/ai4s-literature-workbench/zotero.env",
 	);
 	assert.equal(
 		defaultPrivateEnvFile(
@@ -37,7 +37,7 @@ test("native private env paths stay platform-specific", () => {
 		"C:\\Users\\Frank\\AppData\\Local\\ai4s-literature-workbench\\zotero.env",
 	);
 	assert.equal(
-		defaultPrivateEnvFile({ XDG_CONFIG_HOME: "/srv/config" }, "linux", "/home/frank"),
+		defaultPrivateEnvFile({ XDG_CONFIG_HOME: "/srv/config" }, "linux", "/home/example"),
 		"/srv/config/ai4s-literature-workbench/zotero.env",
 	);
 });
@@ -47,7 +47,7 @@ test("LITERATURE_ZOTERO_MCP_ENV_FILE overrides the interactive private env targe
 		preferredPrivateEnvFile(
 			{ LITERATURE_ZOTERO_MCP_ENV_FILE: "/secure/zotero.env" },
 			"darwin",
-			"/Users/frank",
+			"/Users/example",
 		),
 		"/secure/zotero.env",
 	);

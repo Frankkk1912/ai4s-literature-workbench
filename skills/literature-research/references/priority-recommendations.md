@@ -19,7 +19,7 @@ the decision but must not be converted mechanically into stars.
 {
   "schema_version": "1.0",
   "artifact_type": "literature-priority-recommendations",
-  "scope": "gpld1-cvd",
+  "scope": "example-gene-cvd",
   "review_depth": "abstract",
   "default_for_selected": 1,
   "recommendations": {

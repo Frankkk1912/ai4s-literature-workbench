@@ -82,8 +82,8 @@ For the usual literature search, use the single PubMed-first command:
 
 ```bash
 uv run literature-research/scripts/literature_search.py review \
-  --question "GPLD1 在心血管疾病中的作用" \
-  --pubmed-query "(GPLD1) AND (cardiovascular disease OR heart failure)" \
+  --question "EXAMPLE-GENE 在心血管疾病中的作用" \
+  --pubmed-query "(EXAMPLE-GENE) AND (cardiovascular disease OR heart failure)" \
   --limit 50 \
   --top-n 30 \
   --output literature_run
@@ -93,8 +93,8 @@ On Windows PowerShell, use PowerShell backticks for continuation:
 
 ```powershell
 uv run literature-research/scripts/literature_search.py review `
-  --question "GPLD1 在心血管疾病中的作用" `
-  --pubmed-query "(GPLD1) AND (cardiovascular disease OR heart failure)" `
+  --question "EXAMPLE-GENE 在心血管疾病中的作用" `
+  --pubmed-query "(EXAMPLE-GENE) AND (cardiovascular disease OR heart failure)" `
   --limit 50 `
   --top-n 30 `
   --output literature_run

@@ -372,7 +372,7 @@ def extract_candidate_terms(query: str) -> list[str]:
     extraction; use ``expand-query`` for LLM-assisted domain expansion.
     """
     terms: list[str] = []
-    # ASCII tokens: gene names, acronyms, identifiers (e.g. GPLD1, COVID-19)
+    # ASCII tokens: gene names, acronyms, identifiers (e.g. EXAMPLE-GENE, COVID-19)
     for token in re.findall(r"[A-Za-z][A-Za-z0-9-]{1,}", query):
         if token.lower() not in STOPWORDS and token not in terms:
             terms.append(token)

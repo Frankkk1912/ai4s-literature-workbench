@@ -176,7 +176,7 @@ no leaks found
 
 ## V10 — 父仓本轮无代码改动（基线 diff + 白名单）
 
-- Command: `cd /Users/frank/Documents/GitHub/Frank_AI4S_Skill && git status --porcelain && git diff --stat HEAD`
+- Command: `cd /Users/example/Documents/GitHub/Frank_AI4S_Skill && git status --porcelain && git diff --stat HEAD`
 - Result: **0 rows** status; **0 rows** diff
 - Parent HEAD: `9b70c30` (`9b70c30e79efd7352727d46dcb877cc968fc2e74`)
 - This round did not write any file under the parent tree.
