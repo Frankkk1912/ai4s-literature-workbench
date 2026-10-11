@@ -3,7 +3,7 @@
 // the runtime, installs the tarball into a clean project, and loads the bridge.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -24,11 +24,18 @@ test("packed runtime loads the onboarding core from inside the package", () => {
     const consumer = join(work, "consumer");
     execFileSync("node", ["-e", "require('fs').mkdirSync(process.argv[1],{recursive:true})", consumer]);
     writeFileSync(join(consumer, "package.json"), JSON.stringify({ name: "consumer", version: "0.0.0", type: "module" }));
-    execFileSync(npm, ["install", tgz, "--no-audit", "--no-fund"], {
+    // Capture npm's output instead of discarding it, so a failing install
+    // reports its real reason rather than a downstream "module not found".
+    const install = spawnSync(npm, ["install", tgz, "--no-audit", "--no-fund"], {
       cwd: consumer,
-      stdio: "ignore",
+      encoding: "utf8",
       shell: process.platform === "win32",
     });
+    assert.equal(
+      install.status,
+      0,
+      `npm install of the packed runtime failed (exit ${install.status}):\n${install.stdout}\n${install.stderr}`,
+    );
 
     const probe = join(consumer, "probe.mjs");
     writeFileSync(
