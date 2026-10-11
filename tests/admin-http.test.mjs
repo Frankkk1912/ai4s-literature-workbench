@@ -24,7 +24,7 @@ const { loadOnboardingCore } =
   await import("../runtime/dist/lib/onboarding-core.js");
 const { createMetrics } = await import("../runtime/dist/lib/metrics.js");
 const { startHttp } = await import("../runtime/dist/transports/http.js");
-const sharedCore = await import("../scripts/onboarding-core.mjs");
+const sharedCore = await import("../runtime/dist/lib/onboarding-core.mjs");
 
 const openServers = new Set();
 afterEach(async () => {

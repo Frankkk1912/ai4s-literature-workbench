@@ -21,7 +21,7 @@ import {
   updateEnvKey,
   writeJsonPrivate,
   writePrivateFile,
-} from './credential-utils.mjs';
+} from '../src/lib/credential-utils.mjs';
 
 const command = process.argv[2] ?? 'setup';
 const ACADEMIC_RESEARCH_CONFIG_FILE = defaultAcademicResearchConfigFile();

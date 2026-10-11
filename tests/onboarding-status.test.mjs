@@ -14,7 +14,7 @@ import {
   renderDashboard,
   serializeRendered,
 } from "../runtime/src/public/onboarding/app.js";
-import { maskKey, redactedStatus } from "../scripts/onboarding-core.mjs";
+import { maskKey, redactedStatus } from "../runtime/src/lib/onboarding-core.mjs";
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 execFileSync(npmCommand, ["run", "build"], {

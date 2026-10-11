@@ -20,7 +20,7 @@ import {
 	verifyEasyScholarKey,
 	verifyPubmedKey,
 	verifyZoteroKey,
-} from "../scripts/onboarding-core.mjs";
+} from "../runtime/src/lib/onboarding-core.mjs";
 
 function temporaryPaths(prefix = "ai4s-onboarding-core-") {
 	const root = mkdtempSync(join(tmpdir(), prefix));
