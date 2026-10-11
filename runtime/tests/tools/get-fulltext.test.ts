@@ -77,7 +77,7 @@ describe('zotero_get_fulltext', () => {
     const sc = res.structuredContent as any;
     expect(sc.pageSource).toBe('approximate');
     expect(sc.notice).toMatch(/precise|exact|approx/i);
-  });
+  }, 30_000); // first pdfjs load is slow on Windows runners; default 5s is too tight
 
   it('skips precise_pages re-extraction (no download) for an oversized PDF — OOM guard', async () => {
     const big = 50 * 1024 * 1024; // 50 MB > the 20 MB re-extraction cap

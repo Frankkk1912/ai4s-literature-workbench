@@ -3,7 +3,7 @@
     {
       "id": "EV1",
       "source": "pubmed",
-      "title": "GPLD1 regulates cardiovascular aging through phospholipid remodeling",
+      "title": "EXAMPLE-GENE regulates cardiovascular aging through phospholipid remodeling",
       "doi": "10.1000/example.1",
       "pmid": "12345678",
       "authors": ["Smith J", "Zhang W"],
@@ -11,7 +11,7 @@
       "article_types": ["Journal Article"],
       "date": "2024",
       "score": 91,
-      "conclusion": "GPLD1 was associated with age-linked cardiovascular remodeling in the tested model."
+      "conclusion": "EXAMPLE-GENE was associated with age-linked cardiovascular remodeling in the tested model."
     },
     {
       "id": "EV2",

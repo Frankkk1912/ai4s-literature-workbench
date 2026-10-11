@@ -63,20 +63,20 @@ test("onboardingPaths covers win32, darwin, linux, and explicit overrides", () =
 		),
 	);
 
-	const darwin = onboardingPaths({}, "darwin", "/Users/frank");
+	const darwin = onboardingPaths({}, "darwin", "/Users/example");
 	assert.equal(
 		darwin.zoteroEnv,
-		"/Users/frank/Library/Application Support/ai4s-literature-workbench/zotero.env",
+		"/Users/example/Library/Application Support/ai4s-literature-workbench/zotero.env",
 	);
 	assert.equal(
 		darwin.academicConfig,
-		"/Users/frank/.config/frank-ai4s/academic-research.json",
+		"/Users/example/.config/frank-ai4s/academic-research.json",
 	);
 
 	const linux = onboardingPaths(
 		{ XDG_CONFIG_HOME: "/srv/config" },
 		"linux",
-		"/home/frank",
+		"/home/example",
 	);
 	assert.equal(
 		linux.zoteroEnv,
@@ -94,7 +94,7 @@ test("onboardingPaths covers win32, darwin, linux, and explicit overrides", () =
 			AI4S_ONBOARDING_STATE_FILE: "/private/onboarding.json",
 		},
 		"linux",
-		"/home/frank",
+		"/home/example",
 	);
 	assert.equal(overridden.zoteroEnv, "/private/zotero.env");
 	assert.equal(overridden.academicConfig, "/private/academic.json");

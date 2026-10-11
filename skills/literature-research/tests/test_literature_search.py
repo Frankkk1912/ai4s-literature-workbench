@@ -65,31 +65,31 @@ class TestDetectYearRange(unittest.TestCase):
         self.assertEqual(result, {"start_year": 2019, "end_year": 2024})
 
     def test_no_range(self) -> None:
-        self.assertIsNone(ls.detect_year_range("GPLD1 cardiovascular disease"))
+        self.assertIsNone(ls.detect_year_range("EXAMPLE-GENE cardiovascular disease"))
 
 
 class TestExtractCandidateTerms(unittest.TestCase):
     def test_ascii_terms(self) -> None:
-        result = ls.extract_candidate_terms("GPLD1 in cardiovascular disease")
-        self.assertIn("GPLD1", result)
+        result = ls.extract_candidate_terms("EXAMPLE-GENE in cardiovascular disease")
+        self.assertIn("EXAMPLE-GENE", result)
         self.assertNotIn("in", result)  # stopword
 
     def test_cjk_terms(self) -> None:
-        result = ls.extract_candidate_terms("检索GPLD1在心血管疾病中的作用")
-        self.assertIn("GPLD1", result)
+        result = ls.extract_candidate_terms("检索EXAMPLE-GENE在心血管疾病中的作用")
+        self.assertIn("EXAMPLE-GENE", result)
         # CJK extraction captures continuous runs (no dictionary segmentation)
         self.assertIn("检索", result)
         self.assertIn("在心血管疾病中的作用", result)
 
     def test_mixed_terms(self) -> None:
-        result = ls.extract_candidate_terms("过去五年GPLD1在心肌病和心衰中的作用")
-        self.assertIn("GPLD1", result)
+        result = ls.extract_candidate_terms("过去五年EXAMPLE-GENE在心肌病和心衰中的作用")
+        self.assertIn("EXAMPLE-GENE", result)
         # CJK runs are captured as continuous chunks; expand-query handles domain splitting
         self.assertTrue(any("心肌病" in term for term in result))
 
     def test_no_duplicates(self) -> None:
-        result = ls.extract_candidate_terms("GPLD1 GPLD1")
-        self.assertEqual(result.count("GPLD1"), 1)
+        result = ls.extract_candidate_terms("EXAMPLE-GENE EXAMPLE-GENE")
+        self.assertEqual(result.count("EXAMPLE-GENE"), 1)
 
 
 class TestNormalizeISSN(unittest.TestCase):
@@ -117,11 +117,11 @@ class TestParsePubMedXML(unittest.TestCase):
     def test_first_record_fields(self) -> None:
         rec = self.records[0]
         self.assertEqual(rec["id"], "12345678")
-        self.assertIn("GPLD1", rec["title"])
+        self.assertIn("EXAMPLE-GENE", rec["title"])
         self.assertEqual(rec["year"], 2023)
         self.assertEqual(rec["doi"], "10.1234/jcr.2023.001")
         self.assertIn("1234-5679", rec["issns"])
-        self.assertIn("GPLD1 protein, human", rec["mesh_terms"])
+        self.assertIn("EXAMPLE-GENE protein, human", rec["mesh_terms"])
         self.assertIn("Heart Failure", rec["mesh_terms"])
 
     def test_second_record_review(self) -> None:
@@ -140,7 +140,7 @@ class TestParseArxivXML(unittest.TestCase):
     def test_record_fields(self) -> None:
         rec = self.records[0]
         self.assertEqual(rec["id"], "2301.01234v1")
-        self.assertIn("GPLD1", rec["title"])
+        self.assertIn("EXAMPLE-GENE", rec["title"])
         self.assertEqual(rec["year"], 2023)
         self.assertEqual(rec["source"], "arxiv")
         self.assertIn("preprint", rec["article_types"])
@@ -151,7 +151,7 @@ class TestNormalizeWosExportRecord(unittest.TestCase):
         rows = ls.read_delimited_rows(FIXTURES / "wos_sample.tsv")
         self.assertEqual(len(rows), 1)
         record = ls.normalize_wos_export_record(rows[0])
-        self.assertIn("GPLD1", record["title"])
+        self.assertIn("EXAMPLE-GENE", record["title"])
         self.assertEqual(record["year"], 2024)
         self.assertEqual(record["doi"], "10.1161/CIRCRES.2024.001")
         self.assertIn("0009-7330", record["issns"])
@@ -200,8 +200,8 @@ class TestDeduplicate(unittest.TestCase):
 
     def test_title_dedup(self) -> None:
         records = [
-            {"doi": "", "title": "A Study of GPLD1", "source": "pubmed"},
-            {"doi": "", "title": "A Study of GPLD1", "source": "arxiv"},
+            {"doi": "", "title": "A Study of EXAMPLE-GENE", "source": "pubmed"},
+            {"doi": "", "title": "A Study of EXAMPLE-GENE", "source": "arxiv"},
         ]
         result = ls.deduplicate(records)
         self.assertEqual(len(result), 1)
@@ -217,60 +217,60 @@ class TestDeduplicate(unittest.TestCase):
 
 class TestScoreRecord(unittest.TestCase):
     def test_title_match(self) -> None:
-        record = {"title": "GPLD1 in heart disease", "abstract": "", "mesh_terms": [], "doi": "", "article_types": [], "year": 2023}
-        result = ls.score_record(record, ["GPLD1"])
-        self.assertIn("title matches 'GPLD1'", result["score_reasons"])
+        record = {"title": "EXAMPLE-GENE in heart disease", "abstract": "", "mesh_terms": [], "doi": "", "article_types": [], "year": 2023}
+        result = ls.score_record(record, ["EXAMPLE-GENE"])
+        self.assertIn("title matches 'EXAMPLE-GENE'", result["score_reasons"])
         self.assertEqual(result["score"], 6.0 + 2.0)  # title + recency(5yr)
 
     def test_abstract_match(self) -> None:
-        record = {"title": "Heart disease", "abstract": "GPLD1 expression is elevated", "mesh_terms": [], "doi": "", "article_types": [], "year": 2020}
-        result = ls.score_record(record, ["GPLD1"])
-        self.assertIn("abstract matches 'GPLD1'", result["score_reasons"])
+        record = {"title": "Heart disease", "abstract": "EXAMPLE-GENE expression is elevated", "mesh_terms": [], "doi": "", "article_types": [], "year": 2020}
+        result = ls.score_record(record, ["EXAMPLE-GENE"])
+        self.assertIn("abstract matches 'EXAMPLE-GENE'", result["score_reasons"])
 
     def test_mesh_match(self) -> None:
-        record = {"title": "Study", "abstract": "Findings", "mesh_terms": ["GPLD1 protein, human"], "doi": "", "article_types": [], "year": 2020}
-        result = ls.score_record(record, ["GPLD1"])
-        self.assertIn("MeSH matches 'GPLD1'", result["score_reasons"])
+        record = {"title": "Study", "abstract": "Findings", "mesh_terms": ["EXAMPLE-GENE protein, human"], "doi": "", "article_types": [], "year": 2020}
+        result = ls.score_record(record, ["EXAMPLE-GENE"])
+        self.assertIn("MeSH matches 'EXAMPLE-GENE'", result["score_reasons"])
 
     def test_review_bonus(self) -> None:
         record = {"title": "Review", "abstract": "", "mesh_terms": [], "doi": "10.1/r", "article_types": ["Review"], "year": 2023}
-        result = ls.score_record(record, ["GPLD1"])
+        result = ls.score_record(record, ["EXAMPLE-GENE"])
         self.assertIn("review article", result["score_reasons"])
 
     def test_citation_weight_none(self) -> None:
-        record = {"title": "GPLD1 study", "abstract": "", "mesh_terms": [], "doi": "", "article_types": [], "year": 2023,
+        record = {"title": "EXAMPLE-GENE study", "abstract": "", "mesh_terms": [], "doi": "", "article_types": [], "year": 2023,
                   "citation": {"provider": "semantic-scholar", "citation_count": 100, "influential_citation_count": 10}}
-        result = ls.score_record(record, ["GPLD1"], citation_weight="none")
+        result = ls.score_record(record, ["EXAMPLE-GENE"], citation_weight="none")
         # Citation count should appear in reasons but NOT change score
         self.assertIn("citation count: 100 (not weighted)", result["score_reasons"])
         self.assertEqual(result["score"], 6.0 + 2.0)  # title + recency only
 
     def test_citation_weight_log(self) -> None:
-        record = {"title": "GPLD1 study", "abstract": "", "mesh_terms": [], "doi": "", "article_types": [], "year": 2023,
+        record = {"title": "EXAMPLE-GENE study", "abstract": "", "mesh_terms": [], "doi": "", "article_types": [], "year": 2023,
                   "citation": {"provider": "semantic-scholar", "citation_count": 99, "influential_citation_count": 5}}
-        result = ls.score_record(record, ["GPLD1"], citation_weight="log")
+        result = ls.score_record(record, ["EXAMPLE-GENE"], citation_weight="log")
         import math
         expected_bonus = min(5.0, math.log10(99 + 1))
         self.assertAlmostEqual(result["score"], 6.0 + 2.0 + round(expected_bonus, 2), places=1)
         self.assertTrue(any("citation count log-scaled" in r for r in result["score_reasons"]))
 
     def test_citation_weight_bucket_high(self) -> None:
-        record = {"title": "GPLD1 study", "abstract": "", "mesh_terms": [], "doi": "", "article_types": [], "year": 2023,
+        record = {"title": "EXAMPLE-GENE study", "abstract": "", "mesh_terms": [], "doi": "", "article_types": [], "year": 2023,
                   "citation": {"provider": "semantic-scholar", "citation_count": 100, "influential_citation_count": 15}}
-        result = ls.score_record(record, ["GPLD1"], citation_weight="bucket")
+        result = ls.score_record(record, ["EXAMPLE-GENE"], citation_weight="bucket")
         # influential >= 10 → +3, citations >= 50 → +2
         self.assertEqual(result["score"], 6.0 + 2.0 + 3.0 + 2.0)
 
     def test_citation_weight_bucket_medium(self) -> None:
-        record = {"title": "GPLD1 study", "abstract": "", "mesh_terms": [], "doi": "", "article_types": [], "year": 2023,
+        record = {"title": "EXAMPLE-GENE study", "abstract": "", "mesh_terms": [], "doi": "", "article_types": [], "year": 2023,
                   "citation": {"provider": "semantic-scholar", "citation_count": 30, "influential_citation_count": 3}}
-        result = ls.score_record(record, ["GPLD1"], citation_weight="bucket")
+        result = ls.score_record(record, ["EXAMPLE-GENE"], citation_weight="bucket")
         # citations >= 10 → +1, no influential bonus
         self.assertEqual(result["score"], 6.0 + 2.0 + 1.0)
 
     def test_citation_weight_no_data(self) -> None:
-        record = {"title": "GPLD1 study", "abstract": "", "mesh_terms": [], "doi": "", "article_types": [], "year": 2023}
-        result = ls.score_record(record, ["GPLD1"], citation_weight="log")
+        record = {"title": "EXAMPLE-GENE study", "abstract": "", "mesh_terms": [], "doi": "", "article_types": [], "year": 2023}
+        result = ls.score_record(record, ["EXAMPLE-GENE"], citation_weight="log")
         # Should not crash; should note unavailable
         self.assertTrue(any("unavailable" in r for r in result["score_reasons"]))
 
@@ -330,8 +330,8 @@ class TestMergeRankEndToEnd(unittest.TestCase):
         # Re-score and re-rank
         scored = [ls.score_record(dict(r), terms) for r in records]
         scored.sort(key=lambda r: r["score"], reverse=True)
-        # Top record should have GPLD1 in title
-        self.assertIn("GPLD1", scored[0]["title"])
+        # Top record should have EXAMPLE-GENE in title
+        self.assertIn("EXAMPLE-GENE", scored[0]["title"])
 
 
 class TestRenderReport(unittest.TestCase):
@@ -344,7 +344,7 @@ class TestRenderReport(unittest.TestCase):
         try:
             args = type("Args", (), {
                 "ranked_json": str(FIXTURES / "ranked_sample.json"),
-                "question": "GPLD1 in cardiovascular disease",
+                "question": "EXAMPLE-GENE in cardiovascular disease",
                 "top_n": 5,
                 "output": tmp_path,
             })()
@@ -491,14 +491,14 @@ class TestExtractConclusions(unittest.TestCase):
             "task": "extract core conclusions",
             "items": [
                 {"rank": 1, "id": "12345678", "doi": "10.1234/jcr.2023.001",
-                 "title": "GPLD1 regulates cardiac function",
+                 "title": "EXAMPLE-GENE regulates cardiac function",
                  "abstract": "...",
-                 "core_conclusion": "GPLD1 is elevated in heart failure",
+                 "core_conclusion": "EXAMPLE-GENE is elevated in heart failure",
                  "method": "cohort", "confidence": "high"},
                 {"rank": 2, "id": "2301.01234v1", "doi": "10.1101/2023.01.01234",
-                 "title": "GPLD1 as a biomarker",
+                 "title": "EXAMPLE-GENE as a biomarker",
                  "abstract": "...",
-                 "core_conclusion": "GPLD1 correlates with adverse cardiac events",
+                 "core_conclusion": "EXAMPLE-GENE correlates with adverse cardiac events",
                  "method": "computational", "confidence": "medium"},
             ],
         }
@@ -519,7 +519,7 @@ class TestExtractConclusions(unittest.TestCase):
             records = result["records"]
             # First two should have conclusions
             rec1 = next(r for r in records if r.get("id") == "12345678")
-            self.assertEqual(rec1["core_conclusion"], "GPLD1 is elevated in heart failure")
+            self.assertEqual(rec1["core_conclusion"], "EXAMPLE-GENE is elevated in heart failure")
             self.assertEqual(rec1["method"], "cohort")
             self.assertEqual(rec1["confidence"], "high")
             self.assertEqual(rec1["conclusion_source"], "abstract-level")
@@ -537,8 +537,8 @@ class TestExpandQuery(unittest.TestCase):
 
     def test_scaffold_mode(self) -> None:
         plan = {
-            "question": "检索过去五年GPLD1在心血管疾病中的作用",
-            "core_terms": ["GPLD1"],
+            "question": "检索过去五年EXAMPLE-GENE在心血管疾病中的作用",
+            "core_terms": ["EXAMPLE-GENE"],
             "expanded_terms": [],
             "exclude_terms": [],
             "constraints": {"year_range": {"start_year": 2022, "end_year": 2026}},
@@ -557,7 +557,7 @@ class TestExpandQuery(unittest.TestCase):
             ls.command_expand_query(args)
             scaffold = ls.load_json(output_path)
             self.assertEqual(scaffold["task"], "expand query terms")
-            self.assertIn("GPLD1", scaffold["current_core_terms"])
+            self.assertIn("EXAMPLE-GENE", scaffold["current_core_terms"])
             self.assertIn("expansion", scaffold)
             self.assertIn("instructions", scaffold)
         finally:
@@ -566,15 +566,15 @@ class TestExpandQuery(unittest.TestCase):
 
     def test_apply_mode(self) -> None:
         plan = {
-            "question": "GPLD1 in cardiovascular disease",
-            "core_terms": ["GPLD1"],
+            "question": "EXAMPLE-GENE in cardiovascular disease",
+            "core_terms": ["EXAMPLE-GENE"],
             "expanded_terms": [],
             "exclude_terms": [],
             "mesh_terms": [],
             "constraints": {"year_range": {"start_year": 2022, "end_year": 2026}},
-            "pubmed_query": "(GPLD1)",
-            "arxiv_query": "GPLD1",
-            "wos_query": "TS=((GPLD1))",
+            "pubmed_query": "(EXAMPLE-GENE)",
+            "arxiv_query": "EXAMPLE-GENE",
+            "wos_query": "TS=((EXAMPLE-GENE))",
         }
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as tmp:
             json.dump(plan, tmp)
@@ -584,8 +584,8 @@ class TestExpandQuery(unittest.TestCase):
         scaffold_data = {
             "task": "expand query terms",
             "expansion": {
-                "synonyms": ["Gpld1", "phosphatidylinositol-glycan-specific phospholipase D"],
-                "mesh_terms": ["GPLD1 protein, human", "Cardiovascular Diseases"],
+                "synonyms": ["Example-gene", "phosphatidylinositol-glycan-specific phospholipase D"],
+                "mesh_terms": ["EXAMPLE-GENE protein, human", "Cardiovascular Diseases"],
                 "related_diseases": ["heart failure", "myocardial infarction", "cardiomyopathy"],
                 "exclusions": ["mouse"],
                 "organism": "human",
@@ -604,7 +604,7 @@ class TestExpandQuery(unittest.TestCase):
             ls.command_expand_query(args)
             result = ls.load_json(output_path)
             # Check expanded terms
-            self.assertIn("GPLD1", result["expanded_terms"])
+            self.assertIn("EXAMPLE-GENE", result["expanded_terms"])
             self.assertIn("heart failure", result["expanded_terms"])
             self.assertIn("cardiomyopathy", result["expanded_terms"])
             # Check exclusions
@@ -626,23 +626,23 @@ class TestExpandQuery(unittest.TestCase):
 
 class TestBuildPubMedQuery(unittest.TestCase):
     def test_basic_terms(self) -> None:
-        result = ls._build_pubmed_query(["GPLD1", "heart failure"])
-        self.assertEqual(result, "(GPLD1) AND (heart failure)")
+        result = ls._build_pubmed_query(["EXAMPLE-GENE", "heart failure"])
+        self.assertEqual(result, "(EXAMPLE-GENE) AND (heart failure)")
 
     def test_with_mesh(self) -> None:
-        result = ls._build_pubmed_query(["GPLD1"], mesh_terms=["Cardiovascular Diseases"])
+        result = ls._build_pubmed_query(["EXAMPLE-GENE"], mesh_terms=["Cardiovascular Diseases"])
         self.assertIn('"Cardiovascular Diseases"[MeSH Terms]', result)
 
     def test_with_organism(self) -> None:
-        result = ls._build_pubmed_query(["GPLD1"], organism="human")
+        result = ls._build_pubmed_query(["EXAMPLE-GENE"], organism="human")
         self.assertIn('"human"[Organism]', result)
 
     def test_with_year_range(self) -> None:
-        result = ls._build_pubmed_query(["GPLD1"], constraints={"year_range": {"start_year": 2022, "end_year": 2026}})
+        result = ls._build_pubmed_query(["EXAMPLE-GENE"], constraints={"year_range": {"start_year": 2022, "end_year": 2026}})
         self.assertIn('"2022:2026"[dp]', result)
 
     def test_with_exclusions(self) -> None:
-        result = ls._build_pubmed_query(["GPLD1"], exclude_terms=["mouse"])
+        result = ls._build_pubmed_query(["EXAMPLE-GENE"], exclude_terms=["mouse"])
         self.assertIn('NOT "mouse"', result)
 
 
@@ -661,7 +661,7 @@ class TestReportWithConclusions(unittest.TestCase):
         try:
             args = type("Args", (), {
                 "ranked_json": input_path,
-                "question": "GPLD1 cardiovascular",
+                "question": "EXAMPLE-GENE cardiovascular",
                 "top_n": 5,
                 "output": output_path,
             })()
@@ -679,7 +679,7 @@ class TestWorkflowPlanning(unittest.TestCase):
         record = {
             "source": "pubmed",
             "id": "1",
-            "title": "GPLD1 evidence",
+            "title": "EXAMPLE-GENE evidence",
             "abstract": "Evidence abstract.",
             "authors": ["A Author"],
             "year": 2025,
@@ -699,8 +699,8 @@ class TestWorkflowPlanning(unittest.TestCase):
             ls, "command_enrich_citations"
         ) as citations, patch.object(ls, "command_enrich_journal_metrics") as metrics:
             args = type("Args", (), {
-                "question": "GPLD1 cardiovascular disease",
-                "pubmed_query": "GPLD1 AND cardiovascular",
+                "question": "EXAMPLE-GENE cardiovascular disease",
+                "pubmed_query": "EXAMPLE-GENE AND cardiovascular",
                 "limit": 20,
                 "top_n": 10,
                 "output": output_dir,
@@ -727,7 +727,7 @@ class TestWorkflowPlanning(unittest.TestCase):
                 {"search_plan.json", "ranked_all.json", "ranked_all.csv", "report.md"},
             )
             plan = ls.load_json(Path(output_dir) / "search_plan.json")
-            self.assertEqual(plan["pubmed_query"], "GPLD1 AND cardiovascular")
+            self.assertEqual(plan["pubmed_query"], "EXAMPLE-GENE AND cardiovascular")
             self.assertEqual(plan["source_routing"]["enabled"], ["pubmed"])
             self.assertEqual(plan["limits"], {"per_source_retrieval": 20, "ranked_top_n": 10})
             source_summary = ls.load_json(Path(output_dir) / "ranked_all.json")["sources"][0]
@@ -800,8 +800,8 @@ class TestWorkflowPlanning(unittest.TestCase):
         with tempfile.TemporaryDirectory() as parent:
             output_dir = Path(parent) / "review"
             args = type("Args", (), {
-                "question": "GPLD1",
-                "pubmed_query": "GPLD1",
+                "question": "EXAMPLE-GENE",
+                "pubmed_query": "EXAMPLE-GENE",
                 "limit": 5,
                 "top_n": 5,
                 "output": str(output_dir),
@@ -831,7 +831,7 @@ class TestWorkflowPlanning(unittest.TestCase):
         record = {
             "source": "pubmed",
             "id": "1",
-            "title": "GPLD1 evidence",
+            "title": "EXAMPLE-GENE evidence",
             "abstract": "Evidence abstract.",
             "authors": ["A Author"],
             "year": 2025,
@@ -851,8 +851,8 @@ class TestWorkflowPlanning(unittest.TestCase):
             ls, "command_enrich_easyscholar"
         ) as easyscholar:
             args = type("Args", (), {
-                "question": "GPLD1 cardiovascular disease",
-                "pubmed_query": "GPLD1 AND cardiovascular",
+                "question": "EXAMPLE-GENE cardiovascular disease",
+                "pubmed_query": "EXAMPLE-GENE AND cardiovascular",
                 "limit": 20,
                 "top_n": 10,
                 "output": output_dir,
@@ -898,7 +898,7 @@ class TestWorkflowPlanning(unittest.TestCase):
             output_path = tmp.name
         try:
             args = type("Args", (), {
-                "question": "GPLD1 in cardiovascular disease",
+                "question": "EXAMPLE-GENE in cardiovascular disease",
                 "targets": "PubMed arXiv",
                 "limit": 25,
                 "top_n": 10,
@@ -930,7 +930,7 @@ class TestWorkflowPlanning(unittest.TestCase):
             output_path = Path(tmpdir) / "workflow.json"
             args = ls.build_parser().parse_args([
                 "workflow-plan",
-                "--question", "GPLD1 cardiovascular disease",
+                "--question", "EXAMPLE-GENE cardiovascular disease",
                 "--targets", "PubMed arXiv",
                 "--limit", "10",
                 "--top-n", "5",
@@ -961,8 +961,8 @@ class TestWorkflowPlanning(unittest.TestCase):
             output_path = Path(tmpdir) / "pubmed-workflow.json"
             args = ls.build_parser().parse_args([
                 "pubmed-review-workflow",
-                "--question", "GPLD1 cardiovascular disease",
-                "--core-query", "GPLD1 AND cardiovascular",
+                "--question", "EXAMPLE-GENE cardiovascular disease",
+                "--core-query", "EXAMPLE-GENE AND cardiovascular",
                 "--limit", "10",
                 "--top-n", "5",
                 "--journal-metrics", "journal_metrics.csv",
@@ -1019,7 +1019,7 @@ class TestWorkflowPlanning(unittest.TestCase):
             parser = ls.build_parser()
             args = parser.parse_args([
                 "workflow-plan",
-                "--question", "GPLD1",
+                "--question", "EXAMPLE-GENE",
                 "--targets", "PubMed",
                 "--limit", "10",
                 "--journal-metrics", "journal_metrics.csv",
@@ -1042,8 +1042,8 @@ class TestWorkflowPlanning(unittest.TestCase):
             self.assertNotIn("--easyscholar-api-key", serialized)
             pubmed_args = parser.parse_args([
                 "pubmed-review-workflow",
-                "--question", "GPLD1",
-                "--core-query", "GPLD1",
+                "--question", "EXAMPLE-GENE",
+                "--core-query", "EXAMPLE-GENE",
                 "--limit", "10",
                 "--output", str(Path(tmpdir) / "pubmed.json"),
             ])
@@ -1051,7 +1051,7 @@ class TestWorkflowPlanning(unittest.TestCase):
 
     def test_workflow_plan_rejects_quality_filters_without_metrics(self) -> None:
         args = type("Args", (), {
-            "question": "GPLD1",
+            "question": "EXAMPLE-GENE",
             "targets": "PubMed",
             "limit": 25,
             "top_n": 10,
@@ -1071,8 +1071,8 @@ class TestWorkflowPlanning(unittest.TestCase):
             output_path = tmp.name
         try:
             args = type("Args", (), {
-                "question": "GPLD1 cardiovascular",
-                "core_query": "(GPLD1) AND (cardiovascular disease)",
+                "question": "EXAMPLE-GENE cardiovascular",
+                "core_query": "(EXAMPLE-GENE) AND (cardiovascular disease)",
                 "limit": 50,
                 "top_n": 20,
                 "journal_metrics": "journal_metrics.csv",
@@ -1125,7 +1125,7 @@ class TestWorkflowPlanning(unittest.TestCase):
             output_path = tmp.name
         try:
             args = type("Args", (), {
-                "question": "GPLD1",
+                "question": "EXAMPLE-GENE",
                 "targets": "PubMed",
                 "limit": 25,
                 "top_n": 10,
@@ -1195,7 +1195,7 @@ class TestWorkflowPlanning(unittest.TestCase):
         output_path = filter_path + ".query.json"
         try:
             args = type("Args", (), {
-                "core_query": "(GPLD1)",
+                "core_query": "(EXAMPLE-GENE)",
                 "filter_json": filter_path,
                 "filter_field": "pubmed_combined_query",
                 "output": output_path,
@@ -1203,18 +1203,18 @@ class TestWorkflowPlanning(unittest.TestCase):
             })()
             ls.command_compose_pubmed_query(args)
             result = ls.load_json(output_path)
-            self.assertEqual(result["pubmed_query"], '((GPLD1)) AND (("1234-5678"[ISSN]))')
+            self.assertEqual(result["pubmed_query"], '((EXAMPLE-GENE)) AND (("1234-5678"[ISSN]))')
         finally:
             Path(filter_path).unlink(missing_ok=True)
             Path(output_path).unlink(missing_ok=True)
 
     def test_resolve_pubmed_query_from_json(self) -> None:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as tmp:
-            json.dump({"pubmed_query": "(GPLD1)"}, tmp)
+            json.dump({"pubmed_query": "(EXAMPLE-GENE)"}, tmp)
             query_path = tmp.name
         try:
             args = type("Args", (), {"query": None, "query_json": query_path, "query_field": "pubmed_query"})()
-            self.assertEqual(ls.resolve_pubmed_query(args), "(GPLD1)")
+            self.assertEqual(ls.resolve_pubmed_query(args), "(EXAMPLE-GENE)")
         finally:
             Path(query_path).unlink(missing_ok=True)
 

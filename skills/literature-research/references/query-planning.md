@@ -121,7 +121,7 @@ with MeSH terms for a tighter second pass:
 uv run literature-research/scripts/literature_search.py journal-filter-query \
   --journal-metrics journal_metrics.csv \
   --cas-zones 1区 2区 \
-  --mesh-terms "GPLD1 protein, human" "Cardiovascular Diseases" \
+  --mesh-terms "EXAMPLE-GENE protein, human" "Cardiovascular Diseases" \
   --output journal_filter.json
 ```
 
@@ -131,7 +131,7 @@ PowerShell:
 uv run literature-research/scripts/literature_search.py journal-filter-query `
   --journal-metrics journal_metrics.csv `
   --cas-zones 1区 2区 `
-  --mesh-terms "GPLD1 protein, human" "Cardiovascular Diseases" `
+  --mesh-terms "EXAMPLE-GENE protein, human" "Cardiovascular Diseases" `
   --output journal_filter.json
 ```
 

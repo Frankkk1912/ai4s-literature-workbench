@@ -176,7 +176,7 @@ no leaks found
 
 ## V10 — 父仓本轮无代码改动（基线 diff + 白名单）
 
-- Command: `cd /Users/frank/Documents/GitHub/Frank_AI4S_Skill && git status --porcelain && git diff --stat HEAD`
+- Command: `cd /Users/example/Documents/GitHub/Frank_AI4S_Skill && git status --porcelain && git diff --stat HEAD`
 - Result: **0 rows** status; **0 rows** diff
 - Parent HEAD: `9b70c30` (`9b70c30e79efd7352727d46dcb877cc968fc2e74`)
 - This round did not write any file under the parent tree.
@@ -253,7 +253,7 @@ codex plugin add ai4s-literature-workbench@personal
 
 ## 附录 B 自查
 
-Plan 附录 B（rev4 规划期自查）存在于 `plans/20260928-literature-workbench-standalone-dashboard.md`。M7 按清单重核：
+规划期自查（rev4 附录 B）保存在维护者的本地记录中，不随仓库发布。M7 按清单重核：
 
 | 附录 B 项 | M7 结论 |
 | --- | --- |

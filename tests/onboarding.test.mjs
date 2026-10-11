@@ -189,36 +189,36 @@ test("native and legacy onboarding paths stay distinct, and file overrides win",
 			AI4S_ONBOARDING_STATE_FILE: "/secure/onboarding.json",
 		},
 		"darwin",
-		"/Users/frank",
+		"/Users/example",
 	);
 	assert.equal(overridden.zoteroEnv, "/secure/zotero.env");
 	assert.equal(overridden.academicConfig, "/secure/academic-research.json");
 	assert.equal(overridden.state, "/secure/onboarding.json");
 	assert.equal(
 		overridden.legacyZoteroEnv,
-		"/Users/frank/.config/ai4s-literature-workbench/zotero.env",
+		"/Users/example/.config/ai4s-literature-workbench/zotero.env",
 	);
 	assert.equal(
 		overridden.legacyAcademicConfig,
-		"/Users/frank/.config/frank-ai4s/academic-research.json",
+		"/Users/example/.config/frank-ai4s/academic-research.json",
 	);
 
-	const native = onboardingPaths({}, "darwin", "/Users/frank");
+	const native = onboardingPaths({}, "darwin", "/Users/example");
 	assert.equal(
 		native.zoteroEnv,
-		"/Users/frank/Library/Application Support/ai4s-literature-workbench/zotero.env",
+		"/Users/example/Library/Application Support/ai4s-literature-workbench/zotero.env",
 	);
 	assert.notEqual(native.zoteroEnv, native.legacyZoteroEnv);
 
 	const linux = onboardingPaths(
 		{ XDG_CONFIG_HOME: "/srv/config" },
 		"linux",
-		"/home/frank",
+		"/home/example",
 	);
 	assert.equal(linux.zoteroEnv, "/srv/config/ai4s-literature-workbench/zotero.env");
 	assert.equal(
 		linux.legacyZoteroEnv,
-		"/home/frank/.config/ai4s-literature-workbench/zotero.env",
+		"/home/example/.config/ai4s-literature-workbench/zotero.env",
 	);
 });
 

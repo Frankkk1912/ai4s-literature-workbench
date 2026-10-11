@@ -2,18 +2,18 @@
   "schema_version": "1.0",
   "plan_type": "zotero-import",
   "created_at": "2026-07-12T00:00:00Z",
-  "plan_hash": "sha256:9d26f35b3a5708c90b6b09357b26f1498c06f047323f019423b28d7c33e805a2",
+  "plan_hash": "sha256:e690170ad202b12fb81b04ab74a13dd5ffdf2c519c4459205e88d72822373c41",
   "project": {
-    "slug": "gpld1-cvd",
+    "slug": "example-gene-cvd",
     "search_date": "2026-07-12"
   },
   "target": {
     "library_type": "user",
     "library_id": 19552201,
-    "collection_name": "GPLD1 cardiovascular disease",
+    "collection_name": "EXAMPLE-GENE cardiovascular disease",
     "tags": [
-      "import-run:gpld1-cvd-20260712",
-      "project:gpld1-cvd"
+      "import-run:example-gene-cvd-20260712",
+      "project:example-gene-cvd"
     ]
   },
   "matching": {
@@ -31,15 +31,15 @@
       "source": {"database": "pubmed", "record_id": "EV1"},
       "item": {
         "itemType": "journalArticle",
-        "title": "GPLD1 regulates cardiovascular aging through phospholipid remodeling",
+        "title": "EXAMPLE-GENE regulates cardiovascular aging through phospholipid remodeling",
         "creators": [
           {"creatorType": "author", "name": "Smith J"},
           {"creatorType": "author", "name": "Zhang W"}
         ],
         "tags": [
           {"tag": "AI4S:ArticleType:Article"},
-          {"tag": "import-run:gpld1-cvd-20260712"},
-          {"tag": "project:gpld1-cvd"}
+          {"tag": "import-run:example-gene-cvd-20260712"},
+          {"tag": "project:example-gene-cvd"}
         ],
         "publicationTitle": "Journal of Cardiovascular Research",
         "date": "2024",
@@ -65,8 +65,8 @@
         "creators": [{"creatorType": "author", "name": "Doe A"}],
         "tags": [
           {"tag": "AI4S:ArticleType:Article"},
-          {"tag": "import-run:gpld1-cvd-20260712"},
-          {"tag": "project:gpld1-cvd"}
+          {"tag": "import-run:example-gene-cvd-20260712"},
+          {"tag": "project:example-gene-cvd"}
         ],
         "publicationTitle": "Metabolism Research",
         "date": "2022",

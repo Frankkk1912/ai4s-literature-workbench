@@ -152,14 +152,14 @@ describe('import plan contract', () => {
     expect(value.summary).toEqual({ selected: 2, create: 1, reuse: 1, check: 0, skip: 0 });
     const ctx = context({
       listCollections: vi.fn(async () => ({
-        data: [{ key: 'GPLD1COLL', data: { name: 'GPLD1 cardiovascular disease' } }],
+        data: [{ key: 'EXAMPLECOLL', data: { name: 'EXAMPLE-GENE cardiovascular disease' } }],
         totalResults: 1,
         lastModifiedVersion: 8,
       })),
       getItem: vi.fn(async () => ({
         key: 'AAAA1111',
         version: 3,
-        data: { title: 'GPLD1 regulates cardiovascular aging through phospholipid remodeling' },
+        data: { title: 'EXAMPLE-GENE regulates cardiovascular aging through phospholipid remodeling' },
       })),
     });
     const dryRun = await dryRunImportPlan(ctx, value, { type: 'user', id: 19552201 });
