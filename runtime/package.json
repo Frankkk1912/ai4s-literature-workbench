@@ -17,10 +17,10 @@
   "type": "module",
   "license": "MIT",
   "author": "Frank AI4S Skill contributors",
-  "homepage": "https://github.com/Frankkk1912/Frank_AI4S_Skill",
+  "homepage": "https://github.com/Frankkk1912/ai4s-literature-workbench",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Frankkk1912/Frank_AI4S_Skill.git",
+    "url": "git+https://github.com/Frankkk1912/ai4s-literature-workbench.git",
     "directory": "literature-zotero-mcp"
   },
   "bin": {
@@ -74,6 +74,6 @@
     "vitest": "^2.1.8"
   },
   "optionalDependencies": {
-    "pdfjs-dist": "^5.6.205"
+    "pdfjs-dist": "^6.4.299"
   }
 }

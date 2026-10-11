@@ -12,10 +12,10 @@
   "type": "module",
   "license": "MIT",
   "author": "Frank AI4S Skill contributors",
-  "homepage": "https://github.com/Frankkk1912/Frank_AI4S_Skill",
+  "homepage": "https://github.com/Frankkk1912/ai4s-literature-workbench",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Frankkk1912/Frank_AI4S_Skill.git",
+    "url": "git+https://github.com/Frankkk1912/ai4s-literature-workbench.git",
     "directory": "plugins/ai4s-literature-workbench/database-browser-runtime"
   },
   "bin": {
