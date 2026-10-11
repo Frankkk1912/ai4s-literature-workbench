@@ -25,16 +25,11 @@ Related documents: [`local-dashboard.md`](local-dashboard.md),
 
 ## Zotero Desktop XPI reminder
 
-The credential wizard and MCP do **not** install Zotero Desktop add-ons. This
-repository does **not** automatically verify whether the add-on is installed.
-To show AI4S metrics, Agent Tags, AI Summary, and the interactive Priority
-column, build the separate `literature-metrics` add-on from this checkout,
-then in Zotero Desktop choose **Tools → Add-ons → gear menu → Install Add-on
-From File…** and select
-`literature-metrics/dist/literature-metrics-<version>.xpi`.
-
-The redacted onboarding status reports this as `zotero_desktop_xpi`. The
-dashboard label is **本轮未核验** (not “never verify”). See
+The credential wizard and MCP do **not** install Zotero Desktop add-ons. The
+redacted onboarding status reports the add-on as `zotero_desktop_xpi`, read
+from Zotero's own profile records on this machine. It can show that the add-on
+is installed and active, and whether it came from this repository. It cannot
+prove the add-on loads and works. For build and install steps, see
 [`zotero-xpi.md`](zotero-xpi.md). The Agent must remind the user during
 first-run onboarding.
 

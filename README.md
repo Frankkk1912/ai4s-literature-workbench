@@ -51,13 +51,28 @@ opencode, and Antigravity are omitted here (待 Frank 核对 / 未实测).
 
 ## Installation
 
-Installation conclusions are limited to paths that can be evidenced. This
-repository does **not** claim that any agent or any host can install the
-workbench. This round does **not** add `sync/install.*` scripts (N11) and does
-**not** promise 自动安装.
+One installer covers the supported hosts: `scripts/install-host.mjs`. It never
+edits a host's config by guesswork. Each host either runs that host's official
+CLI, writes the config file that host's docs say it reads, or prints
+instructions only.
 
-After a successful host install, bootstrap the source runtimes from this
-checkout (Node.js `>=22.13` and npm required):
+**Run it from this checkout:**
+
+```bash
+node scripts/install-host.mjs --list                  # hosts and their evidence level
+node scripts/install-host.mjs --host claude --dry-run  # show the commands, change nothing
+node scripts/install-host.mjs --host claude            # run the official claude CLI
+node scripts/install-host.mjs --host trae --target /path/to/project
+node scripts/install-host.mjs --host all --dry-run     # check every host at once
+```
+
+Each result reports a `status`: `installed` (the official CLI succeeded in this
+run), `config_written` (a file was written; the host was not run), `instructions`
+(the user must act), `unavailable` (the host CLI is not on PATH), or `unverified`
+(the documented path was tried and failed).
+
+After a host install, bootstrap the source runtimes (Node.js `>=22.13` and npm
+required):
 
 ```bash
 bash scripts/bootstrap-runtime.sh
@@ -69,87 +84,37 @@ Windows PowerShell:
 .\scripts\bootstrap-runtime.ps1
 ```
 
-### Claude Code（实测可装）
+### Host support, by evidence
 
-Documented path that has been treated as 实测可装 for this repository:
+| Host | Status | How it connects | Evidence |
+| --- | --- | --- | --- |
+| Claude Code | Command path measured | `/plugin marketplace add` then `plugin install` | `claude` 2.1.x subcommands confirmed here. The install itself was **not** run on the maintainer's machine. |
+| Codex | Documented, not run here | `codex plugin marketplace add` then `plugin add` | Codex is not installed on the test machine. |
+| Qoder | Documented, needs one extra file | Reads `.qoder-plugin/plugin.json` plus `mcp.json` | Read from docs.qoder.com, which lists `.qoder-plugin/plugin.json` and does not mention `.claude-plugin`. Treated as not supported; the installer writes the Qoder manifest. |
+| Trae | Documented, MCP only | Reads `.trae/mcp.json`; no plugin manifest | Read from docs.trae.cn. The installer writes the MCP file. |
+| WorkBuddy | **Unverified** | Has a custom connector entry (专家·技能·连接器 → 自定义连接器) | The connector config format was not fully read, so the installer only prints instructions. |
+| opencode | **Unverified** | Has a `plugin` array and an `mcp` key in `opencode.json` | Docs were not retrievable from the test environment. Instructions only. |
 
-```text
-/plugin marketplace add Frankkk1912/ai4s-literature-workbench
-```
+The labels above describe what was read or run. Nothing is marked "verified on
+your host" unless it has been run on that host. The Claude install and the
+Codex, Qoder, Trae, WorkBuddy, and opencode paths still need a real smoke run.
 
-Then:
+### Using the installer as an agent
 
-```bash
-claude plugin install ai4s-literature-workbench@ai4s-literature-workbench
-```
+An agent that reads this section should:
 
-The in-product slash form used by the parent plugin docs is:
+1. Run `node scripts/install-host.mjs --list` to see which hosts exist.
+2. Run `--dry-run` first and show the user the commands before any write.
+3. Run without `--dry-run` only for the host the user named.
+4. Report the returned `status` verbatim. Do not turn `config_written` or
+   `instructions` into "installed".
 
-```text
-/plugin install ai4s-literature-workbench@ai4s-literature-workbench
-```
+The installer never reads or writes credentials. Keys stay in the onboarding
+wizard (see below).
 
-V13 (Claude / Codex install-path regression) still needs a Frank smoke run on
-this checkout. Do not read this section as “already verified in your current
-host build”.
-
-### Codex（实测可装）
-
-Documented path that has been treated as 实测可装:
-
-```bash
-codex plugin marketplace add <local-or-https>
-codex plugin add ai4s-literature-workbench@personal
-```
-
-`<local-or-https>` is either this clone path or the repository HTTPS URL.
-Example with a local clone:
-
-```bash
-codex plugin marketplace add /path/to/ai4s-literature-workbench
-codex plugin add ai4s-literature-workbench@personal
-```
-
-V13 still needs a Frank smoke run. This section does not record a Codex
-product version.
-
-### opencode / Antigravity（未实测）
-
-These hosts are documented only. This repository does **not** add install
-scripts for them (N11).
-
-If a given host can consume a Claude-compatible `.claude-plugin` layout or a
-URL MCP server, the local clues are:
-
-- plugin manifest: `.claude-plugin/plugin.json`
-- MCP stdio servers: `.mcp.json`
-- optional loopback MCP HTTP (after `--http`): `http://127.0.0.1:3939/mcp`
-
-**未实测.** This repository does not promise that opencode or Antigravity can
-install, load, or use the workbench.
-
-### WorkBuddy / CodeBuddy（未实测 / 待人工核验）
-
-This is a separate compatibility note, not an install guarantee. **Every
-statement in this subsection is 未实测 / 待人工核验.** V12 (WorkBuddy document
-review) is Frank’s to confirm against current vendor docs.
-
-External plugin-reference notes (unverified here) describe CodeBuddy CLI
-plugins as compatible with a `.claude-plugin` layout. A plausible, still
-untested path is to point that CLI at this checkout’s `.claude-plugin/`
-manifest the same way a Claude-compatible plugin source would be added.
-
-External MCP-guide notes (unverified here) describe WorkBuddy desktop as
-supporting URL-form MCP. A plausible, still untested URL is the loopback MCP
-endpoint `http://127.0.0.1:3939/mcp` after the Zotero runtime is started with
-`--http`. Local plugin loading on WorkBuddy desktop is **not** verified.
-
-This repository:
-
-- does **not** ship a WorkBuddy one-click installer
-- **不承诺** WorkBuddy / CodeBuddy 安装或使用成功（未实测 / 待人工核验）
-- does **not** show WorkBuddy as connected on the status view without measured
-  evidence
+The MCP configs written for Qoder and Trae use absolute paths to this checkout,
+so they work from any project. They are tied to this machine: after moving the
+repository, run the installer again.
 
 ## Local configuration wizard and status view
 
@@ -202,7 +167,8 @@ Never paste an API key into Agent chat or pass it as a command argument.
 - Local / browser URLs, address bar, logs, errors, responses, reports, and
   chat must not contain plaintext keys or key-bearing URLs.
 - The status view never shows **已连接** without measured connection evidence.
-  Unverified hosts stay 未知 / 待人工核验. XPI stays **需要手动安装**.
+  Unverified hosts stay 未知 / 待人工核验. The XPI status is read from Zotero
+  profile records; an active install proves presence, not that it works.
 
 ## Docs
 
