@@ -29,6 +29,8 @@ export interface AdminOnboardingOptions {
   randomBytes?: RandomBytes;
   /** Receives the raw code for direct terminal display; never route this through a logger. */
   pairingCodeSink?: (code: string) => void;
+  /** Called once, right after a pairing code is successfully redeemed. */
+  onPaired?: () => void;
   fetchImpl?: typeof fetch;
   paths?: OnboardingPaths;
   env?: NodeJS.ProcessEnv;
@@ -276,6 +278,7 @@ export async function createAdminOnboardingRouter(
     }
 
     pairingConsumed = true;
+    options.onPaired?.();
     const sessionToken = token(32, random);
     const csrfToken = token(24, random);
     sessions.set(digest(sessionToken).toString('hex'), {
