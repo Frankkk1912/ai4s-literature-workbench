@@ -6,5 +6,5 @@ import { cpSync, copyFileSync, mkdirSync, readdirSync } from "node:fs";
 cpSync("src/public", "dist/public", { recursive: true });
 mkdirSync("dist/lib", { recursive: true });
 for (const f of readdirSync("src/lib")) {
-  if (f.endsWith(".mjs")) copyFileSync(`src/lib/${f}`, `dist/lib/${f}`);
+  if (f.endsWith(".mjs") || f.endsWith(".d.mts")) copyFileSync(`src/lib/${f}`, `dist/lib/${f}`);
 }

@@ -20,8 +20,7 @@ execFileSync(npmCommand, ["run", "build"], {
 
 const { McpServer } =
   await import("../runtime/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js");
-const { loadOnboardingCore } =
-  await import("../runtime/dist/lib/onboarding-core.js");
+const bridgeCore = await import("../runtime/dist/lib/onboarding-core.mjs");
 const { createMetrics } = await import("../runtime/dist/lib/metrics.js");
 const { startHttp } = await import("../runtime/dist/transports/http.js");
 const sharedCore = await import("../runtime/dist/lib/onboarding-core.mjs");
@@ -186,11 +185,14 @@ async function pairedAdmin(overrides = {}) {
   };
 }
 
-test("runtime bridge and CLI load the exact same onboarding core implementation", async () => {
-  const bridged = await loadOnboardingCore();
-  assert.equal(bridged.redactedStatus, sharedCore.redactedStatus);
-  assert.equal(bridged.verifyZoteroKey, sharedCore.verifyZoteroKey);
-  assert.equal(bridged.saveAcademicKey, sharedCore.saveAcademicKey);
+test("the built package ships a single onboarding core implementation", async () => {
+  // The TS bridge is gone, so there is one runtime source. Guard against a second
+  // copy reappearing in dist, which would let the CLI and the admin API drift.
+  const { readdirSync } = await import("node:fs");
+  const libFiles = readdirSync(new URL("../runtime/dist/lib/", import.meta.url));
+  const implementations = libFiles.filter((f) => /^onboarding-core\.(m?js|ts)$/.test(f));
+  assert.deepEqual(implementations.sort(), ["onboarding-core.mjs"]);
+  assert.equal(typeof sharedCore.redactedStatus, "function");
 });
 
 test("loopback mode serves only the public pairing page before authorization and preserves ops/MCP routes", async () => {
