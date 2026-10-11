@@ -95,6 +95,16 @@ Windows PowerShell:
 | WorkBuddy | **Unverified** | Has a custom connector entry (专家·技能·连接器 → 自定义连接器) | The connector config format was not fully read, so the installer only prints instructions. |
 | opencode | **Unverified** | Has a `plugin` array and an `mcp` key in `opencode.json` | Docs were not retrievable from the test environment. Instructions only. |
 
+DeepSeek Harness (`dsh`, official, `deepseek-ai/deepseek-harness`) is **not**
+in the installer. It is a developer preview with breaking changes, is not
+security-audited, and can execute model-generated commands and load third-party
+plugins. Its MCP servers are configured in `cordis.patch.yml`, not `.mcp.json`,
+so this repository's MCP config does not load there unchanged. Run it only in a
+disposable VM or container. See its
+[SAFETY.md](https://github.com/deepseek-ai/deepseek-harness/blob/master/SAFETY.md).
+DeepSeek-TUI (`Hmbown/DeepSeek-TUI`) is a separate community project; its
+behaviour here is unverified.
+
 The labels above describe what was read or run. Nothing is marked "verified on
 your host" unless it has been run on that host. The Claude install and the
 Codex, Qoder, Trae, WorkBuddy, and opencode paths still need a real smoke run.
