@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, existsSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -44,8 +44,22 @@ test("packed runtime loads the onboarding core from inside the package", () => {
        const c = await m.loadOnboardingCore();
        console.log(JSON.stringify({ ok: typeof c.verifyZoteroKey === "function" && typeof c.saveAcademicKey === "function" }));`,
     );
-    const out = execFileSync("node", [probe], { cwd: consumer, encoding: "utf8" });
-    assert.deepEqual(JSON.parse(out.trim().split(/\r?\n/).pop()), { ok: true });
+    // On failure, record what the consumer actually contains so a CI-only
+    // difference is visible in the test output instead of guessed at.
+    const probeRun = spawnSync("node", [probe], { cwd: consumer, encoding: "utf8" });
+    if (probeRun.status !== 0) {
+      const pkgDir = join(consumer, "node_modules", "literature-zotero-mcp");
+      const libDir = join(pkgDir, "dist", "lib");
+      const listing = existsSync(libDir) ? readdirSync(libDir).join(", ") : "(dist/lib missing)";
+      const top = existsSync(pkgDir) ? readdirSync(pkgDir).join(", ") : "(package dir missing)";
+      assert.fail(
+        `probe failed (exit ${probeRun.status}).\n` +
+        `package top-level: ${top}\n` +
+        `dist/lib: ${listing}\n` +
+        `stderr: ${probeRun.stderr.slice(0, 600)}`,
+      );
+    }
+    assert.deepEqual(JSON.parse(probeRun.stdout.trim().split(/\r?\n/).pop()), { ok: true });
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
