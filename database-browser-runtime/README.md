@@ -33,7 +33,7 @@ search and official-export page contracts be inspected and calibrated with
 explicit user authorization. Do not use personal credentials, VPN automation,
 or access-control workarounds to make this test pass.
 
-Install with Node.js 20.19+:
+Install with Node.js 22.13+:
 
 ```bash
 npm ci

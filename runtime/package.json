@@ -35,7 +35,7 @@
     "licenses"
   ],
   "engines": {
-    "node": ">=20.19"
+    "node": ">=22.13.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && node -e \"require('node:fs').cpSync('src/public','dist/public',{recursive:true})\"",
@@ -58,7 +58,7 @@
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
-    "pdfjs-dist": "^5.6.205",
+    "pdfjs-dist": "^6.4.299",
     "zod": "^3.25.76"
   },
   "devDependencies": {

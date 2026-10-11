@@ -124,7 +124,7 @@ read-only `AI Summary` column and marks changed title/abstract inputs stale.
 
 ## Development
 
-Requirements: Node.js 20.19 or newer.
+Requirements: Node.js 22.13 or newer.
 
 ```bash
 npm install

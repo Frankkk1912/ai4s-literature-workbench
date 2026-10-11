@@ -4,18 +4,18 @@ set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 runtime_dir="$script_dir/../runtime"
 fulltext_runtime_dir="$script_dir/../fulltext-runtime"
-required_major=20
-required_minor=19
+required_major=22
+required_minor=13
 
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
-	echo "Node.js and npm are required. Install Node.js 20.19 or newer." >&2
+	echo "Node.js and npm are required. Install Node.js 22.13 or newer." >&2
 	exit 1
 fi
 
 version="$(node -p 'process.versions.node')"
 IFS='.' read -r major minor _ <<<"$version"
 if ((major < required_major || (major == required_major && minor < required_minor))); then
-	echo "Node.js $version is unsupported; require Node.js 20.19 or newer." >&2
+	echo "Node.js $version is unsupported; require Node.js 22.13 or newer." >&2
 	exit 1
 fi
 

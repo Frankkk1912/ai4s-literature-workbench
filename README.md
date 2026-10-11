@@ -41,7 +41,7 @@ install scripts. See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Tech stack
 
-- Node.js `>=20.19` (from runtime / XPI `engines`)
+- Node.js `>=22.13` (from runtime / XPI `engines`)
 - TypeScript ESM runtimes, Express 5 HTTP transport, MCP SDK, Zod
 - Vitest and `node:test` for automated checks
 - First-party Zotero Desktop XPI packaged from `literature-metrics/`
@@ -57,7 +57,7 @@ workbench. This round does **not** add `sync/install.*` scripts (N11) and does
 **not** promise 自动安装.
 
 After a successful host install, bootstrap the source runtimes from this
-checkout (Node.js `>=20.19` and npm required):
+checkout (Node.js `>=22.13` and npm required):
 
 ```bash
 bash scripts/bootstrap-runtime.sh

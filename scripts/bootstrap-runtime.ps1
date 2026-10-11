@@ -107,13 +107,13 @@ function Write-BootstrapReport {
 $nodeInfo = Get-Command node -ErrorAction SilentlyContinue
 $npmInfo = Get-Command npm -ErrorAction SilentlyContinue
 if (-not $nodeInfo -or -not $npmInfo) {
-    throw "Node.js and npm are required. Install Node.js 20.19 or newer."
+    throw "Node.js and npm are required. Install Node.js 22.13 or newer."
 }
 $NodeCommand = $nodeInfo.Source
 
 $Version = (& $NodeCommand -p "process.versions.node").Trim().Split(".")
-if ([int]$Version[0] -lt 20 -or ([int]$Version[0] -eq 20 -and [int]$Version[1] -lt 19)) {
-    throw "Node.js $($Version -join '.') is unsupported; require Node.js 20.19 or newer."
+if ([int]$Version[0] -lt 22 -or ([int]$Version[0] -eq 22 -and [int]$Version[1] -lt 13)) {
+    throw "Node.js $($Version -join '.') is unsupported; require Node.js 22.13 or newer."
 }
 
 $zoteroReady = Invoke-RuntimeBootstrap `

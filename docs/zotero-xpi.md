@@ -14,7 +14,7 @@ install.
 
 ## Build
 
-From this repository root (Node.js `>=20.19`):
+From this repository root (Node.js `>=22.13`):
 
 ```bash
 cd literature-metrics && npm run package

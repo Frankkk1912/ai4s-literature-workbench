@@ -11,7 +11,7 @@ npm install
 npm test          # vitest run
 ```
 
-Zoteus targets **Node >= 20.19** and is written in TypeScript (NodeNext ESM).
+Zoteus targets **Node >= 22.13** and is written in TypeScript (NodeNext ESM).
 
 ## Development workflow
 

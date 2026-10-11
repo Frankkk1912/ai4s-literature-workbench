@@ -11,8 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # pdfjs-dist (optional dep behind get_fulltext page extraction) requires Node >=20.19.
-        node-version: [20, 22]
+        # pdfjs-dist 6.x uses Promise.withResolvers (Node >=22.13); Node 20 cannot parse PDFs.
+        node-version: [22]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
