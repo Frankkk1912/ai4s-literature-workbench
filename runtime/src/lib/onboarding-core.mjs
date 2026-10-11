@@ -9,7 +9,7 @@ import {
 	updateEnvKey,
 	writeJsonPrivate,
 	writePrivateFile,
-} from "../runtime/scripts/credential-utils.mjs";
+} from "./credential-utils.mjs";
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const LEVELS = new Set(["unknown", "pending_manual", "verified"]);

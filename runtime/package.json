@@ -38,7 +38,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node -e \"require('node:fs').cpSync('src/public','dist/public',{recursive:true})\"",
+    "build": "tsc -p tsconfig.json && node scripts/copy-dist-assets.mjs",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "test": "vitest run",

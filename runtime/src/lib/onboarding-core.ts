@@ -68,7 +68,7 @@ let sharedCore: Promise<OnboardingCore> | undefined;
 
 export function loadOnboardingCore(): Promise<OnboardingCore> {
   sharedCore ??= import(
-    new URL('../../../scripts/onboarding-core.mjs', import.meta.url).href
+    new URL('./onboarding-core.mjs', import.meta.url).href
   ) as Promise<OnboardingCore>;
   return sharedCore;
 }

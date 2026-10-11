@@ -4,13 +4,13 @@
  *
  * Secrets are accepted only through a masked local TTY prompt. Reports and
  * onboarding state contain capability/status metadata only. Shared status,
- * validation, and persistence behavior lives in onboarding-core.mjs so a local
+ * validation, and persistence behavior lives in runtime/src/lib/onboarding-core.mjs so a local
  * web onboarding flow can use the same implementation.
  */
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { linePrompt, maskedPrompt, readJsonObject, writeJsonPrivate } from "../runtime/scripts/credential-utils.mjs";
+import { linePrompt, maskedPrompt, readJsonObject, writeJsonPrivate } from "../runtime/src/lib/credential-utils.mjs";
 import {
 	PROVIDERS,
 	ZOTERO_XPI_ONBOARDING,
@@ -21,7 +21,7 @@ import {
 	verifyEasyScholarKey,
 	verifyPubmedKey,
 	verifyZoteroKey,
-} from "./onboarding-core.mjs";
+} from "../runtime/src/lib/onboarding-core.mjs";
 
 export {
 	PROVIDERS,
@@ -35,7 +35,7 @@ export {
 	verifyEasyScholarKey,
 	verifyPubmedKey,
 	verifyZoteroKey,
-} from "./onboarding-core.mjs";
+} from "../runtime/src/lib/onboarding-core.mjs";
 
 async function configureProvider(provider, paths, dependencies = {}) {
 	const definition = PROVIDERS[provider];
