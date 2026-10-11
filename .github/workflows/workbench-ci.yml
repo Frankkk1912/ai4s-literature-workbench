@@ -36,31 +36,28 @@ jobs:
         with:
           fetch-depth: 0
 
-      # engines require Node >=20.19 (runtime/package.json). '20.19' selects the
-      # latest 20.19.x (verified locally against v20.19.6). Do not float to '20':
-      # that can resolve past the 20.19 line this job was checked against.
-      - name: Setup Node.js 20.19
+      # engines require Node >=22.13 (pdfjs-dist 6.x needs Promise.withResolvers).
+      # '22.13' selects the latest 22.13.x. Do not float to '22' without re-verifying.
+      - name: Setup Node.js 22.13
         uses: actions/setup-node@v6
         with:
-          node-version: '20.19'
+          node-version: '22.13'
 
       - name: Print Node and npm versions
         run: node --version && npm --version
 
       # npm ci must precede the root node:test step. tests/env-file-fallback.test.mjs
-      # imports runtime/src/lib/env-files.ts. Node 20.19 has no type stripping, so the
-      # import is loaded with the lockfile-pinned tsx loader installed by this step.
+      # imports runtime/src/lib/env-files.ts. Node 22.13 cannot import .ts natively
+      # (ERR_UNKNOWN_FILE_EXTENSION), so the lockfile-pinned tsx loader is still required.
       - name: Runtime install, typecheck, and test
         working-directory: runtime
         run: npm ci --no-audit --no-fund && npm run typecheck && npm test
 
-      # Node 20.19 does not expand globs. On windows-latest the default shell is
-      # pwsh, which also leaves tests/*.test.mjs literal, so that argument fails
-      # with "Could not find". `node --test tests` is the stable form: Node 20.19
-      # recursively collects *.test.mjs (and the other documented test-name
-      # patterns) under tests/. Forward slashes keep the loader path portable.
+      # Pass the glob quoted so Node expands it on every OS. On windows-latest the
+      # default shell is pwsh, which does not expand globs, and on Node 22.13
+      # `--test tests` (a directory) fails with ERR_MODULE_NOT_FOUND tests/index.json.
       - name: Root node tests
-        run: node --import ./runtime/node_modules/tsx/dist/loader.mjs --test tests
+        run: node --import ./runtime/node_modules/tsx/dist/loader.mjs --test "tests/*.test.mjs"
 
       - name: Fulltext install, typecheck, and test
         working-directory: fulltext-runtime

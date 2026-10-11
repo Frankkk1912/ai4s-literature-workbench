@@ -6,7 +6,7 @@ in PowerShell 7. Keep credentials and Zotero data outside the repository.
 ## Prerequisites
 
 - Native Codex CLI with the personal marketplace configured.
-- Node.js 20.19 or newer, npm, and `uv` on `PATH`.
+- Node.js 22.13 or newer, npm, and `uv` on `PATH`.
 - Zotero Desktop 7 or newer with Local API access enabled.
 - A user-designated non-production Zotero test library with Web API write
   permission.

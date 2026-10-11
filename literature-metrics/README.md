@@ -118,7 +118,7 @@ skipped, and failed counts.
 
 ## Build and test
 
-Node.js 20.19+ is required for local validation. The build uses one locked,
+Node.js 22.13+ is required for local validation. The build uses one locked,
 pure-JavaScript ZIP dependency; the installed XPI has no runtime npm
 dependencies and invokes no operating-system archive command.
 
