@@ -22,8 +22,8 @@ export async function extractPdfPages(
   try {
     // Legacy build runs under Node without a DOM.
     pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs' as any);
-  } catch (e) {
-    console.error('PDFDIAG import', (e as any)?.name, String(e).slice(0,600)); return null; // dependency not installed — degrade
+  } catch {
+    return null; // dependency not installed — degrade
   }
   try {
     const loadingTask = pdfjs.getDocument({ data: bytes, useSystemFonts: true, isEvalSupported: false });
@@ -35,8 +35,8 @@ export async function extractPdfPages(
       pages.push((content.items as any[]).map((it) => it.str ?? '').join(' '));
     }
     return pages;
-  } catch (e) {
-    console.error('PDFDIAG parse', (e as any)?.name, String(e).slice(0,600), 'node', process.version, 'platform', process.platform); return null; // corrupt PDF / parse failure — degrade
+  } catch {
+    return null; // corrupt PDF / parse failure — degrade
   }
 }
 
