@@ -10,6 +10,7 @@ import deleteItems from './delete-items.js';
 import manageCollections from './manage-collections.js';
 import manageTags from './manage-tags.js';
 import savedSearches from './saved-searches.js';
+import onboardingPairing from './onboarding-pairing.js';
 import groups from './groups.js';
 import exportTool from './export.js';
 import fulltext from './fulltext.js';
@@ -55,6 +56,7 @@ export const tools: ToolDefinition[] = [
   manageCollections,
   manageTags,
   savedSearches,
+  onboardingPairing,
   // Files / sync / groups / export (M4)
   groups,
   exportTool,
