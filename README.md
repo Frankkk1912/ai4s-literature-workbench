@@ -1,195 +1,168 @@
 # AI4S Literature Workbench
 
-Standalone, private source-of-truth repository for the AI4S Literature
-Workbench. This checkout is the future maintenance source for the skills, MCP
-runtimes, first-party `literature-metrics` Zotero Desktop XPI, local web
-configuration wizard, and an embedded configuration status view delivered in
-milestones M1–M5.
+[中文文档](README_CN.md)
 
-The parent repository `Frankkk1912/Frank_AI4S_Skill` keeps its older
-`markets` / `sync` install surface frozen and compatible. This repository does
-not upgrade or maintain parent-tree code. Switching remaining users from the
-parent checkout to this one is out of scope here (Q4). See
-[`docs/migration-from-parent.md`](docs/migration-from-parent.md).
+> Turn your research question into a ranked reading list, an organized Zotero collection, and a draft you can trace back to evidence.
 
-## Who this is for
+![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
-Researchers and operators who already run an AI4S literature workflow on a
-local machine and need:
+<!-- Screenshot: Show a Zotero project collection with colored IF/JCR/CAS columns and reading Priority controls. -->
+<!-- ![Zotero project collection with journal metrics and reading priorities](assets/zotero-project-collection.png) -->
 
-- a single checkout that owns the workbench skills and runtimes
-- a local way to see which optional API credentials exist, and to enter them
-  without pasting keys into chat
-- an honest status view that does not treat “file exists” as “connected”
+## What it does
+Stop switching between database searches, journal lookups, and scattered citation notes. When you research a biomedical question, you need to know which papers matter—and which claims they actually support.
 
-This is a local, single-user workbench. There is no remote shared dashboard
-and no claim that every agent host can install it.
+Describe your question in one sentence. Use the built-in tools to retrieve and rank papers, keep selected evidence with your report in Zotero, and draft from that saved evidence. Review the search coverage and abstract/full-text limits before drawing conclusions.
 
-## What this repository delivers (M1–M5)
-
-- Skills, Zotero / Fulltext / database-browser runtimes, and the
-  `literature-metrics` XPI source, migrated as a fresh-seed repository
-- A local web configuration wizard for optional Zotero, PubMed, and
-  EasyScholar credentials (CLI `scripts/onboard.mjs` is fully retained)
-- A local configuration status view on the onboarding page, with five sections
-  and four evidence kinds (existence / validation / artifact / connection)
-- Windows, macOS, and Linux CI plus a secret-scan gate
-
-Non-goals for this release include Zotero import-history pages, remote web
-access, WorkBuddy one-click install, XPI feature expansion, and new multi-agent
-install scripts. See [`CHANGELOG.md`](CHANGELOG.md).
-
-## Tech stack
-
-- Node.js `>=22.13` (from runtime / XPI `engines`)
-- TypeScript ESM runtimes, Express 5 HTTP transport, MCP SDK, Zod
-- Vitest and `node:test` for automated checks
-- First-party Zotero Desktop XPI packaged from `literature-metrics/`
-
-Host product version numbers for Claude Code, Codex, WorkBuddy, CodeBuddy,
-opencode, and Antigravity are omitted here (待 Frank 核对 / 未实测).
-
-## Installation
-
-One installer covers the supported hosts: `scripts/install-host.mjs`. It never
-edits a host's config by guesswork. Each host either runs that host's official
-CLI, writes the config file that host's docs say it reads, or prints
-instructions only.
-
-**Run it from this checkout:**
-
-```bash
-node scripts/install-host.mjs --list                  # hosts and their evidence level
-node scripts/install-host.mjs --host claude --dry-run  # show the commands, change nothing
-node scripts/install-host.mjs --host claude            # run the official claude CLI
-node scripts/install-host.mjs --host trae --target /path/to/project
-node scripts/install-host.mjs --host all --dry-run     # check every host at once
+```mermaid
+flowchart LR
+    A["Research<br/>literature-research"] --> B["Retrieve & rank<br/>literature-research"]
+    B --> C["Zotero sync<br/>literature-manager"]
+    C --> D["Evidence writing<br/>literature-writing"]
 ```
 
-Each result reports a `status`: `installed` (the official CLI succeeded in this
-run), `config_written` (a file was written; the host was not run), `instructions`
-(the user must act), `unavailable` (the host CLI is not on PATH), or `unverified`
-(the documented path was tried and failed).
+See what you get: a reading table with ranking reasons, matched 2025 JCR metrics, and source links, alongside a research report.
+<!-- Screenshot: Show ranked_all.csv beside report.md, with ranking reasons, matched 2025 JCR metrics, and source links. -->
+<!-- ![Ranked literature evidence table and research report](assets/retrieval-evidence-table.png) -->
 
-After a host install, bootstrap the source runtimes (Node.js `>=22.13` and npm
-required):
+## Try it: say this, get that
+### Find papers worth reading
+```text
+Retrieve and rank PubMed evidence on GLP-1 receptor agonists and cardiovascular outcomes. Save the evidence and report for later writing.
+```
+Get a deduplicated reading list, ranking reasons, and a saved report you can inspect.
 
+### Keep your project together in Zotero
+```text
+Sync my finalized literature report and selected papers into a Zotero collection named "GLP-1 CVD Project".
+```
+Keep your report note and selected papers in the same collection; reuse exact DOI/PMID matches instead of creating them again.
+
+### Draft with evidence you can check
+```text
+Draft an English literature review section from my saved ranked evidence and report. Use [EV:n] citation placeholders and flag references that need checking.
+```
+Get a draft with evidence-linked claims and a reference audit table; get a separate check list when citations need attention.
+<!-- Screenshot: Show a review paragraph with [EV:n] placeholders beside its reference audit table. -->
+<!-- ![Evidence-linked review paragraph and reference audit table](assets/evidence-traced-writing.png) -->
+
+## Why you'll love it
+- **Choose your next read** — Compare relevance and ranking reasons, with journal metrics matched from the bundled 2025 JCR table.
+- **Find your project again** — Keep selected papers and the current report together in Zotero; request reusable English tags or a Chinese summary sentence when you need them.
+- **Check what your draft says** — Trace claims to saved evidence through citation placeholders and a reference audit table.
+- **Stay in control of changes** — Preview batch imports and metric refreshes, confirm before writing, and keep a record of changes.
+- **Keep keys out of chat** — Enter optional credentials yourself through masked setup on your own computer.
+<details>
+<summary>Included skills</summary>
+
+`literature-research` — retrieve and rank; `literature-manager` — organize in Zotero; `literature-writing` — draft from evidence.
+</details>
+
+## What's inside
+The workbench ships in two pieces. Use either on its own, or together.
+
+### Built-in tools for your agent
+Your agent can call these on your behalf — they speak the same protocol your agent already understands (MCP, Model Context Protocol), so the conversation stays in plain language.
+- **Find and rank** — pull papers from configured sources, dedupe, and rank by relevance. (`search-items`, `find-duplicates`)
+- **Sync to your Zotero collection** — match by DOI/PMID, write a single project note, never re-create what you already have. (`sync-literature-project`, `apply-import-plan`, `manage-collections`)
+- **Tag and summarize** — clean redundant source tags, apply `AI4S:Semantic:*` tags, add a one-sentence Chinese summary to each item. (`apply-semantic-tags`, `apply-ai-summaries`, `cleanup-auto-tags`, `tag-audit`)
+- **Cite and draft** — turn ranked evidence into a draft with `[EV:n]` placeholders, format references, export. (`apply-citation-plan`, `format-bibliography`, `export`)
+- **Audit and metrics** — keep an evidence-to-claim table, audit tag consistency, refresh journal indicators. (`tag-audit`, `apply-metrics-plan`)
+
+### Zotero Desktop add-on
+A separate XPI you install into Zotero Desktop. It adds columns and controls on the right of your library, all read-only by default:
+- Colored **IF / JCR / CAS** columns for at-a-glance journal quality
+- **Article Type** auto-detection, **AI Summary** field, **Agent Tags** for fast navigation
+- **Priority 1 / 2 / 3** — the only direct write path, set explicitly by you with a star control, number shortcut, or context menu
+
+
+## Get started
+
+### What you need
+- Use **Claude Code** or **Codex** as your agent app.
+- Add **Zotero Desktop** if you want to organize your papers there.
+- Add optional Zotero, PubMed/NCBI, or EasyScholar credentials for library writes, higher retrieval allowances, or extra journal metrics.
+- Let your agent check the technical prerequisites during first-run setup and explain anything you need to install.
+
+### 1. Install
+Paste this into Claude Code or Codex:
+> Please install the plugin from https://github.com/Frankkk1912/ai4s-literature-workbench.git into this app. When it's done, run its first-run setup and tell me in plain language what's missing and what I need to do myself.
+
+### 2. First-run setup
+- **Optional:** Obtain the credentials you need and enter them through masked setup on your computer—not in chat. Allow Zotero library writes if you want to sync items or notes.
+- **Optional:** Ask your agent to build the Zotero add-on for colored metrics and reading priorities. In Zotero, choose **Tools → Add-ons → gear menu → Install Add-on From File…**, select the file it built, and follow Zotero's prompts.
+
+### 3. Say your first prompt
+Start with **Find papers worth reading** above. You can retrieve, rank, and draft from saved evidence without optional credentials.
+
+<details>
+<summary>Other agents & manual install</summary>
+
+Install Git, Node.js ≥22.13 with npm, and uv. Clone and build on macOS/Linux:
 ```bash
+git clone https://github.com/Frankkk1912/ai4s-literature-workbench.git
+cd ai4s-literature-workbench
 bash scripts/bootstrap-runtime.sh
 ```
+On Windows, run `git clone` and `cd` as above, then `.\scripts\bootstrap-runtime.ps1` in PowerShell.
+Choose your agent's commands. Run Trae/Qoder commands from this checkout; replace `/path/to/project` with your project folder. Those commands add built-in tools to that project.
 
-Windows PowerShell:
-
-```powershell
-.\scripts\bootstrap-runtime.ps1
-```
-
-### Host support, by evidence
-
-| Host | Status | How it connects | Evidence |
-| --- | --- | --- | --- |
-| Claude Code | Command path measured | `/plugin marketplace add` then `plugin install` | `claude` 2.1.x subcommands confirmed here. The install itself was **not** run on the maintainer's machine. |
-| Codex | Documented, not run here | `codex plugin marketplace add` then `plugin add` | Codex is not installed on the test machine. |
-| Qoder | Documented, needs one extra file | Reads `.qoder-plugin/plugin.json` plus `mcp.json` | Read from docs.qoder.com, which lists `.qoder-plugin/plugin.json` and does not mention `.claude-plugin`. Treated as not supported; the installer writes the Qoder manifest. |
-| Trae | Documented, MCP only | Reads `.trae/mcp.json`; no plugin manifest | Read from docs.trae.cn. The installer writes the MCP file. |
-| WorkBuddy | **Unverified** | Has a custom connector entry (专家·技能·连接器 → 自定义连接器) | The connector config format was not fully read, so the installer only prints instructions. |
-| opencode | **Unverified** | Has a `plugin` array and an `mcp` key in `opencode.json` | Docs were not retrievable from the test environment. Instructions only. |
-
-DeepSeek Harness (`dsh`, official, `deepseek-ai/deepseek-harness`) is **not**
-in the installer. It is a developer preview with breaking changes, is not
-security-audited, and can execute model-generated commands and load third-party
-plugins. Its MCP servers are configured in `cordis.patch.yml`, not `.mcp.json`,
-so this repository's MCP config does not load there unchanged. Run it only in a
-disposable VM or container. See its
-[SAFETY.md](https://github.com/deepseek-ai/deepseek-harness/blob/master/SAFETY.md).
-DeepSeek-TUI (`Hmbown/DeepSeek-TUI`) is a separate community project; its
-behaviour here is unverified.
-
-The labels above describe what was read or run. Nothing is marked "verified on
-your host" unless it has been run on that host. The Claude install and the
-Codex, Qoder, Trae, WorkBuddy, and opencode paths still need a real smoke run.
-
-### Using the installer as an agent
-
-An agent that reads this section should:
-
-1. Run `node scripts/install-host.mjs --list` to see which hosts exist.
-2. Run `--dry-run` first and show the user the commands before any write.
-3. Run without `--dry-run` only for the host the user named.
-4. Report the returned `status` verbatim. Do not turn `config_written` or
-   `instructions` into "installed".
-
-The installer never reads or writes credentials. Keys stay in the onboarding
-wizard (see below).
-
-The MCP configs written for Qoder and Trae use absolute paths to this checkout,
-so they work from any project. They are tied to this machine: after moving the
-repository, run the installer again.
-
-## Local configuration wizard and status view
-
-The web wizard is an extra UX entry beside the CLI. It is not a replacement.
-
-1. Build and start the Zotero MCP in loopback HTTP mode (no OAuth):
-
-   ```bash
-   node runtime/dist/index.js --http --host 127.0.0.1 --port 3939
-   ```
-
-2. Open the pairing page: `http://127.0.0.1:3939/admin/onboarding/`
-3. Redeem the one-time pairing code from the process stderr (an agent that
-   started the server may relay **only** that pairing code; keys must never
-   enter chat)
-4. Configure optional credentials. 配置状态在配置向导页面底部展示.
-
-Details:
-
-- [`docs/onboarding.md`](docs/onboarding.md) — CLI + web wizard, pairing, R12
-- [`docs/local-dashboard.md`](docs/local-dashboard.md) — embedded status view
-- [`docs/zotero-xpi.md`](docs/zotero-xpi.md) — manual XPI build and install
-
-The CLI remains:
-
+**Claude Code**
 ```bash
-node scripts/onboard.mjs setup --output onboarding-result.json
-node scripts/onboard.mjs status --output onboarding-status.json
+claude plugin marketplace add Frankkk1912/ai4s-literature-workbench
+claude plugin install ai4s-literature-workbench@ai4s-literature-workbench
+```
+**Codex**
+```bash
+codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-workbench.git
+codex plugin add ai4s-literature-workbench@personal
+```
+**Trae / Qoder** — choose the line for your app.
+```bash
+node scripts/install-host.mjs --host trae --target /path/to/project
+node scripts/install-host.mjs --host qoder --target /path/to/project
+```
+</details>
+
+---
+
+## For Developers
+
+### Project Structure
+```text
+ai4s-literature-workbench/
+├── .claude-plugin/            # Claude Code manifests and marketplace
+├── .codex-plugin/             # Codex manifest and default prompts
+├── docs/                      # Setup and component guides
+├── scripts/                   # Install, build, and verification scripts
+├── skills/                    # Retrieval, Zotero management, and writing skills
+├── runtime/                   # Zotero tools and local configuration service
+├── fulltext-runtime/          # Open-access full-text retrieval and PDF checks
+├── database-browser-runtime/  # Visible-browser access to authorized databases
+├── literature-metrics/        # Zotero Desktop add-on source
+└── tests/                     # Repository-level tests
 ```
 
-Never paste an API key into Agent chat or pass it as a command argument.
+### Development
+Run from the repository root; build installs the Zotero/full-text dependencies:
+```bash
+bash scripts/bootstrap-runtime.sh
+node --import ./runtime/node_modules/tsx/dist/loader.mjs --test "tests/*.test.mjs"
+(cd runtime && npm run typecheck && npm test)
+(cd fulltext-runtime && npm run typecheck && npm test)
+(cd database-browser-runtime && npm ci && npx playwright install chromium && npm run build && npm run typecheck && npm test)
+(cd literature-metrics && npm ci && npm run check && npm test && npm run package)
+```
+Windows build: `.\scripts\bootstrap-runtime.ps1`.
 
-## Security boundary
+### Docs
+- [First-run setup and credentials](docs/onboarding.md)
+- [Zotero Desktop add-on: build and install](docs/zotero-xpi.md)
+- [Local configuration status view](docs/local-dashboard.md)
 
-- Management routes bind to loopback only. OAuth or non-loopback HTTP does not
-  register them and does not print a pairing code.
-- Pairing code: 16 random bytes, 5-minute TTL, single use, constant-time
-  compare, attempt limiting. It never enters a URL or server log.
-- Session after redeem: 30 minutes, HttpOnly, SameSite=Strict, in-memory,
-  discarded on process restart. Every management GET and POST requires that
-  session. Clearing the session cookie yields `401` JSON.
-- Host / Origin checks, CSRF on writes, and DNS-rebinding protection cover the
-  management surface.
-- Credential exposure follows R12’s three paths (see
-  [`docs/onboarding.md`](docs/onboarding.md)):
-  1. Browser → local POST body (visible in the user’s own DevTools; inherent)
-  2. Zotero official check via `Zotero-API-Key` Header
-  3. PubMed / EasyScholar official HTTPS checks carry `api_key` / `secretKey`
-     as query parameters (D10-approved exception; server-side request only)
-- Local / browser URLs, address bar, logs, errors, responses, reports, and
-  chat must not contain plaintext keys or key-bearing URLs.
-- The status view never shows **已连接** without measured connection evidence.
-  Unverified hosts stay 未知 / 待人工核验. The XPI status is read from Zotero
-  profile records; an active install proves presence, not that it works.
+### Citation & Acknowledgements
+Follow **No Evidence, No Conclusion**: trace scientific claims to saved evidence.
+Credit Frank AI4S Skill contributors and Oscar Devos's [Zoteus](https://github.com/oscardvs/zoteus). See [third-party notices](THIRD_PARTY_NOTICES.md) for component credits and licenses.
 
-## Docs
-
-| Document | Contents |
-| --- | --- |
-| [`docs/onboarding.md`](docs/onboarding.md) | Credential wizard (CLI + web), pairing, R12 |
-| [`docs/local-dashboard.md`](docs/local-dashboard.md) | Embedded status view |
-| [`docs/zotero-xpi.md`](docs/zotero-xpi.md) | XPI build and manual install |
-| [`docs/migration-from-parent.md`](docs/migration-from-parent.md) | D8 baseline, parent freeze, V10 |
-| [`CHANGELOG.md`](CHANGELOG.md) | Standalone first release notes |
-
-## License
-
-MIT. See [`LICENSE`](LICENSE) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+### License
+[MIT](LICENSE) © Frank AI4S Skill contributors.

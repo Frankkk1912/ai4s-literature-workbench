@@ -61,3 +61,8 @@ pi.log
 
 # internal planning documents (not published)
 plans/
+
+# local agent state & editor backups (never commit)
+.pi/
+*.bak
+*.bak.*
