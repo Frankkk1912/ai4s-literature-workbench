@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   defaultAcademicResearchConfigFile,
   defaultPrivateEnvFile,
+  dropUnresolvedTemplates,
   legacyPrivateEnvFile,
   loadStartupEnvFiles,
   packageRoot,
@@ -113,5 +114,28 @@ describe('packageRoot', () => {
     mkdirSync(start, { recursive: true });
     expect(packageRoot(start)).toBe(join(start, '..', '..'));
     rmSync(outer, { recursive: true, force: true });
+  });
+});
+
+describe('unresolved .mcpb templates', () => {
+  it('drops an unset optional setting so it is not mistaken for a key', () => {
+    const env: NodeJS.ProcessEnv = {
+      ZOTERO_API_KEY: '${user_config.api_key}',
+      PUBMED_API_KEY: ' ${user_config.pubmed_key} ',
+      ZOTEUS_LOCAL: 'auto',
+      REAL_KEY: 'abc${notatemplate}',
+    };
+    expect(dropUnresolvedTemplates(env).sort()).toEqual(['PUBMED_API_KEY', 'ZOTERO_API_KEY']);
+    expect(env).toEqual({ ZOTEUS_LOCAL: 'auto', REAL_KEY: 'abc${notatemplate}' });
+  });
+
+  it('lets the private config file supply a key the .mcpb left unset', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'zoteus-env-'));
+    const file = join(dir, 'zotero.env');
+    writeFileSync(file, 'ZOTERO_API_KEY=from-file\n');
+    const env: NodeJS.ProcessEnv = { ZOTERO_API_KEY: '${user_config.api_key}' };
+    loadStartupEnvFiles(env, [file]);
+    expect(env.ZOTERO_API_KEY).toBe('from-file');
+    rmSync(dir, { recursive: true, force: true });
   });
 });

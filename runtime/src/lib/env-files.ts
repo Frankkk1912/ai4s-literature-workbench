@@ -109,6 +109,24 @@ function parseEnvFile(text: string, filePath: string): Array<[string, string]> {
   return entries;
 }
 
+const UNRESOLVED_TEMPLATE_RE = /^\$\{(?:user_config\.)?[A-Za-z_][A-Za-z0-9_.]*\}$/;
+
+/**
+ * An .mcpb install passes an unset optional setting through as its literal template text
+ * (for example `${user_config.api_key}`). Treat that as "not set", so it is not mistaken
+ * for a real key and does not block the private config file. Returns the names removed.
+ */
+export function dropUnresolvedTemplates(env: NodeJS.ProcessEnv = process.env): string[] {
+  const dropped: string[] = [];
+  for (const [key, value] of Object.entries(env)) {
+    if (value !== undefined && UNRESOLVED_TEMPLATE_RE.test(value.trim())) {
+      delete env[key];
+      dropped.push(key);
+    }
+  }
+  return dropped;
+}
+
 /**
  * Load startup env files into the provided environment.
  *
@@ -119,6 +137,7 @@ export function loadStartupEnvFiles(
   env: NodeJS.ProcessEnv = process.env,
   files: string[] = startupEnvFiles(env),
 ): string[] {
+  dropUnresolvedTemplates(env);
   const originalKeys = new Set(Object.keys(env));
   const loaded: string[] = [];
 
