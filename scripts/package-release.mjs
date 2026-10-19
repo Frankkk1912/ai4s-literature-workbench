@@ -128,6 +128,8 @@ for (const server of Object.values(mcp.mcpServers)) {
     return rewrites.get(arg);
   });
 }
+// database-browser-runtime is optional and needs a browser download, so it stays out of every default route.
+if (JSON.stringify(mcp).includes('database-browser')) fail('.mcp.json must not start database-browser-runtime by default.');
 if (rewritten !== rewrites.size) fail(`.mcp.json no longer has the expected dist entries (rewrote ${rewritten} of ${rewrites.size}).`);
 writeFileSync(join(pluginRoot, '.mcp.json'), `${JSON.stringify(mcp, null, 2)}\n`);
 

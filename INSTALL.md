@@ -10,9 +10,15 @@ This file is the only source of install steps. If a step you want is not here, i
 4. Report results as what works now and what needs the user. Do not say "runtime not built" or "not configured".
 5. Do not say anything works until the check at the end of this file has passed.
 
-## After every install: build once
+## Get the files: release archive or source
 
-Installing the plugin copies source only. The `dist/` folders are build output and are not in git, so the tools do not exist until you run this once:
+There are two ways to get the plugin folder. Use the release archive whenever the releases page lists one, because it needs no build.
+
+**Release archive (no build).** Download `ai4s-literature-workbench-<version>.zip` from https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest and extract it. The extracted folder is `<plugin-root>`. It already contains the prebuilt tools in `runtime/bundle/` and `fulltext-runtime/bundle/`, so skip the build step below. `SHA256SUMS.txt` on the same page lists the expected checksum of each file. In every route below, use this folder wherever the route names the GitHub address. If the latest release does not list this file, use the source route instead and say so.
+
+The archive still needs Node.js 22.13 or newer on the computer for every app except Claude Desktop (see the `.mcpb` route). Check with `node --version`.
+
+**Source (build once).** Installing from the GitHub address copies source only. The `dist/` folders are build output and are not in git, so the tools do not exist until you run this once:
 
 ```text
 node <plugin-root>/scripts/bootstrap.mjs
@@ -21,6 +27,8 @@ node <plugin-root>/scripts/bootstrap.mjs
 `<plugin-root>` is the folder that contains `scripts/bootstrap.mjs` and `.mcp.json`. Search for it; do not guess. Run the script with `node`, not with `.ps1` or `.sh` files, on every system.
 
 It needs Node.js 22.13 or newer. If `node --version` fails or is older, say: "I need Node.js, a free standard tool, installed first", and give https://nodejs.org/ (current LTS). Re-run after it is installed.
+
+How to tell which one you have: if `<plugin-root>/runtime/bundle/index.mjs` exists, it is the archive and nothing needs building.
 
 ## Routes by app
 
@@ -31,7 +39,7 @@ claude plugin marketplace add Frankkk1912/ai4s-literature-workbench
 claude plugin install ai4s-literature-workbench@ai4s-literature-workbench
 ```
 
-Then build once, then restart Claude Code.
+From a release archive, replace the GitHub address in the first line with the extracted folder's path. Then build once (source route only), then restart Claude Code.
 
 ### Codex
 
@@ -40,7 +48,7 @@ codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-work
 codex plugin add ai4s-literature-workbench@personal
 ```
 
-Then build once, then restart Codex. Codex may block GitHub access until the user approves it.
+From a release archive, replace the GitHub address in the first line with the extracted folder's path. Then build once (source route only), then restart Codex. Codex may block GitHub access until the user approves it.
 
 ### WorkBuddy (unverified)
 
@@ -67,7 +75,7 @@ Not yet tested on WorkBuddy. Per WorkBuddy's plugin documentation, try in this o
 }
 ```
 
-Replace `<plugin-root>` with the absolute path, and keep any servers already in the file.
+Replace `<plugin-root>` with the absolute path, and keep any servers already in the file. From a release archive, use `runtime/bundle/index.mjs` and `fulltext-runtime/bundle/index.mjs` as the two entry files instead of the `dist/index.js` ones.
 
 If neither route works, tell the user which step failed and stop.
 
@@ -80,20 +88,24 @@ Not yet tested on CodeBuddy. Inside CodeBuddy:
 /plugin install ai4s-literature-workbench@ai4s-literature-workbench
 ```
 
-Then build once and restart.
+Then build once (source route only) and restart.
 
 ### Trae and Qoder
 
-Clone the repository, build once inside the clone, then from the clone run one line, replacing the folder with the user's project:
+Clone the repository and build once inside the clone, or extract the release archive (no build). Then from that folder run one line, replacing the folder with the user's project:
 
 ```text
 node scripts/install-host.mjs --host trae --target <project-folder>
 node scripts/install-host.mjs --host qoder --target <project-folder>
 ```
 
-### Claude Desktop
+### Claude Desktop (unverified)
 
-No tested route yet; a one-click bundle is planned. Say so plainly rather than improvising.
+Not yet tested in Claude Desktop. The release page lists `ai4s-literature-zotero-<version>.mcpb`. Download it and double-click it, or drag it onto the Claude Desktop window. Claude Desktop shows an install screen with two optional settings: a Zotero key (leave empty to search and read without one) and the Zotero desktop connection (leave on `auto`). Do not paste a key into chat. This file installs only the Zotero tools. It does not install the three skills or the full-text tools, and it needs no separate Node.js because Claude Desktop includes one. If the release page does not list this file, say so plainly rather than improvising.
+
+## Not in any install route
+
+`database-browser-runtime/` (visible-browser access to subscription databases) is optional and is not in the archive, the `.mcpb`, or `.mcp.json`. It needs a separate browser download, so it is only available from the source route, and only when the user asks for it by name. Its steps are in `database-browser-runtime/README.md`.
 
 ## Check at the end
 
