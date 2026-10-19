@@ -16,7 +16,7 @@
 // The MCP client comes from runtime/node_modules because it is only the test driver; the
 // servers under test never see that folder.
 import { spawn } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, parse, resolve } from 'node:path';
@@ -55,8 +55,10 @@ const EXPECTED_FULLTEXT_TOOLS = [
 ];
 
 const failures = [];
+const results = [];
 
 function report(name, ok, detail = '') {
+  results.push({ name, ok, detail });
   process.stdout.write(`${ok ? 'PASS' : 'FAIL'}  ${name}\n`);
   if (!ok) {
     failures.push(name);
@@ -304,6 +306,21 @@ try {
   report('set-up', false, error instanceof Error ? error.message : String(error));
 } finally {
   rmSync(work, { recursive: true, force: true });
+}
+
+// On GitHub Actions, put the result on the run's summary page so a Windows failure can be
+// read without opening the log.
+if (process.env.GITHUB_STEP_SUMMARY) {
+  const lines = [`### Bundle checks (${process.platform}, Node ${process.versions.node})`, '', '| Result | Check |', '| --- | --- |'];
+  for (const { name, ok } of results) lines.push(`| ${ok ? 'PASS' : '**FAIL**'} | ${name} |`);
+  for (const { name, ok, detail } of results) {
+    if (!ok && detail) lines.push('', `<details open><summary>${name}</summary>`, '', '```text', detail, '```', '', '</details>');
+  }
+  try {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
+  } catch {
+    // The summary is a convenience; the log above has the same information.
+  }
 }
 
 if (failures.length > 0) {
