@@ -91,6 +91,7 @@ After install, the tools must already work: no `npm install`, no TypeScript buil
 - [ ] Move `database-browser-runtime` out of the default install. Playwright's Chromium is a large download, so fetch it on first use, after the user agrees.
 - [ ] Publish four assets per release tag: a `.mcpb` bundle, a plugin archive with prebuilt `dist/` folders, the Zotero XPI, and a checksums file.
 - [ ] Add `scripts/bootstrap.mjs` as the single cross-platform entry. Reduce the `.sh` and `.ps1` scripts to one-line wrappers. Every command then has the shape `node scripts/<name>.mjs`, which removes problem 5.
+- [ ] Provide `uv` from `bootstrap.mjs` (fetch a pinned release with a checksum, or ship it in the archive) and point the research and manager skills at that copy.
 - [ ] Remove "Node.js ≥22.13, uv, Git" from the beginner path in README and README\_CN. Keep it in the developer section only.
 
 **The `.mcpb` bundle covers two hosts.** Claude Desktop installs it by double-click or drag-and-drop and ships its own Node.js on macOS and Windows ([MCPB docs](https://claude.com/docs/connectors/building/mcpb)). Claude Code's `plugin.json` can point `mcpServers` at a `.mcpb` file or URL ([manifest reference](https://code.claude.com/docs/en/plugins/manifest-reference.md)).
@@ -103,6 +104,18 @@ WorkBuddy, CodeBuddy, **Codex, Trae and Qoder need a runtime we provide.** They 
 | Portable Node | The setup step downloads a portable Node into the plugin data folder, no admin rights | Needs network access from the agent's shell, which Codex blocked in the transcript |
 
 Standalone binaries avoid the blocked-network problem, so I would start there.
+
+**Search needs Python, not just Node.** `literature-research` and `literature-manager` run two Python scripts (about 5,500 lines, standard library only, 141 unit tests). Today `uv` is only the launcher that supplies Python, and the beginner path still asks the user to install it. Phase 0 makes the skills stop and say so; Phase 1 removes the requirement.
+
+Decision: keep the Python scripts and do not port them to Node, because a rewrite is a non-goal and risks silent ranking drift. Instead provide `uv` ourselves, then let it fetch Python on first use (no admin rights).
+
+| Option | How it works | Trade-off |
+| --- | --- | --- |
+| Fetch pinned `uv` | `bootstrap.mjs` downloads a pinned `uv` release for the OS into the plugin data folder and checks a hard-coded SHA-256 | About 20 MB plus Python on first search; needs network from the agent's shell |
+| Ship `uv` in the archive | Release assets carry one `uv` binary per OS | 20 to 30 MB per OS, no network needed |
+| Freeze with PyInstaller | Per-OS executables for the two scripts | Same CI cost as the Node binaries, plus antivirus false positives; not preferred |
+
+Start with fetching, fall back to shipping if the host blocks the download, matching the Node decision above. Later, expose search as an MCP tool that spawns the same script, so the agent never shells out.
 
 ## Workstream B: Setup flow without a terminal
 
@@ -220,7 +233,7 @@ Effort figures are my rough estimates for one developer; re-plan them after the 
 | Phase | Work | Rough effort | Gate |
 | --- | --- | --- | --- |
 | 0 Quick wins | A: `bootstrap.mjs`. E: Codex and WorkBuddy install prompts, CodeBuddy marketplace file, `INSTALL.md`, release-note fix. C: tools check at the start of each skill | 1 to 2 days | None |
-| 1 Package | A: bundles, `.mcpb`, release assets, binary-versus-portable-Node spike. F: validation jobs in CI | About 1 week | Gate 1: bundles start on Windows and macOS |
+| 1 Package | A: bundles, `.mcpb`, release assets, binary-versus-portable-Node spike, `uv` fetch-versus-ship spike. F: validation jobs in CI | About 1 week | Gate 1: bundles start on Windows and macOS |
 | 2 Setup flow | B: `setup_status`, `open_setup`, wizard that opens itself, launchers. C: `ai4s-setup` skill and status template | 1 to 2 weeks | Gate 2: no typed commands, first search works |
 | 3 Zotero | D: XPI in every release, local-API reads, add-on update route. Spike: key-free writes through the add-on | About 1 week, spike open-ended | None |
 | 4 Prove it | F: clean-machine runs, WorkBuddy first, then each other host. E: getting-started pages in both languages, screenshots | About 1 week | Gate 3: first search in 10 minutes or less for three beginners |
@@ -236,6 +249,7 @@ The biggest risk is that a host's sandbox blocks something the plan assumes, and
 | Claude Desktop does not inject `user_config` in cowork sessions | A March 2026 issue reports the values missing there ([claude-code#39125](https://github.com/anthropics/claude-code/issues/39125)) | Runtime reads its own config file as a backup |
 | Unsigned executables trigger antivirus, SmartScreen or macOS Gatekeeper warnings | Beginners will stop at a warning | Prefer the `.mcpb` route where possible; evaluate code signing, plus Apple notarization, for binaries |
 | Zotero's local API changes | Write support was undecided in 2024 | Feature-detect at runtime; keep the Web API key path |
+| The agent's shell blocks the `uv` or Python download | Search then cannot run, and it is the first thing a beginner tries | Ship `uv` inside the archive; the skill already stops with a plain message |
 | Seven hosts times two operating systems | Maintenance cost grows quickly | WorkBuddy first, then Codex and Claude Desktop, then CodeBuddy and Claude Code; Trae and Qoder best-effort |
 
 **Decisions made**
