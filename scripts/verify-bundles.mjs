@@ -3,7 +3,10 @@
 // folder with no node_modules anywhere above it. Run `npm run bundle` in runtime/ and
 // fulltext-runtime/ first.
 //
-//   node scripts/verify-bundles.mjs
+//   node scripts/verify-bundles.mjs [--plugin-dir <folder>]
+//
+// With --plugin-dir, checks the bundles inside an already-extracted plugin archive
+// instead of copying them from this repository (scripts/verify-release.mjs does this).
 //
 // Checks, in order (each prints PASS or FAIL, and the child process's stderr on FAIL):
 //   1. runtime bundle over stdio lists exactly the 17 workbench tools
@@ -95,8 +98,15 @@ function assertSameList(actual, expected, what) {
 
 // --- A folder shaped like the release archive, with no node_modules above it. ---
 
+const pluginFlag = process.argv.indexOf('--plugin-dir');
+const givenPluginDir = pluginFlag === -1 ? undefined : process.argv[pluginFlag + 1];
+if (pluginFlag !== -1 && !givenPluginDir) {
+  process.stderr.write('verify-bundles: --plugin-dir needs a folder.\n');
+  process.exit(1);
+}
+
 const work = mkdtempSync(join(tmpdir(), 'ai4s-bundle-verify-'));
-const pluginDir = join(work, 'plugin');
+const pluginDir = givenPluginDir ? resolve(givenPluginDir) : join(work, 'plugin');
 const homeDir = join(work, 'home');
 mkdirSync(homeDir, { recursive: true });
 
@@ -110,6 +120,13 @@ function assertNoNodeModulesAbove(dir) {
 }
 
 function stage() {
+  if (givenPluginDir) {
+    for (const name of ['runtime', 'fulltext-runtime']) {
+      if (!existsSync(join(pluginDir, name, 'bundle', 'index.mjs'))) throw new Error(`${pluginDir} has no ${name}/bundle/index.mjs.`);
+    }
+    assertNoNodeModulesAbove(pluginDir);
+    return;
+  }
   for (const name of ['runtime', 'fulltext-runtime']) {
     const source = join(repoRoot, name, 'bundle');
     if (!existsSync(join(source, 'index.mjs'))) {

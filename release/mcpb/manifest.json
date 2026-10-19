@@ -1,0 +1,56 @@
+{
+  "manifest_version": "0.3",
+  "name": "ai4s-literature-zotero",
+  "display_name": "AI4S Literature Workbench: Zotero tools",
+  "version": "__VERSION__",
+  "description": "Zotero tools for evidence-based literature work: search, citation and import plans, tags, and read-only duplicate detection.",
+  "long_description": "The Zotero tool server of the AI4S Literature Workbench. It reads your Zotero library through the Zotero desktop local API when Zotero is running, with no key needed, and uses an optional Zotero key for writes, group libraries and sync. Searching and ranking papers needs no key. Journal partition columns (IF, JCR, CAS) come from a separate Zotero add-on, published on the same releases page.",
+  "author": {
+    "name": "Frank AI4S Skill contributors",
+    "url": "https://github.com/Frankkk1912"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Frankkk1912/ai4s-literature-workbench"
+  },
+  "homepage": "https://github.com/Frankkk1912/ai4s-literature-workbench",
+  "license": "MIT",
+  "keywords": ["zotero", "literature", "evidence", "biomedical", "research"],
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.mjs"],
+      "env": {
+        "LITERATURE_ZOTERO_MCP_TOOL_PROFILE": "workbench",
+        "ZOTEUS_EMBEDDINGS": "off",
+        "ZOTEUS_LOCAL": "${user_config.zotero_local}",
+        "ZOTERO_API_KEY": "${user_config.zotero_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "zotero_api_key": {
+      "type": "string",
+      "title": "Zotero API key (optional)",
+      "description": "Only needed to save to Zotero, sync, or use group libraries. Create one at https://www.zotero.org/settings/keys. Leave empty to search and read without it.",
+      "sensitive": true,
+      "required": false
+    },
+    "zotero_local": {
+      "type": "string",
+      "title": "Zotero desktop connection",
+      "description": "auto uses the running Zotero desktop app without a key when it is available. Use off to never contact it, or on to require it.",
+      "default": "auto",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32"],
+    "runtimes": {
+      "node": ">=22.13.0"
+    }
+  }
+}

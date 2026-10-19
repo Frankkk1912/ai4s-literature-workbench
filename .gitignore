@@ -47,6 +47,9 @@ Thumbs.db
 .vscode/
 *.swp
 
+# Release assets written by scripts/package-release.mjs
+release-out/
+
 # Zotero XPI build artifact (built via `npm run package`)
 literature-metrics/dist/
 
