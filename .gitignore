@@ -2,6 +2,9 @@
 node_modules/
 dist/
 build/
+# Single-file runtime bundles (built by `npm run bundle`)
+runtime/bundle/
+fulltext-runtime/bundle/
 coverage/
 *.tsbuildinfo
 
