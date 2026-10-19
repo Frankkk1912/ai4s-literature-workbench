@@ -1,0 +1,123 @@
+# Release assets: plugin archive with prebuilt bundles, Claude Desktop .mcpb, Zotero XPI,
+# and SHA256SUMS.txt.
+#
+# Pushing a tag like v0.1.0 runs this. The tag (without the "v") must equal the version in
+# .claude-plugin/plugin.json, or packaging stops. The publish job creates a DRAFT release,
+# so nothing is public until someone reviews and publishes it in the GitHub UI.
+#
+# "Run workflow" (workflow_dispatch) builds and verifies the same assets and attaches them
+# to the run as an artifact. It never creates a release.
+
+name: Release assets
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Gate 1: the bundles must start on Windows and macOS (and Linux) before anything ships.
+  bundles:
+    name: bundles (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js 22.13
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+
+      - name: Install and bundle runtime
+        working-directory: runtime
+        run: npm ci --no-audit --no-fund && npm run bundle
+
+      - name: Install and bundle fulltext
+        working-directory: fulltext-runtime
+        run: npm ci --no-audit --no-fund && npm run bundle
+
+      - name: Verify bundles start with no node_modules
+        run: node scripts/verify-bundles.mjs
+
+  package:
+    name: package assets
+    needs: bundles
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js 22.13
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+
+      - name: Install and bundle runtime
+        working-directory: runtime
+        run: npm ci --no-audit --no-fund && npm run bundle
+
+      - name: Install and bundle fulltext
+        working-directory: fulltext-runtime
+        run: npm ci --no-audit --no-fund && npm run bundle
+
+      - name: Build the Zotero add-on
+        working-directory: literature-metrics
+        run: npm ci --no-audit --no-fund && npm run package
+
+      # Validates the manifest with the pinned mcpb CLI, then packs it.
+      - name: Package release assets (tag build)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: node scripts/package-release.mjs --out release-out --version "${GITHUB_REF_NAME#v}"
+
+      - name: Package release assets (manual build)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: node scripts/package-release.mjs --out release-out
+
+      - name: Verify the assets as a user would receive them
+        run: node scripts/verify-release.mjs release-out
+
+      - name: Upload assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: release-out/
+          if-no-files-found: error
+
+  publish:
+    name: draft release
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download assets
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: release-out
+
+      - name: Create or update the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release-out/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" release-out/* --draft --verify-tag \
+              --title "$GITHUB_REF_NAME" --generate-notes
+          fi
