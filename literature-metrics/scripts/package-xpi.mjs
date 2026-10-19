@@ -15,7 +15,10 @@ const dist = resolve(root, "dist");
 const manifest = JSON.parse(readFileSync(resolve(root, "manifest.json"), "utf8"));
 const output = resolve(dist, `literature-metrics-${manifest.version}.xpi`);
 const excluded = new Set(["dist", "node_modules", ".git", ".gitignore"]);
-const stableMtime = new Date("1980-01-01T00:00:00.000Z");
+// fflate writes the DOS timestamp from local-time fields and rejects years before 1980,
+// so a UTC midnight date fails west of UTC. Local midnight is valid in every timezone and
+// gives the same stored timestamp everywhere.
+const stableMtime = new Date(1980, 0, 1, 0, 0, 0);
 
 function collectFiles(directory, files = {}) {
   for (const entry of readdirSync(directory).sort()) {
