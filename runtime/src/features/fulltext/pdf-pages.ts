@@ -1,3 +1,5 @@
+import { loadPdfjs } from '../../lib/pdfjs-loader.js';
+
 /**
  * Default cap on PDF bytes for exact-page re-extraction. pdfjs decodes the whole document
  * (objects + images) into memory and can balloon to many× the file size — on a small host
@@ -20,8 +22,7 @@ export async function extractPdfPages(
   if (bytes.byteLength > maxBytes) return null;
   let pdfjs: any;
   try {
-    // Legacy build runs under Node without a DOM.
-    pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs' as any);
+    pdfjs = await loadPdfjs();
   } catch {
     return null; // dependency not installed — degrade
   }

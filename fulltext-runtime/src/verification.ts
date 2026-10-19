@@ -1,5 +1,6 @@
 import { FulltextError } from './errors.js';
 import { md5, sha256 } from './lib/canonical.js';
+import { loadPdfjs } from './lib/pdfjs-loader.js';
 import type { PdfVerification } from './domain.js';
 
 const DOI_PATTERN = /10\.\d{4,9}\/[\w.()/:;-]+/gi;
@@ -31,7 +32,7 @@ export async function verifyPdf(
   }
   let pdfjs: any;
   try {
-    pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs' as any);
+    pdfjs = await loadPdfjs();
   } catch {
     throw new FulltextError('PDF_INVALID', 'The required PDF parser is unavailable in this Fulltext MCP runtime.');
   }

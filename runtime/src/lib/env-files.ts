@@ -2,11 +2,16 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, posix, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { findUp } from './find-up.js';
 
 const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-function packageRoot(): string {
-  return join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+/**
+ * Folder holding the package's own `.env`. Two levels covers `dist/lib/`, `src/lib/` and
+ * `bundle/`; a wider search could pick up an unrelated project's `.env`.
+ */
+export function packageRoot(startDir = dirname(fileURLToPath(import.meta.url))): string {
+  return findUp(startDir, 'package.json', 2) ?? join(startDir, '..', '..');
 }
 
 export function defaultPrivateEnvFile(

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -7,6 +7,7 @@ import {
   defaultPrivateEnvFile,
   legacyPrivateEnvFile,
   loadStartupEnvFiles,
+  packageRoot,
   preferredPrivateEnvFile,
 } from '../src/lib/env-files.js';
 
@@ -87,5 +88,30 @@ describe('startup env files', () => {
     expect(defaultAcademicResearchConfigFile({}, 'linux', '/home/alice')).toBe(
       '/home/alice/.config/frank-ai4s/academic-research.json',
     );
+  });
+});
+
+describe('packageRoot', () => {
+  function layout(): string {
+    return mkdtempSync(join(tmpdir(), 'zoteus-root-'));
+  }
+
+  it('resolves dist/lib, src/lib and bundle layouts to the package folder', () => {
+    const root = layout();
+    writeFileSync(join(root, 'package.json'), '{}');
+    for (const sub of [['dist', 'lib'], ['src', 'lib'], ['bundle']]) {
+      mkdirSync(join(root, ...sub), { recursive: true });
+      expect(packageRoot(join(root, ...sub))).toBe(root);
+    }
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('does not adopt a package.json more than two levels up', () => {
+    const outer = layout();
+    writeFileSync(join(outer, 'package.json'), '{}'); // an unrelated project
+    const start = join(outer, 'x', 'y', 'z');
+    mkdirSync(start, { recursive: true });
+    expect(packageRoot(start)).toBe(join(start, '..', '..'));
+    rmSync(outer, { recursive: true, force: true });
   });
 });

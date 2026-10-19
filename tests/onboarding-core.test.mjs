@@ -147,6 +147,25 @@ test("shared saves reuse legacy content, write native files atomically, and keep
 	}
 });
 
+test("redactedStatus counts a prebuilt bundle as built and reports the path it found", () => {
+	const { root, paths } = temporaryPaths("ai4s-onboarding-bundle-");
+	const repositoryRoot = join(root, "repository");
+	mkdirSync(join(repositoryRoot, "runtime", "bundle"), { recursive: true });
+	mkdirSync(join(repositoryRoot, "fulltext-runtime", "dist"), { recursive: true });
+	writeFileSync(join(repositoryRoot, "runtime", "bundle", "index.mjs"), "", "utf8");
+	writeFileSync(join(repositoryRoot, "fulltext-runtime", "dist", "index.js"), "", "utf8");
+
+	const { build_artifacts: artifacts } = redactedStatus(paths, {}, { repositoryRoot });
+	assert.equal(artifacts.runtime.exists, true);
+	assert.equal(artifacts.runtime.path, "runtime/bundle/index.mjs");
+	assert.equal(artifacts.fulltext_runtime.exists, true);
+	assert.equal(artifacts.fulltext_runtime.path, "fulltext-runtime/dist/index.js");
+
+	const empty = redactedStatus(paths, {}, { repositoryRoot: join(root, "nothing") });
+	assert.equal(empty.build_artifacts.runtime.exists, false);
+	assert.equal(empty.build_artifacts.runtime.path, "runtime/dist/index.js");
+});
+
 test("redactedStatus adds artifact, host, connection, and XPI evidence without changing old fields", () => {
 	const { root, paths } = temporaryPaths("ai4s-onboarding-status-");
 	const repositoryRoot = join(root, "repository");
