@@ -10,6 +10,22 @@ description: >-
 
 # Academic Research
 
+## Step 0: Check Your Tools
+
+Before the first search in a conversation, confirm the search script can run:
+
+```text
+uv --version
+```
+
+If it fails, stop. Do not claim that search works and do not improvise another
+retrieval route. Tell the user, in the language they write in and without
+component names: "I can't run the search yet because a small helper tool (uv)
+is missing on this computer." Then give one next action: offer to run the
+official installer from <https://docs.astral.sh/uv/getting-started/installation/>
+after the user approves it, or point them to `INSTALL.md` in the plugin root.
+Re-run `uv --version` afterwards and continue only if it succeeds.
+
 ## First-run API Onboarding
 
 When this skill is installed through `ai4s-literature-workbench`, check the
