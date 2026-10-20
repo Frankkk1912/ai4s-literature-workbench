@@ -4,8 +4,11 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { chromium } from 'playwright';
 
+export type BrowserInstallState = 'not_required' | 'not_installed' | 'downloading' | 'installed' | 'failed';
+
 export interface BrowserInstallStatus {
   browser: 'chromium';
+  state: BrowserInstallState;
   /** False when the configured channel is the user's own Chrome or an existing CDP session. */
   required: boolean;
   installed: boolean;
@@ -15,7 +18,7 @@ export interface BrowserInstallStatus {
 }
 
 export interface BrowserInstallResult {
-  installed: boolean;
+  state: BrowserInstallState;
   message: string;
 }
 
@@ -28,7 +31,7 @@ export interface InstallerDeps {
   run: (cli: string) => Promise<{ code: number | null; output: string }>;
 }
 
-const DOWNLOAD_NOTE = 'a one-time download of roughly 150 MB or more';
+const DOWNLOAD_NOTE = 'a one-time download of a few hundred MB (about 540 MB on disk on macOS)';
 const INSTALL_TIMEOUT_MS = 15 * 60_000;
 
 function defaultExecutablePath(): string | undefined {
@@ -76,10 +79,14 @@ function defaultRun(cli: string): Promise<{ code: number | null; output: string 
 
 /**
  * First-use download of Playwright's Chromium. It never runs on its own: the caller must
- * have asked the user first. One install runs at a time; callers share its result.
+ * have asked the user first.
+ *
+ * The download takes minutes, longer than an MCP request is usually allowed to run, so
+ * install() only starts it. Callers poll status(). One download runs at a time.
  */
 export class ChromiumInstaller {
-  private inFlight: Promise<BrowserInstallResult> | undefined;
+  private running = false;
+  private failure: string | undefined;
 
   constructor(
     private readonly required: boolean,
@@ -96,42 +103,65 @@ export class ChromiumInstaller {
   }
 
   status(): BrowserInstallStatus {
+    const canInstall = this.deps.cliPath() !== undefined;
+    const base = { browser: 'chromium' as const, required: this.required, can_install: canInstall };
     if (!this.required) {
       return {
-        browser: 'chromium', required: false, installed: false, can_install: false,
+        ...base, state: 'not_required', installed: false, can_install: false,
         message: 'This setup uses your own Chrome or an existing Chrome session, so no browser download is needed.',
       };
     }
-    const installed = this.isInstalled();
-    const canInstall = this.deps.cliPath() !== undefined;
+    if (this.isInstalled()) {
+      return { ...base, state: 'installed', installed: true, message: 'The browser is installed.' };
+    }
+    if (this.running) {
+      return {
+        ...base, state: 'downloading', installed: false,
+        message: 'The browser is downloading. This takes a few minutes. Call database_browser_install_status again later; do not start another download.',
+      };
+    }
+    if (this.failure) {
+      return {
+        ...base, state: 'failed', installed: false,
+        message: `${this.failure}\nTell the user, and if they want to try again, call database_browser_install again.`,
+      };
+    }
     return {
-      browser: 'chromium', required: true, installed, can_install: canInstall,
-      message: installed
-        ? 'The browser is installed.'
-        : canInstall
-          ? `The browser is not installed yet. Installing it is ${DOWNLOAD_NOTE}. Ask the user first; only if they agree, call database_browser_install.`
-          : 'The browser is not installed, and this copy cannot download it by itself because the Playwright command is missing. Use the source install route described in INSTALL.md.',
+      ...base, state: 'not_installed', installed: false,
+      message: canInstall
+        ? `The browser is not installed yet. Installing it is ${DOWNLOAD_NOTE}. Ask the user first; only if they agree, call database_browser_install.`
+        : 'The browser is not installed, and this copy cannot download it by itself because the Playwright command is missing. Use the source install route described in INSTALL.md.',
     };
   }
 
-  install(): Promise<BrowserInstallResult> {
-    this.inFlight ??= this.doInstall().finally(() => {
-      this.inFlight = undefined;
-    });
-    return this.inFlight;
-  }
-
-  private async doInstall(): Promise<BrowserInstallResult> {
-    if (!this.required) return { installed: false, message: this.status().message };
-    if (this.isInstalled()) return { installed: true, message: 'The browser is already installed.' };
+  /** Starts the download if needed and returns at once with the current state. */
+  install(): BrowserInstallResult {
+    const before = this.status();
+    if (before.state !== 'not_installed' && before.state !== 'failed') {
+      return { state: before.state, message: before.message };
+    }
     const cli = this.deps.cliPath();
-    if (!cli) return { installed: false, message: this.status().message };
-    const { code, output } = await this.deps.run(cli);
-    if (code === 0 && this.isInstalled()) return { installed: true, message: 'The browser was downloaded and is ready.' };
-    const tail = output.trim().split(/\r?\n/).slice(-6).join('\n');
+    if (!cli) return { state: before.state, message: before.message };
+    this.running = true;
+    this.failure = undefined;
+    void this.download(cli);
     return {
-      installed: false,
-      message: `The browser download did not finish (exit code ${code ?? 'none'}). Check the network connection and try again.${tail ? `\n${tail}` : ''}`,
+      state: 'downloading',
+      message: 'The download has started and takes a few minutes. Call database_browser_install_status to see when it is done.',
     };
+  }
+
+  private async download(cli: string): Promise<void> {
+    try {
+      const { code, output } = await this.deps.run(cli);
+      if (!(code === 0 && this.isInstalled())) {
+        const tail = output.trim().split(/\r?\n/).slice(-6).join('\n');
+        this.failure = `The browser download did not finish (exit code ${code ?? 'none'}). Check the network connection.${tail ? `\n${tail}` : ''}`;
+      }
+    } catch (error) {
+      this.failure = `The browser download could not start: ${error instanceof Error ? error.message : String(error)}`;
+    } finally {
+      this.running = false;
+    }
   }
 }

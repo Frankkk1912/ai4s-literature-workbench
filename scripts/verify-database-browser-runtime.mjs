@@ -59,6 +59,9 @@ const opened = await client.callTool({ name: 'database_session_open', arguments:
 if (opened.structuredContent?.error_code !== 'BROWSER_NOT_INSTALLED') {
   throw new Error(`Opening a session without a browser should ask for the download first, got ${JSON.stringify(opened.structuredContent)}`);
 }
+if (installStatus.structuredContent?.state !== 'not_installed') {
+  throw new Error(`Expected state not_installed, got ${installStatus.structuredContent?.state}`);
+}
 // Without consent the download tool must refuse before doing anything.
 const refused = await client.callTool({ name: 'database_browser_install', arguments: {} }).then((r) => r.isError === true, () => true);
 if (!refused) throw new Error('database_browser_install ran without consent.');

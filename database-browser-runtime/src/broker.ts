@@ -90,13 +90,13 @@ export class DatabaseBroker {
 
   browserInstallStatus(): BrowserInstallStatus {
     return this.adapter.browserInstallStatus?.() ?? {
-      browser: 'chromium', required: false, installed: false, can_install: false,
+      browser: 'chromium', state: 'not_required', required: false, installed: false, can_install: false,
       message: 'This setup needs no browser download.',
     };
   }
 
-  async installBrowser(): Promise<BrowserInstallResult> {
-    if (!this.adapter.installBrowser) return { installed: false, message: this.browserInstallStatus().message };
+  installBrowser(): BrowserInstallResult {
+    if (!this.adapter.installBrowser) return { state: this.browserInstallStatus().state, message: this.browserInstallStatus().message };
     return this.adapter.installBrowser();
   }
 

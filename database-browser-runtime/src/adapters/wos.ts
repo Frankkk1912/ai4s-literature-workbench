@@ -147,7 +147,7 @@ export class WosPlaywrightAdapter implements BrowserAdapter {
 		return this.installer.status();
 	}
 
-	installBrowser(): Promise<BrowserInstallResult> {
+	installBrowser(): BrowserInstallResult {
 		return this.installer.install();
 	}
 

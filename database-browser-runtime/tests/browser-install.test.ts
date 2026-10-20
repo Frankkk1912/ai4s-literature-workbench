@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WosPlaywrightAdapter } from '../src/adapters/wos.js';
 import { ChromiumInstaller, type InstallerDeps } from '../src/browser-install.js';
 import type { BrowserConfig } from '../src/config.js';
@@ -29,36 +29,41 @@ describe('ChromiumInstaller', () => {
     const executable = join(tempDir(), 'chrome');
     writeFileSync(executable, '');
     const status = new ChromiumInstaller(true, deps({ executable })).status();
-    expect(status).toMatchObject({ required: true, installed: true });
+    expect(status).toMatchObject({ required: true, installed: true, state: 'installed' });
   });
 
   it('tells the agent to ask the user first when the browser is missing', () => {
     const status = new ChromiumInstaller(true, deps({ executable: join(tempDir(), 'missing') })).status();
-    expect(status).toMatchObject({ required: true, installed: false, can_install: true });
+    expect(status).toMatchObject({ required: true, installed: false, can_install: true, state: 'not_installed' });
     expect(status.message).toMatch(/ask the user first/i);
   });
 
   it('says a download is not needed when the user brings their own Chrome', () => {
     const installer = new ChromiumInstaller(false, deps({ executable: join(tempDir(), 'missing') }));
-    expect(installer.status()).toMatchObject({ required: false, can_install: false });
+    expect(installer.status()).toMatchObject({ required: false, can_install: false, state: 'not_required' });
   });
 
-  it('runs the Playwright CLI once and reports success only if the file then exists', async () => {
+  it('returns at once, shows downloading, then installed, and runs the CLI only once', async () => {
     const executable = join(tempDir(), 'chrome');
     const calls: string[] = [];
+    let finish!: () => void;
     const installer = new ChromiumInstaller(true, deps({
       executable,
-      run: async (cli) => {
+      run: (cli) => new Promise((resolve) => {
         calls.push(cli);
-        writeFileSync(executable, '');
-        return { code: 0, output: '' };
-      },
+        finish = () => {
+          writeFileSync(executable, '');
+          resolve({ code: 0, output: '' });
+        };
+      }),
     }));
-    const [first, second] = await Promise.all([installer.install(), installer.install()]);
-    expect(first.installed).toBe(true);
-    expect(second).toBe(first);
+    expect(installer.install().state).toBe('downloading');
+    expect(installer.install().state).toBe('downloading');
+    expect(installer.status()).toMatchObject({ state: 'downloading', installed: false });
+    finish();
+    await vi.waitFor(() => expect(installer.status().state).toBe('installed'));
     expect(calls).toEqual(['/fake/playwright-core/cli.js']);
-    expect((await installer.install()).message).toMatch(/already installed/);
+    expect(installer.install().state).toBe('installed');
     expect(calls).toHaveLength(1);
   });
 
@@ -72,28 +77,42 @@ describe('ChromiumInstaller', () => {
         return { code: 1, output: 'getaddrinfo ENOTFOUND cdn.playwright.dev' };
       },
     }));
-    const outcome = await installer.install();
-    expect(outcome.installed).toBe(false);
-    expect(outcome.message).toContain('ENOTFOUND');
-    await installer.install();
+    installer.install();
+    await vi.waitFor(() => expect(installer.status().state).toBe('failed'));
+    expect(installer.status().message).toContain('ENOTFOUND');
+    expect(installer.install().state).toBe('downloading');
+    await vi.waitFor(() => expect(installer.status().state).toBe('failed'));
     expect(attempts).toBe(2);
   });
 
   it('does not claim success when the CLI exits 0 but the browser is still missing', async () => {
     const installer = new ChromiumInstaller(true, deps({ executable: join(tempDir(), 'missing') }));
-    expect((await installer.install()).installed).toBe(false);
+    installer.install();
+    await vi.waitFor(() => expect(installer.status().state).toBe('failed'));
+    expect(installer.status().installed).toBe(false);
   });
 
-  it('points to the source route when the Playwright CLI is not on disk', async () => {
+  it('points to the source route when the Playwright CLI is not on disk', () => {
     let ran = false;
     const installer = new ChromiumInstaller(true, deps({
       executable: join(tempDir(), 'missing'),
       cliPath: () => undefined,
       run: async () => { ran = true; return { code: 0, output: '' }; },
     }));
-    const outcome = await installer.install();
+    const outcome = installer.install();
     expect(ran).toBe(false);
+    expect(outcome.state).toBe('not_installed');
     expect(outcome.message).toMatch(/INSTALL\.md/);
+  });
+
+  it('does nothing when the user brings their own Chrome', () => {
+    let ran = false;
+    const installer = new ChromiumInstaller(false, deps({
+      executable: join(tempDir(), 'missing'),
+      run: async () => { ran = true; return { code: 0, output: '' }; },
+    }));
+    expect(installer.install().state).toBe('not_required');
+    expect(ran).toBe(false);
   });
 });
 

@@ -47,12 +47,15 @@ not store profiles, exports, receipts, or diagnostics in this repository.
 ## Browser download on first use
 
 Installing this runtime does not download a browser. The default `chromium` mode
-needs Playwright's Chromium (a one-time download of roughly 150 MB or more), and
+needs Playwright's Chromium (a one-time download of a few hundred MB, about 540 MB on disk on macOS), and
 the first `database_session_open` stops with `BROWSER_NOT_INSTALLED` instead of
 failing inside Playwright. The agent must then ask the user, and only after a
-yes call `database_browser_install` with `consent: true`, which runs
-`playwright install chromium` from the copy of Playwright in `node_modules`.
-`database_browser_install_status` reports the state without downloading anything.
+yes call `database_browser_install` with `consent: true`. The download takes
+minutes, longer than a tool call may run, so that call only starts it
+(`playwright install chromium`, run from the copy of Playwright in
+`node_modules`) and returns; poll `database_browser_install_status`, which
+reports `not_installed`, `downloading`, `installed` or `failed`. Nothing is
+downloaded until the install tool is called.
 
 Set `PLAYWRIGHT_BROWSERS_PATH` to change where the browser is stored. The
 `chrome` and `chrome-cdp` channels use the user's own Chrome and need no

@@ -148,7 +148,7 @@ export interface BrowserAdapter {
   close?(): Promise<void>;
   /** First-use browser download. Adapters that need no download omit both. */
   browserInstallStatus?(): BrowserInstallStatus;
-  installBrowser?(): Promise<BrowserInstallResult>;
+  installBrowser?(): BrowserInstallResult;
 }
 
 export interface BrokerIndex {
