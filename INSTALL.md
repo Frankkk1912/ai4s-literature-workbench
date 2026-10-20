@@ -18,6 +18,8 @@ There are two ways to get the plugin folder. Use the release archive whenever th
 
 The archive still needs Node.js 22.13 or newer on the computer for every app except Claude Desktop (see the `.mcpb` route). Check with `node --version`.
 
+**Keys with the archive.** The first-run key setup that the skills describe (`scripts/onboard.mjs`) is not in the archive, so the skills skip it. Search, ranking and writing work without any key. Saving to Zotero needs a Zotero key, and key setup for the archive route is not available yet; a setup page opened by the tools themselves is planned. If the user wants to save to Zotero today, use the source route. Say this plainly, and do not try to run `onboard.mjs` from the archive.
+
 **Source (build once).** Installing from the GitHub address copies source only. The `dist/` folders are build output and are not in git, so the tools do not exist until you run this once:
 
 ```text
@@ -39,7 +41,7 @@ claude plugin marketplace add Frankkk1912/ai4s-literature-workbench
 claude plugin install ai4s-literature-workbench@ai4s-literature-workbench
 ```
 
-From a release archive, replace the GitHub address in the first line with the extracted folder's path. Then build once (source route only), then restart Claude Code.
+From a release archive, replace the GitHub address in the first line with the extracted folder's path. This has not been tested with a local folder; if the app rejects it, say so and use the source route. Then build once (source route only), then restart Claude Code.
 
 ### Codex
 
@@ -48,7 +50,7 @@ codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-work
 codex plugin add ai4s-literature-workbench@personal
 ```
 
-From a release archive, replace the GitHub address in the first line with the extracted folder's path. Then build once (source route only), then restart Codex. Codex may block GitHub access until the user approves it.
+From a release archive, replace the GitHub address in the first line with the extracted folder's path. This has not been tested with a local folder; if the app rejects it, say so and use the source route. Then build once (source route only), then restart Codex. Codex may block GitHub access until the user approves it.
 
 ### WorkBuddy (unverified)
 
@@ -101,7 +103,7 @@ node scripts/install-host.mjs --host qoder --target <project-folder>
 
 ### Claude Desktop (unverified)
 
-Not yet tested in Claude Desktop. The release page lists `ai4s-literature-zotero-<version>.mcpb`. Download it and double-click it, or drag it onto the Claude Desktop window. Claude Desktop shows an install screen with two optional settings: a Zotero key (leave empty to search and read without one) and the Zotero desktop connection (leave on `auto`). Do not paste a key into chat. This file installs only the Zotero tools. It does not install the three skills or the full-text tools, and it needs no separate Node.js because Claude Desktop includes one. If the release page does not list this file, say so plainly rather than improvising.
+Not yet tested in Claude Desktop. The release page lists `ai4s-literature-zotero-<version>.mcpb`. Download it and double-click it, or drag it onto the Claude Desktop window. Claude Desktop shows an install screen with two optional settings: a Zotero key (leave empty to search and read without one) and the Zotero desktop connection (leave on `auto`). Do not paste a key into chat. This file installs only the Zotero tools. It does not install the three skills or the full-text tools, and it should need no separate Node.js, because Claude Desktop ships its own. Which Node version that is has not been confirmed, and the bundle asks for 22.13 or newer. If the install screen refuses it or the tools do not start, say so and stop. If the release page does not list this file, say so plainly rather than improvising.
 
 ## Not in any install route
 
