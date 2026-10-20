@@ -78,7 +78,7 @@
         "restart Claude Desktop"
       ],
       "covers": "Zotero tools only. Not the three skills and not the full-text tools.",
-      "note": "Built and validated with the mcpb CLI by CI; not yet installed in Claude Desktop. If the releases page does not list the file, say so."
+      "note": "Built and validated with the mcpb CLI by CI; not yet installed in Claude Desktop, and the Node version it ships is unconfirmed (the bundle asks for 22.13 or newer). If the releases page does not list the file, say so."
     }
   },
   "get_files": {
@@ -90,6 +90,7 @@
       "build_needed": false,
       "requires": "Node.js 22.13 or newer on the computer, except for Claude Desktop",
       "detect": "<plugin-root>/runtime/bundle/index.mjs exists",
+      "keys": "Key setup (scripts/onboard.mjs) is not in the archive, so the skills skip it. Search, ranking and writing need no key; saving to Zotero does, so use the source route for that until a setup page opened by the tools exists.",
       "note": "Use the extracted folder wherever a host route names the GitHub address. Built and checked by CI; not yet tested through any host. If the latest release does not list the file, use the source route and say so."
     },
     "source": {

@@ -4,7 +4,7 @@
   "display_name": "AI4S Literature Workbench: Zotero tools",
   "version": "__VERSION__",
   "description": "Zotero tools for evidence-based literature work: search, citation and import plans, tags, and read-only duplicate detection.",
-  "long_description": "The Zotero tool server of the AI4S Literature Workbench. It reads your Zotero library through the Zotero desktop local API when Zotero is running, with no key needed, and uses an optional Zotero key for writes, group libraries and sync. Searching and ranking papers needs no key. Journal partition columns (IF, JCR, CAS) come from a separate Zotero add-on, published on the same releases page.",
+  "long_description": "The Zotero tool server of the AI4S Literature Workbench. It reads your Zotero library through the Zotero desktop local API when Zotero is running, with no key needed, and uses an optional Zotero key for writes, group libraries and sync. Reading and searching your own library needs no key. This bundle holds only the Zotero tools; it does not search PubMed. Journal partition columns (IF, JCR, CAS) come from a separate Zotero add-on, published on the same releases page.",
   "author": {
     "name": "Frank AI4S Skill contributors",
     "url": "https://github.com/Frankkk1912"
