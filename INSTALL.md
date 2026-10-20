@@ -6,9 +6,10 @@ This file is the only source of install steps. If a step you want is not here, i
 
 1. Follow the route for the user's app below, in order. Run what you can yourself; the user only approves prompts.
 2. Tell the user up front that you may ask for permission to reach GitHub or the network, and that they should choose Allow.
-3. Never ask for a key in chat and never put one in a command. Keys are optional, and search works without any.
-4. Report results as what works now and what needs the user. Do not say "runtime not built" or "not configured".
+3. Never ask for a key in chat and never put one in a command. Keys are optional, and search works without any. Keys go only into the page that the `open_setup` tool opens (see "Keys" below).
+4. Report results as what works now and what needs the user. Do not say "runtime not built" or "not configured". The `setup_status` tool already words them that way.
 5. Do not say anything works until the check at the end of this file has passed.
+6. The `ai4s-setup` skill runs this whole file for the user. Use it when it is available.
 
 ## Get the files: release archive or source
 
@@ -18,7 +19,7 @@ There are two ways to get the plugin folder. Use the release archive whenever th
 
 The archive still needs Node.js 22.13 or newer on the computer for every app except Claude Desktop (see the `.mcpb` route). Check with `node --version`.
 
-**Keys with the archive.** The first-run key setup that the skills describe (`scripts/onboard.mjs`) is not in the archive, so the skills skip it. Search, ranking and writing work without any key. Saving to Zotero needs a Zotero key, and key setup for the archive route is not available yet; a setup page opened by the tools themselves is planned. If the user wants to save to Zotero today, use the source route. Say this plainly, and do not try to run `onboard.mjs` from the archive.
+**Double-click setup files (archive only).** The archive's top folder has `Setup AI4S.bat` (Windows) and `Setup AI4S.command` (Mac). Double-clicking one opens the key page without any agent. They are for apps whose sandbox cannot start a server or open a browser. They need Node.js 22.13 or newer. On a Mac the first double-click may be blocked as coming from an unidentified developer: right-click the file, choose Open, then Open.
 
 **Source (build once).** Installing from the GitHub address copies source only. The `dist/` folders are build output and are not in git, so the tools do not exist until you run this once:
 
@@ -31,6 +32,24 @@ node <plugin-root>/scripts/bootstrap.mjs
 It needs Node.js 22.13 or newer. If `node --version` fails or is older, say: "I need Node.js, a free standard tool, installed first", and give https://nodejs.org/ (current LTS). Re-run after it is installed.
 
 How to tell which one you have: if `<plugin-root>/runtime/bundle/index.mjs` exists, it is the archive and nothing needs building.
+
+## Keys
+
+Every key is optional. Search, ranking and writing need none. Ask only for a key that unlocks something the user asked for: a Zotero key to save papers into Zotero, a PubMed key for faster PubMed search, an EasyScholar key for journal ratings in reports.
+
+1. Call `setup_status` to see what works now. It answers in plain words in Chinese or English.
+2. When a key is wanted, call `open_setup` with only that key in `keys`. It opens the user's browser on a local page that is already signed in. The user reads why the key is useful, follows the link to get it, and pastes it into a masked field. Tell the user to do that, and that you cannot see the key.
+3. If `open_setup` reports `opened: false`, give the user `url` and `fallback_code`: they open the address and type the code. If the tool is missing or fails, tell them to double-click `Setup AI4S.bat` or `Setup AI4S.command` (archive route). Only if that also fails, give them this one line and tell them how to open a terminal in the plugin folder (Windows: open the folder in File Explorer, click the address bar, type `cmd`, press Enter; Mac: right-click the folder, choose New Terminal at Folder):
+
+```text
+node runtime/bundle/index.mjs --setup
+```
+
+   On a source build the file is `runtime/dist/index.js` instead.
+
+4. Call `setup_status` again. A Zotero key takes effect after the app restarts, and `setup_status` says so.
+
+The source route has `scripts/onboard.mjs` for developers. Do not use it, or mention it, on a beginner's computer.
 
 ## Routes by app
 
@@ -103,7 +122,7 @@ node scripts/install-host.mjs --host qoder --target <project-folder>
 
 ### Claude Desktop (unverified)
 
-Not yet tested in Claude Desktop. The release page lists `ai4s-literature-zotero-<version>.mcpb`. Download it and double-click it, or drag it onto the Claude Desktop window. Claude Desktop shows an install screen with two optional settings: a Zotero key (leave empty to search and read without one) and the Zotero desktop connection (leave on `auto`). Do not paste a key into chat. This file installs only the Zotero tools. It does not install the three skills or the full-text tools, and it should need no separate Node.js, because Claude Desktop ships its own. Which Node version that is has not been confirmed, and the bundle asks for 22.13 or newer. If the install screen refuses it or the tools do not start, say so and stop. If the release page does not list this file, say so plainly rather than improvising.
+Not yet tested in Claude Desktop. The release page lists `ai4s-literature-zotero-<version>.mcpb`. Download it and double-click it, or drag it onto the Claude Desktop window. Claude Desktop shows an install screen with two optional settings: a Zotero key (leave empty to search and read without one) and the Zotero desktop connection (leave on `auto`). Do not paste a key into chat. The same key page is available later: `open_setup` opens it from this file's tools. This file installs only the Zotero tools. It does not install the three skills or the full-text tools, and it should need no separate Node.js, because Claude Desktop ships its own. Which Node version that is has not been confirmed, and the bundle asks for 22.13 or newer. If the install screen refuses it or the tools do not start, say so and stop. If the release page does not list this file, say so plainly rather than improvising.
 
 ## Not in any install route
 
@@ -111,8 +130,9 @@ Not yet tested in Claude Desktop. The release page lists `ai4s-literature-zotero
 
 ## Check at the end
 
-1. The tool list includes `zotero_whoami` (and the `fulltext_*` tools, which are optional). If `zotero_whoami` is missing, say "My search tools are not connected yet", name the step that failed, and give one next action.
-2. Report in this shape:
+1. The tool list includes `setup_status` (and the `fulltext_*` tools, which are optional). If `setup_status` is missing, say "My search tools are not connected yet", name the step that failed, and give one next action. Then call it and use its `rendered` text.
+2. Run one tiny real search, so the user sees a result rather than a file-exists check. In a private temporary folder, from the folder that holds `literature-research/`: `uv run literature-research/scripts/literature_search.py review --question "setup check" --pubmed-query "CRISPR base editing[Title]" --limit 3 --top-n 3 --output <private-temp>/ai4s-setup-check`. Show the first titles from `report.md`. If it fails, say the search did not run and give the one reason in plain words.
+3. Report in this shape:
 
 ```text
 Works now

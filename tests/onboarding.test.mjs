@@ -279,21 +279,19 @@ test("XPI hint points at the literature-metrics build artifact path template", (
 	}
 });
 
-test("plugin default prompt advertises first-run onboarding", () => {
+test("plugin default prompt starts the guided first-run setup, in plain words", () => {
 	const manifest = JSON.parse(
 		readFileSync(
 			new URL("../.codex-plugin/plugin.json", import.meta.url),
 			"utf8",
 		),
 	);
-	assert.match(
-		manifest.interface.defaultPrompt[0],
-		/first-run API onboarding/i,
-	);
-	assert.match(manifest.interface.defaultPrompt[0], /Zotero Web API/);
-	assert.match(manifest.interface.defaultPrompt[0], /PubMed/);
-	assert.match(manifest.interface.defaultPrompt[0], /EasyScholar/);
-	assert.match(manifest.interface.defaultPrompt[0], /Zotero Desktop XPI/i);
+	const prompt = manifest.interface.defaultPrompt[0];
+	assert.match(prompt, /set up/i);
+	assert.match(prompt, /what works now/i);
+	assert.match(prompt, /key page/i);
+	// The beginner prompt names no component and no developer script.
+	assert.doesNotMatch(prompt, /onboard|Web API|XPI|MCP|runtime/i);
 });
 
 async function withIsolatedOnboardingEnvironment(run) {
