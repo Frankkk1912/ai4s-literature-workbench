@@ -65,6 +65,7 @@ function containsKey(value, key) {
 
 function assertStructure(manifest) {
   const requiredFiles = [
+    'skills/ai4s-setup/SKILL.md',
     'skills/literature-research/SKILL.md',
     'skills/literature-manager/SKILL.md',
     'skills/literature-writing/SKILL.md',
@@ -106,6 +107,7 @@ function assertManifest(manifest) {
     fail('bundle-manifest.json must not store fixed source hashes');
   }
   const expectedBundles = [
+    ['ai4s-setup', 'skills/ai4s-setup'],
     ['literature-research', 'skills/literature-research'],
     ['literature-manager', 'skills/literature-manager'],
     ['literature-writing', 'skills/literature-writing'],
