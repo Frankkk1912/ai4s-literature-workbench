@@ -85,8 +85,10 @@ A separate XPI you install into Zotero Desktop. It adds columns and controls on 
 - Let your agent check the technical prerequisites during first-run setup and explain anything you need to install.
 
 ### 1. Install
-Paste this into Claude Code or Codex:
-> Please install the plugin from https://github.com/Frankkk1912/ai4s-literature-workbench.git into this app. When it's done, run its first-run setup and tell me in plain language what's missing and what I need to do myself.
+Paste this into Codex, Claude Code, or WorkBuddy:
+> Please install the plugin from https://github.com/Frankkk1912/ai4s-literature-workbench.git into this app. Follow INSTALL.md in that repository exactly and do not add steps of your own. When it's done, tell me in plain language what works now and what I need to do myself.
+
+Your app may ask permission to reach GitHub or the network. Choose **Allow**; the install cannot continue without it. WorkBuddy and CodeBuddy support is not yet tested on a real machine.
 
 ### 2. First-run setup
 - **Optional:** Obtain the credentials you need and enter them through masked setup on your computer—not in chat. Allow Zotero library writes if you want to sync items or notes.
@@ -98,13 +100,13 @@ Start with **Find papers worth reading** above. You can retrieve, rank, and draf
 <details>
 <summary>Other agents & manual install</summary>
 
-Install Git, Node.js ≥22.13 with npm, and uv. Clone and build on macOS/Linux:
+Install Git, Node.js ≥22.13 with npm, and uv. Clone and build:
 ```bash
 git clone https://github.com/Frankkk1912/ai4s-literature-workbench.git
 cd ai4s-literature-workbench
-bash scripts/bootstrap-runtime.sh
+node scripts/bootstrap.mjs
 ```
-On Windows, run `git clone` and `cd` as above, then `.\scripts\bootstrap-runtime.ps1` in PowerShell.
+On Windows, run `git clone` and `cd` as above, then the same `node scripts/bootstrap.mjs` command.
 Choose your agent's commands. Run Trae/Qoder commands from this checkout; replace `/path/to/project` with your project folder. Those commands add built-in tools to that project.
 
 **Claude Code**
@@ -146,14 +148,13 @@ ai4s-literature-workbench/
 ### Development
 Run from the repository root; build installs the Zotero/full-text dependencies:
 ```bash
-bash scripts/bootstrap-runtime.sh
+node scripts/bootstrap.mjs
 node --import ./runtime/node_modules/tsx/dist/loader.mjs --test "tests/*.test.mjs"
 (cd runtime && npm run typecheck && npm test)
 (cd fulltext-runtime && npm run typecheck && npm test)
 (cd database-browser-runtime && npm ci && npx playwright install chromium && npm run build && npm run typecheck && npm test)
 (cd literature-metrics && npm ci && npm run check && npm test && npm run package)
 ```
-Windows build: `.\scripts\bootstrap-runtime.ps1`.
 
 ### Docs
 - [First-run setup and credentials](docs/onboarding.md)

@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "notes": "Machine-readable twin of INSTALL.md. Keep both in sync. status values: documented = commands taken from the repo README; unverified = taken from vendor docs or search results, never run on the host; planned = not available yet.",
+  "after_install": {
+    "description": "dist/ folders are build output and are not in git, so every route that installs from the repository must build once.",
+    "command": "node <plugin-root>/scripts/bootstrap.mjs",
+    "requires": "Node.js 22.13 or newer",
+    "locate_plugin_root": "The folder that contains scripts/bootstrap.mjs and .mcp.json. Search for it; do not guess."
+  },
+  "hosts": {
+    "claude-code": {
+      "label": "Claude Code",
+      "status": "documented",
+      "steps": [
+        "claude plugin marketplace add Frankkk1912/ai4s-literature-workbench",
+        "claude plugin install ai4s-literature-workbench@ai4s-literature-workbench",
+        "after_install",
+        "restart Claude Code"
+      ]
+    },
+    "codex": {
+      "label": "Codex",
+      "status": "documented",
+      "steps": [
+        "codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-workbench.git",
+        "codex plugin add ai4s-literature-workbench@personal",
+        "after_install",
+        "restart Codex"
+      ]
+    },
+    "workbuddy": {
+      "label": "WorkBuddy",
+      "status": "unverified",
+      "steps": [
+        "add the GitHub repository as a plugin marketplace through the WorkBuddy interface",
+        "install ai4s-literature-workbench",
+        "after_install",
+        "restart WorkBuddy"
+      ],
+      "fallback": "Add the two MCP servers from .mcp.json to ~/.workbuddy/mcp.json (no leading dot before workbuddy), using absolute paths."
+    },
+    "codebuddy": {
+      "label": "CodeBuddy",
+      "status": "unverified",
+      "steps": [
+        "/plugin marketplace add Frankkk1912/ai4s-literature-workbench",
+        "/plugin install ai4s-literature-workbench@ai4s-literature-workbench",
+        "after_install",
+        "restart CodeBuddy"
+      ]
+    },
+    "trae": {
+      "label": "Trae",
+      "status": "documented",
+      "steps": [
+        "clone the repository",
+        "after_install",
+        "node scripts/install-host.mjs --host trae --target <project-folder>"
+      ]
+    },
+    "qoder": {
+      "label": "Qoder",
+      "status": "documented",
+      "steps": [
+        "clone the repository",
+        "after_install",
+        "node scripts/install-host.mjs --host qoder --target <project-folder>"
+      ]
+    },
+    "claude-desktop": {
+      "label": "Claude Desktop",
+      "status": "planned",
+      "steps": [],
+      "note": "A one-click .mcpb bundle is planned. No tested route exists yet."
+    }
+  }
+}

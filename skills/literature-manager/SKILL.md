@@ -14,6 +14,22 @@ description: >-
 
 # Zotero Literature Manager
 
+## Step 0: Check Your Tools
+
+Before the first Zotero task in a conversation, confirm that the Zotero tools
+are connected by checking that your tool list includes `zotero_whoami` (from
+the `ai4s-literature-zotero` server).
+
+If it is missing, stop. Do not claim that basic features work, do not try to
+build or install anything, and do not invent setup steps. Tell the user, in the
+language they write in and without component names: "My Zotero tools are not
+connected yet." Then give one next action: follow the route for their app in
+`INSTALL.md` in the plugin root, which usually ends with restarting the app.
+Re-check the tool list afterwards and continue only if `zotero_whoami` is there.
+
+If it is present, call `zotero_whoami` once. Report in plain words whether
+saving to Zotero works now or still needs a key; never say "not configured".
+
 ## First-run API Onboarding
 
 When installed through `ai4s-literature-workbench`, follow the shared

@@ -1,0 +1,14 @@
+{
+  "name": "ai4s-literature-workbench",
+  "owner": {
+    "name": "Frank AI4S Skill contributors",
+    "url": "https://github.com/Frankkk1912"
+  },
+  "plugins": [
+    {
+      "name": "ai4s-literature-workbench",
+      "source": "./",
+      "description": "Auditable literature retrieval, optional verified OA fulltext, Zotero workflows, and evidence-traced writing."
+    }
+  ]
+}

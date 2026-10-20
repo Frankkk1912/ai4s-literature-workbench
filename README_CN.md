@@ -85,8 +85,10 @@ flowchart LR
 - 让你的 agent 在首次设置时替你检查技术前置条件，并说明还需要安装什么。
 
 ### 1. 安装
-把下面这段话发给 Claude Code 或 Codex：
-> 请帮我从 https://github.com/Frankkk1912/ai4s-literature-workbench.git 安装这个插件到当前应用。装好后运行它的首次设置，用通俗的话告诉我缺什么、我自己需要做什么。
+把下面这段话发给 Codex、Claude Code 或 WorkBuddy：
+> 请帮我从 https://github.com/Frankkk1912/ai4s-literature-workbench.git 安装这个插件到当前应用。严格按该仓库里的 INSTALL.md 操作，不要自己添加步骤。装好后，用通俗的话告诉我现在能用什么、我自己还需要做什么。
+
+应用可能会请求访问 GitHub 或网络的权限，请选择**允许**，否则安装无法继续。WorkBuddy 与 CodeBuddy 目前还没有在真实电脑上测试过。
 
 ### 2. 首次设置
 - **可选：** 申请所需凭据，在你电脑上隐藏输入内容的设置向导中录入，不要贴进聊天。若要同步条目或笔记，请允许 Zotero 文库写入。
@@ -102,9 +104,9 @@ flowchart LR
 ```bash
 git clone https://github.com/Frankkk1912/ai4s-literature-workbench.git
 cd ai4s-literature-workbench
-bash scripts/bootstrap-runtime.sh
+node scripts/bootstrap.mjs
 ```
-在 Windows 上执行同样的 `git clone` 和 `cd`，再在 PowerShell 中执行 `.\scripts\bootstrap-runtime.ps1`。
+在 Windows 上执行同样的 `git clone` 和 `cd`，再执行同样的 `node scripts/bootstrap.mjs`。
 选择你所用 agent 的命令。Trae/Qoder 命令需在此仓库目录运行；把 `/path/to/project` 换成你的项目文件夹。这些命令会把内置工具添加到该项目。
 
 **Claude Code**
@@ -146,14 +148,13 @@ ai4s-literature-workbench/
 ### 开发
 从仓库根目录运行；构建过程会安装 Zotero/全文组件依赖：
 ```bash
-bash scripts/bootstrap-runtime.sh
+node scripts/bootstrap.mjs
 node --import ./runtime/node_modules/tsx/dist/loader.mjs --test "tests/*.test.mjs"
 (cd runtime && npm run typecheck && npm test)
 (cd fulltext-runtime && npm run typecheck && npm test)
 (cd database-browser-runtime && npm ci && npx playwright install chromium && npm run build && npm run typecheck && npm test)
 (cd literature-metrics && npm ci && npm run check && npm test && npm run package)
 ```
-Windows 构建命令：`.\scripts\bootstrap-runtime.ps1`。
 
 ### 文档
 - [首次设置与凭据](docs/onboarding.md)

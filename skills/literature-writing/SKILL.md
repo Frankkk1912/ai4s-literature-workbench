@@ -11,6 +11,14 @@ description: >-
 
 # Literature Writing
 
+## Step 0: Check Your Inputs
+
+This skill needs no tools of its own, only saved evidence: `ranked_all.json`
+(or `.csv`) and `report.md` from `literature-research`. Before drafting, confirm
+those files exist. If they do not, stop and say plainly: "I don't have saved
+evidence to write from yet." Then offer to run `literature-research` first.
+Never draft from memory.
+
 ## First-run API Onboarding
 
 When installed through `ai4s-literature-workbench`, honor the plugin-local

@@ -12,6 +12,11 @@ import type {
 } from '../lib/onboarding-core.mjs';
 
 export const ADMIN_ONBOARDING_PREFIX = '/admin/onboarding';
+
+// Agent hosts install plugins under dot-directories (~/.claude, ~/.codex), and
+// sendFile rejects any path containing one unless dotfiles are allowed. The
+// served names are fixed constants, so no user input reaches these paths.
+const STATIC_FILE_OPTIONS = { dotfiles: 'allow' } as const;
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
 const SESSION_COOKIE = 'ai4s_onboarding_session';
 const SESSION_CSRF_COOKIE = 'ai4s_onboarding_csrf';
@@ -241,12 +246,12 @@ export async function createAdminOnboardingRouter(
     }
     const pairCsrf = token(24, random);
     setCookie(res, PAIR_CSRF_COOKIE, pairCsrf, prefix, false, pairingTtlMs);
-    res.sendFile(join(staticDir, 'index.html'));
+    res.sendFile(join(staticDir, 'index.html'), STATIC_FILE_OPTIONS);
   };
   router.get('/', sendIndex);
   router.get('/index.html', sendIndex);
-  router.get('/app.js', (_req, res) => res.sendFile(join(staticDir, 'app.js')));
-  router.get('/styles.css', (_req, res) => res.sendFile(join(staticDir, 'styles.css')));
+  router.get('/app.js', (_req, res) => res.sendFile(join(staticDir, 'app.js'), STATIC_FILE_OPTIONS));
+  router.get('/styles.css', (_req, res) => res.sendFile(join(staticDir, 'styles.css'), STATIC_FILE_OPTIONS));
 
   router.use(express.json({ limit: '8mb' }));
 
