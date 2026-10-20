@@ -43,3 +43,26 @@ npm run build
 The runtime uses a platform-private application-data directory by default. Set
 `LITERATURE_DATABASE_BROWSER_DATA_DIR` only to another private directory; do
 not store profiles, exports, receipts, or diagnostics in this repository.
+
+## Browser download on first use
+
+Installing this runtime does not download a browser. The default `chromium` mode
+needs Playwright's Chromium (a one-time download of a few hundred MB, 350 to 540 MB on disk on macOS), and
+the first `database_session_open` stops with `BROWSER_NOT_INSTALLED` instead of
+failing inside Playwright. The agent must then ask the user, and only after a
+yes call `database_browser_install` with `consent: true`. The download takes
+minutes, longer than a tool call may run, so that call only starts it
+(`playwright install chromium`, run from the copy of Playwright in
+`node_modules`) and returns; poll `database_browser_install_status`, which
+reports `not_installed`, `downloading`, `installed` or `failed`. Nothing is
+downloaded until the install tool is called.
+
+Set `PLAYWRIGHT_BROWSERS_PATH` to change where the browser is stored. The
+`chrome` and `chrome-cdp` channels use the user's own Chrome and need no
+download. Chromium may still need system libraries on Linux (`npx playwright
+install-deps chromium`, which asks for administrator rights); that step is not
+automated.
+
+This runtime is not shipped as a prebuilt bundle: it needs Playwright's files on
+disk to download the browser, so it is only available from the source route.
+

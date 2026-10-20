@@ -1,3 +1,5 @@
+import type { BrowserInstallResult, BrowserInstallStatus } from './browser-install.js';
+
 export const DATABASE_ID = 'wos-core-collection' as const;
 export const EXPORT_FORMAT = 'tab-delimited-full-record' as const;
 
@@ -47,6 +49,7 @@ export type ErrorCode =
   | 'EXPORT_LIMIT_REJECTED'
   | 'DOWNLOAD_INVALID'
   | 'BROWSER_CLOSED'
+  | 'BROWSER_NOT_INSTALLED'
   | 'REQUEST_ID_CONFLICT'
   | 'JOB_NOT_EXPORTABLE'
   | 'JOB_NOT_FOUND';
@@ -143,6 +146,9 @@ export interface BrowserAdapter {
   executeExport(input: ExportInput, exportDirectory: string): Promise<ExportExecutionResult>;
   cancel?(jobId: string): Promise<void>;
   close?(): Promise<void>;
+  /** First-use browser download. Adapters that need no download omit both. */
+  browserInstallStatus?(): BrowserInstallStatus;
+  installBrowser?(): BrowserInstallResult;
 }
 
 export interface BrokerIndex {

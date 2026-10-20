@@ -65,6 +65,34 @@ export function createServer(broker: DatabaseBroker): McpServer {
   );
 
   server.registerTool(
+    'database_browser_install_status',
+    {
+      title: 'Check whether the browser for database access is installed',
+      description: 'Read-only. Reports whether the browser this tool drives is installed and whether it can be downloaded. Never downloads anything.',
+      inputSchema: {},
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async () => {
+      const status = broker.browserInstallStatus();
+      return result({ ...status }, status.message);
+    },
+  );
+
+  server.registerTool(
+    'database_browser_install',
+    {
+      title: 'Download the browser for database access (user must agree first)',
+      description: 'Starts the download of the browser used for visible database sessions (a few hundred MB, taking a few minutes) and returns at once; poll database_browser_install_status until it says installed. Call this ONLY after you asked the user in plain words and they said yes. Never call it on your own initiative, and do not set consent unless the user agreed in this conversation.',
+      inputSchema: { consent: z.literal(true).describe('Must be true, and only because the user agreed to the download.') },
+      annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async () => {
+      const outcome = broker.installBrowser();
+      return result({ state: outcome.state, message: outcome.message }, outcome.message);
+    },
+  );
+
+  server.registerTool(
     'database_session_open',
     {
       title: 'Open the visible literature database browser session',
