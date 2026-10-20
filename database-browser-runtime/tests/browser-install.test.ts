@@ -60,6 +60,9 @@ describe('ChromiumInstaller', () => {
     expect(installer.install().state).toBe('downloading');
     expect(installer.install().state).toBe('downloading');
     expect(installer.status()).toMatchObject({ state: 'downloading', installed: false });
+    // The browser file appears before the download command exits: still downloading.
+    writeFileSync(executable, '');
+    expect(installer.status()).toMatchObject({ state: 'downloading', installed: false });
     finish();
     await vi.waitFor(() => expect(installer.status().state).toBe('installed'));
     expect(calls).toEqual(['/fake/playwright-core/cli.js']);

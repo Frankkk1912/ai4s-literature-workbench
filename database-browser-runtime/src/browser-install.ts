@@ -31,7 +31,7 @@ export interface InstallerDeps {
   run: (cli: string) => Promise<{ code: number | null; output: string }>;
 }
 
-const DOWNLOAD_NOTE = 'a one-time download of a few hundred MB (about 540 MB on disk on macOS)';
+const DOWNLOAD_NOTE = 'a one-time download of a few hundred MB (350 to 540 MB on disk on macOS)';
 const INSTALL_TIMEOUT_MS = 15 * 60_000;
 
 function defaultExecutablePath(): string | undefined {
@@ -111,14 +111,16 @@ export class ChromiumInstaller {
         message: 'This setup uses your own Chrome or an existing Chrome session, so no browser download is needed.',
       };
     }
-    if (this.isInstalled()) {
-      return { ...base, state: 'installed', installed: true, message: 'The browser is installed.' };
-    }
+    // The browser file appears before the download command has finished fetching its other
+    // parts, so a running download is reported first.
     if (this.running) {
       return {
         ...base, state: 'downloading', installed: false,
         message: 'The browser is downloading. This takes a few minutes. Call database_browser_install_status again later; do not start another download.',
       };
+    }
+    if (this.isInstalled()) {
+      return { ...base, state: 'installed', installed: true, message: 'The browser is installed.' };
     }
     if (this.failure) {
       return {

@@ -47,7 +47,7 @@ not store profiles, exports, receipts, or diagnostics in this repository.
 ## Browser download on first use
 
 Installing this runtime does not download a browser. The default `chromium` mode
-needs Playwright's Chromium (a one-time download of a few hundred MB, about 540 MB on disk on macOS), and
+needs Playwright's Chromium (a one-time download of a few hundred MB, 350 to 540 MB on disk on macOS), and
 the first `database_session_open` stops with `BROWSER_NOT_INSTALLED` instead of
 failing inside Playwright. The agent must then ask the user, and only after a
 yes call `database_browser_install` with `consent: true`. The download takes
