@@ -102,6 +102,6 @@
     }
   },
   "not_in_any_route": {
-    "database-browser-runtime": "Optional. Needs a browser download. Source route only, on request. See database-browser-runtime/README.md."
+    "database-browser-runtime": "Optional. Source route only, on request. Chromium (roughly 150 MB or more) is downloaded on first use, only after the user agrees, through the database_browser_install tool. See database-browser-runtime/README.md."
   }
 }

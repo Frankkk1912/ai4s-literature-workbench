@@ -107,7 +107,7 @@ Not yet tested in Claude Desktop. The release page lists `ai4s-literature-zotero
 
 ## Not in any install route
 
-`database-browser-runtime/` (visible-browser access to subscription databases) is optional and is not in the archive, the `.mcpb`, or `.mcp.json`. It needs a separate browser download, so it is only available from the source route, and only when the user asks for it by name. Its steps are in `database-browser-runtime/README.md`.
+`database-browser-runtime/` (visible-browser access to subscription databases) is optional and is not in the archive, the `.mcpb`, or `.mcp.json`. It needs a separate Chromium download (roughly 150 MB or more), so it is only available from the source route, and only when the user asks for it by name. The download happens on first use and only after the user agrees: when `database_session_open` reports that the browser is not installed, ask the user in plain words, and call `database_browser_install` only after a yes. Its steps are in `database-browser-runtime/README.md`.
 
 ## Check at the end
 

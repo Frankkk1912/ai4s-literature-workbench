@@ -19,7 +19,14 @@ const transport = new StdioClientTransport({
   command: process.execPath,
   args: [entry],
   cwd: runtimeDir,
-  env: { ...process.env, LITERATURE_DATABASE_BROWSER_DATA_DIR: dataDir },
+  // An empty browser folder makes "browser not installed" deterministic, so the
+  // first-use path is checked without launching a browser or downloading one.
+  env: {
+    ...process.env,
+    LITERATURE_DATABASE_BROWSER_DATA_DIR: dataDir,
+    LITERATURE_DATABASE_BROWSER_CHANNEL: 'chromium',
+    PLAYWRIGHT_BROWSERS_PATH: resolve(dataDir, 'no-browsers'),
+  },
 });
 const client = new Client({ name: 'database-browser-runtime-verifier', version: '0.1.0' });
 await client.connect(transport);
@@ -27,6 +34,8 @@ const listed = await client.listTools();
 
 const expected = [
   'database_browser_capabilities',
+  'database_browser_install',
+  'database_browser_install_status',
   'database_export_submit',
   'database_job_cancel',
   'database_search_status',
@@ -42,5 +51,16 @@ const capabilities = await client.callTool({ name: 'database_browser_capabilitie
 if (capabilities.isError) throw new Error('Database browser capability tool returned an error.');
 const session = await client.callTool({ name: 'database_session_status', arguments: {} });
 if (session.isError) throw new Error('Database browser session-status tool returned an error.');
+const installStatus = await client.callTool({ name: 'database_browser_install_status', arguments: {} });
+if (installStatus.isError || installStatus.structuredContent?.installed !== false || installStatus.structuredContent?.required !== true) {
+  throw new Error(`Expected "browser not installed" from an empty browser folder, got ${JSON.stringify(installStatus.structuredContent)}`);
+}
+const opened = await client.callTool({ name: 'database_session_open', arguments: { database: 'wos-core-collection' } });
+if (opened.structuredContent?.error_code !== 'BROWSER_NOT_INSTALLED') {
+  throw new Error(`Opening a session without a browser should ask for the download first, got ${JSON.stringify(opened.structuredContent)}`);
+}
+// Without consent the download tool must refuse before doing anything.
+const refused = await client.callTool({ name: 'database_browser_install', arguments: {} }).then((r) => r.isError === true, () => true);
+if (!refused) throw new Error('database_browser_install ran without consent.');
 await client.close();
 process.stdout.write(`Database browser MCP verified with ${actual.length} tools.\n`);

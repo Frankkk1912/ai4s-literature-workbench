@@ -7,6 +7,7 @@ import {
 	type Locator,
 	type Page,
 } from "playwright";
+import { ChromiumInstaller, type BrowserInstallResult, type BrowserInstallStatus } from "../browser-install.js";
 import type { BrowserConfig } from "../config.js";
 import {
 	DATABASE_ID,
@@ -132,9 +133,36 @@ export class WosPlaywrightAdapter implements BrowserAdapter {
 	private context: BrowserContext | undefined;
 	private ownedPage: Page | undefined;
 
-	constructor(private readonly config: BrowserConfig) {}
+	private readonly installer: ChromiumInstaller;
+
+	constructor(
+		private readonly config: BrowserConfig,
+		installer?: ChromiumInstaller,
+	) {
+		this.installer =
+			installer ?? new ChromiumInstaller(config.channel === "chromium");
+	}
+
+	browserInstallStatus(): BrowserInstallStatus {
+		return this.installer.status();
+	}
+
+	installBrowser(): Promise<BrowserInstallResult> {
+		return this.installer.install();
+	}
 
 	async openSession(): Promise<SessionSnapshot> {
+		// Only the first run needs this: stop with a question for the user instead of
+		// letting Playwright fail with a command-line hint.
+		if (this.config.channel === "chromium" && !this.installer.isInstalled())
+			return {
+				...session(
+					"unavailable",
+					`The browser this tool uses is not installed yet. ${this.installer.status().message}`,
+					"BROWSER_NOT_INSTALLED",
+				),
+				userActionRequired: true,
+			};
 		try {
 			const page = await this.openSmartSearch();
 			const text = await pageText(page);

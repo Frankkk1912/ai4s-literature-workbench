@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { BrowserInstallResult, BrowserInstallStatus } from './browser-install.js';
 import { readFile, stat } from 'node:fs/promises';
 import { isAbsolute, relative, resolve } from 'node:path';
 import type {
@@ -85,6 +86,18 @@ export class DatabaseBroker {
         max_export_records: 1000,
       }],
     };
+  }
+
+  browserInstallStatus(): BrowserInstallStatus {
+    return this.adapter.browserInstallStatus?.() ?? {
+      browser: 'chromium', required: false, installed: false, can_install: false,
+      message: 'This setup needs no browser download.',
+    };
+  }
+
+  async installBrowser(): Promise<BrowserInstallResult> {
+    if (!this.adapter.installBrowser) return { installed: false, message: this.browserInstallStatus().message };
+    return this.adapter.installBrowser();
   }
 
   async openSession(): Promise<SessionSnapshot> {
