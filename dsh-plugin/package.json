@@ -1,0 +1,16 @@
+{
+  "name": "dsh-ai4s-literature-workbench",
+  "version": "0.1.0",
+  "description": "AI4S Literature Workbench for DeepSeek Harness: Zotero and full-text tools, plus three literature skills.",
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://github.com/Frankkk1912/ai4s-literature-workbench",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Frankkk1912/ai4s-literature-workbench.git",
+    "directory": "dsh-plugin"
+  },
+  "files": ["cordis.patch.yml", "servers", "skills"],
+  "engines": { "dsh": ">=0.2.1-rc.2 <0.3.0" },
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
+}

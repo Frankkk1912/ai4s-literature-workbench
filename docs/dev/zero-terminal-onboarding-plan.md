@@ -104,21 +104,32 @@ Three consequences:
 - Desktop runs its Host on Electron's own Node (the "RunAsNode" mode). If a stdio row can use that Node to run our bundle, DeepSeek users need no Node install at all, which is better than most other hosts. A row can write `command: !!js process.execPath` with `ELECTRON_RUN_AS_NODE=1` in `env`; whether that works in a stdio child is untested.
 - The Python scripts behind `literature-research` and `literature-manager` are not affected by any of this. They still need the `uv` decision in Workstream A.
 
-**Test first** (a short spike on a clean Windows PC and a clean Mac, with the current release candidate of Desktop)
+**Spike** (six questions; a clean Windows PC and a clean Mac with the current release candidate of Desktop still need to run the open ones)
 
-1. Does the **Plugins** page install a package from a Git address or a release tarball, and does the patch mount both servers after a restart?
-2. Can a stdio row start our bundle with Desktop's own Node (`process.execPath`, `ELECTRON_RUN_AS_NODE=1`)? If not, is a system `node` on the child's PATH?
-3. How does a plugin contribute a skill folder? The local provider reads `customSkillDirs`, but I have not found how a bundle sets it. If a bundle cannot, the fallback is copying the skills into `~/.agents/skills`, which the local provider scans.
-4. Does Desktop offer any masked field for plugin secrets? If not, the browser wizard is its key-entry route.
-5. Can the MCP process open a loopback page and the default browser from inside Desktop?
-6. Do the skills trigger and call tools reliably with the DeepSeek models Desktop offers? This is model behaviour, not packaging, and it decides whether the route is worth supporting.
+First run, Oct 20, 2026: `dsh web` 0.2.1-rc.2 (the browser build of the same host, official npm package) on macOS with Node 26, using a throwaway DSH home folder (my real home folder was still visible to it). I did not sign in or add a model key, so nothing here involves a DeepSeek model. Desktop itself was not tested: its installer is not attached to the GitHub releases, so I did not find where to get it.
+
+| # | Question | Result |
+| --- | --- | --- |
+| 1 | Does a package install and mount its patch? | **Yes, from the command line.** `dsh plugin --profile web add` worked for a linked folder and for a `.tgz` (3.1 MB). After a restart, both servers ran as child processes of `dsh`, and the package appeared under Installed plugins. The Plugins page's **Add plugin** button and a Git address were not exercised |
+| 2 | Can a stdio row run our bundle on the host's own Node? | **Partly.** `command: !!js process.execPath` with `ELECTRON_RUN_AS_NODE=1` works under plain Node, where the variable is ignored. The official design note says Desktop runs its Host through Electron with that same variable, so the pattern should hold, but only Desktop can show it. Desktop's own Node version is unverified |
+| 3 | How does a plugin contribute skills? | **A second `@deepseek-ai/dsh-skill-filesystem` row in the patch, with `customSkillDirs` pointing into the package.** All three skills then appeared in the `/` list of a new session with their full descriptions. With that row removed they disappeared, and the user's own skills stayed, so the row is what loaded them. The 500-character catalog cut in the model's prompt was not tested |
+| 4 | Is there a masked field for plugin secrets? | **Not found.** Not in the docs. I did not open a plugin settings screen. Assume the browser wizard until shown otherwise |
+| 5 | Can the MCP process open a loopback page and the browser? | Not tested |
+| 6 | Do the skills work with the DeepSeek models? | Not tested: needs a DeepSeek key or sign-in, which I did not use |
+
+Two things the spike found that the docs did not say:
+
+- `!!js` expressions in a patch are plain code with no `require`. The package folder is not given to them, but `ctx.get('profileContext').dir` is the profile folder, and `process.getBuiltinModule('node:path')` gives them `path`. The patch uses those to locate the bundles inside `node_modules`.
+- The skill list reads the user's real home folder (`~/.agents/skills`), and an MCP child inherits the real home folder, so our Zotero server read the user's existing private key file at start-up. That is the same behaviour as every other host, but a clean-machine test must use a clean home folder.
 
 **Tasks**
 
-- [ ] Run the spike above and record the answers here.
-- [ ] Add a `dsh-plugin/` package: `package.json` with `dsh.bundle.patch`, `cordis.patch.yml` with the two MCP rows, the skills, and an `engines.dsh` range. Publish it as a release tarball first (`pnpm add ./x.tgz` is a supported spec) and to npm later.
-- [ ] Add the route to `INSTALL.md` and `install-manifest.json` as `deepseek-harness`, marked unverified until the spike passes.
-- [ ] Add a CI check that the package has `dsh.bundle` and that its bundle paths exist.
+- [x] Run the spike above through `dsh web` and record the answers (done for questions 1 to 3).
+- [ ] Run questions 2, 4, 5 and 6 on Desktop, on Windows and macOS.
+- [x] Add a `dsh-plugin/` package: `package.json` with `dsh.bundle.patch`, `cordis.patch.yml` with the two MCP rows and the skills row, and an `engines.dsh` range. `scripts/build-dsh-plugin.mjs` builds the tarball from the prebuilt bundles and the skills.
+- [ ] Publish the tarball as a release asset (a fifth asset next to the four above) and add it to `package-release.mjs`, the release workflow and the checksums. npm comes later.
+- [ ] Add the route to `INSTALL.md` and `install-manifest.json` as `deepseek-harness`, marked unverified until Desktop passes.
+- [ ] Add a CI check that the tarball has `dsh.bundle`, that its patch paths exist inside it, and that its version equals `plugin.json`.
 - [ ] Optional: host a plugin market index so users can install from **Discover** without typing a spec.
 
 ## Workstream A: Packaging and prebuilt runtimes

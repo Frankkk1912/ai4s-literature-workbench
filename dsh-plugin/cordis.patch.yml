@@ -1,0 +1,33 @@
+# Two MCP servers, started from the prebuilt bundles shipped inside this package.
+# `ctx.get('profileContext').dir` is the profile folder the package was installed into.
+# ELECTRON_RUN_AS_NODE makes Desktop's Electron binary behave as plain Node; plain Node ignores it.
+- insert:
+    - id: ai4s-literature-zotero
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: ai4s-literature-zotero
+        transport: stdio
+        command: !!js process.execPath
+        args:
+          - !!js "process.getBuiltinModule('node:path').join(ctx.get('profileContext').dir, 'node_modules', 'dsh-ai4s-literature-workbench', 'servers', 'runtime', 'index.mjs')"
+        env:
+          ELECTRON_RUN_AS_NODE: '1'
+          LITERATURE_ZOTERO_MCP_TOOL_PROFILE: workbench
+          ZOTEUS_LOCAL: auto
+          ZOTEUS_EMBEDDINGS: 'off'
+    - id: ai4s-literature-fulltext
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: ai4s-literature-fulltext
+        transport: stdio
+        command: !!js process.execPath
+        args:
+          - !!js "process.getBuiltinModule('node:path').join(ctx.get('profileContext').dir, 'node_modules', 'dsh-ai4s-literature-workbench', 'servers', 'fulltext-runtime', 'index.mjs')"
+        env:
+          ELECTRON_RUN_AS_NODE: '1'
+    # The three literature skills, in the host-wide skill layer.
+    - id: ai4s-literature-skills
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        customSkillDirs:
+          - !!js "process.getBuiltinModule('node:path').join(ctx.get('profileContext').dir, 'node_modules', 'dsh-ai4s-literature-workbench', 'skills')"
