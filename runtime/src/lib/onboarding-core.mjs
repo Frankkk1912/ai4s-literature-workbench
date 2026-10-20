@@ -191,10 +191,16 @@ export function academicKeyConfigured(
 	};
 }
 
-function artifactStatus(repositoryRoot, artifactPath) {
-	const present = existsSync(join(repositoryRoot, artifactPath));
+// A runtime counts as built when either its compiled dist/ entry or its prebuilt
+// single-file bundle exists. Reports the path that was found, else the first candidate.
+function artifactStatus(repositoryRoot, candidates) {
+	const paths = Array.isArray(candidates) ? candidates : [candidates];
+	const found = paths.find((candidate) =>
+		existsSync(join(repositoryRoot, candidate)),
+	);
+	const present = found !== undefined;
 	return {
-		path: artifactPath,
+		path: found ?? paths[0],
 		exists: present,
 		evidence: present
 			? "Build artifact exists; existence is not proof of connectivity."
@@ -331,11 +337,14 @@ export function redactedStatus(
 		zotero_desktop_xpi: zoteroXpiStatus(),
 		privacy: "No credential values are included in this report.",
 		build_artifacts: {
-			runtime: artifactStatus(repositoryRoot, "runtime/dist/index.js"),
-			fulltext_runtime: artifactStatus(
-				repositoryRoot,
+			runtime: artifactStatus(repositoryRoot, [
+				"runtime/dist/index.js",
+				"runtime/bundle/index.mjs",
+			]),
+			fulltext_runtime: artifactStatus(repositoryRoot, [
 				"fulltext-runtime/dist/index.js",
-			),
+				"fulltext-runtime/bundle/index.mjs",
+			]),
 		},
 		hosts,
 		connections,

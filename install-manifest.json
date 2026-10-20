@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "notes": "Machine-readable twin of INSTALL.md. Keep both in sync. status values: documented = commands taken from the repo README; unverified = taken from vendor docs or search results, never run on the host; planned = not available yet.",
+  "notes": "Machine-readable twin of INSTALL.md. Keep both in sync. status values: documented = commands taken from the repo README; unverified = taken from vendor docs or search results, never run on the host; planned = not available yet. Release assets are built by .github/workflows/release.yml; a route that uses one is only usable once a published release lists it.",
   "after_install": {
-    "description": "dist/ folders are build output and are not in git, so every route that installs from the repository must build once.",
+    "description": "Source route only. dist/ folders are build output and are not in git, so every route that installs from the repository must build once. Skip this when runtime/bundle/index.mjs exists (release archive).",
     "command": "node <plugin-root>/scripts/bootstrap.mjs",
     "requires": "Node.js 22.13 or newer",
     "locate_plugin_root": "The folder that contains scripts/bootstrap.mjs and .mcp.json. Search for it; do not guess."
@@ -69,9 +69,38 @@
     },
     "claude-desktop": {
       "label": "Claude Desktop",
-      "status": "planned",
-      "steps": [],
-      "note": "A one-click .mcpb bundle is planned. No tested route exists yet."
+      "status": "unverified",
+      "asset": "ai4s-literature-zotero-<version>.mcpb",
+      "steps": [
+        "download the .mcpb from the releases page",
+        "double-click it, or drag it onto the Claude Desktop window",
+        "leave the two optional settings as they are, or fill in the Zotero key in the masked field",
+        "restart Claude Desktop"
+      ],
+      "covers": "Zotero tools only. Not the three skills and not the full-text tools.",
+      "note": "Built and validated with the mcpb CLI by CI; not yet installed in Claude Desktop. If the releases page does not list the file, say so."
     }
+  },
+  "get_files": {
+    "release_archive": {
+      "status": "planned",
+      "asset": "ai4s-literature-workbench-<version>.zip",
+      "from": "https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest",
+      "checksums": "SHA256SUMS.txt on the same page",
+      "build_needed": false,
+      "requires": "Node.js 22.13 or newer on the computer, except for Claude Desktop",
+      "detect": "<plugin-root>/runtime/bundle/index.mjs exists",
+      "note": "Use the extracted folder wherever a host route names the GitHub address. Built and checked by CI; not yet tested through any host. If the latest release does not list the file, use the source route and say so."
+    },
+    "source": {
+      "status": "documented",
+      "build_needed": true,
+      "command": "node <plugin-root>/scripts/bootstrap.mjs",
+      "requires": "Node.js 22.13 or newer",
+      "locate_plugin_root": "The folder that contains scripts/bootstrap.mjs and .mcp.json. Search for it; do not guess."
+    }
+  },
+  "not_in_any_route": {
+    "database-browser-runtime": "Optional. Needs a browser download. Source route only, on request. See database-browser-runtime/README.md."
   }
 }

@@ -1,9 +1,10 @@
 import { createHash, randomBytes as nodeRandomBytes, timingSafeEqual } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Express, NextFunction, Request, RequestHandler, Response } from 'express';
 import express from 'express';
+import { findUp } from '../lib/find-up.js';
 import * as core from '../lib/onboarding-core.mjs';
 import type {
   OnboardingPaths,
@@ -160,30 +161,46 @@ function credentialFrom(req: Request): string | undefined {
   return trimmed;
 }
 
+/**
+ * The onboarding page sits beside a single-file bundle (`bundle/public/onboarding/`),
+ * beside compiled `dist/transports/`, or in `src/` when running from source.
+ */
+export function resolvePublicDirectory(moduleUrl: string = import.meta.url): string {
+  for (const relative of ['./public/onboarding/', '../public/onboarding/']) {
+    const candidate = new URL(relative, moduleUrl);
+    if (existsSync(candidate)) return fileURLToPath(candidate);
+  }
+  return fileURLToPath(new URL('../../src/public/onboarding/', moduleUrl));
+}
+
 function publicDirectory(explicit?: string): string {
-  if (explicit) return explicit;
-  const built = new URL('../public/onboarding/', import.meta.url);
-  if (existsSync(built)) return fileURLToPath(built);
-  return fileURLToPath(new URL('../../src/public/onboarding/', import.meta.url));
+  return explicit || resolvePublicDirectory();
+}
+
+/** The plugin root holds bundle-manifest.json, whether the code runs from dist/ or a bundle. */
+export function resolveRepositoryRoot(moduleUrl: string = import.meta.url): string {
+  return findUp(dirname(fileURLToPath(moduleUrl)), 'bundle-manifest.json')
+    ?? fileURLToPath(new URL('../../../', moduleUrl));
 }
 
 function repositoryRoot(): string {
-  return fileURLToPath(new URL('../../../', import.meta.url));
+  return resolveRepositoryRoot();
 }
 
+// Built means either the compiled dist/ entry or the prebuilt bundle exists.
 function probeBuildArtifact(
   root: string,
-  artifactPath: string,
+  candidates: string[],
 ): {
   path: string;
   exists: boolean;
   evidence: string;
 } {
-  const exists = existsSync(join(root, artifactPath));
+  const found = candidates.find((candidate) => existsSync(join(root, candidate)));
   return {
-    path: artifactPath,
-    exists,
-    evidence: exists
+    path: found ?? candidates[0]!,
+    exists: found !== undefined,
+    evidence: found !== undefined
       ? 'Build artifact exists; existence is not proof of connectivity.'
       : 'Build artifact is absent; artifact existence would not be proof of connectivity.',
   };
@@ -330,8 +347,8 @@ export async function createAdminOnboardingRouter(
     return {
       ...current,
       build_artifacts: {
-        runtime: probeBuildArtifact(root, 'runtime/dist/index.js'),
-        fulltext_runtime: probeBuildArtifact(root, 'fulltext-runtime/dist/index.js'),
+        runtime: probeBuildArtifact(root, ['runtime/dist/index.js', 'runtime/bundle/index.mjs']),
+        fulltext_runtime: probeBuildArtifact(root, ['fulltext-runtime/dist/index.js', 'fulltext-runtime/bundle/index.mjs']),
       },
     };
   };

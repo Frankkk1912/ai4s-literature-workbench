@@ -102,6 +102,57 @@ jobs:
       - name: Workbench structure and artifact check
         run: node scripts/assemble-plugin.mjs check
 
+      # Prebuilt single-file runtimes (Gate 1: they must start on Windows and macOS).
+      # verify-bundles.mjs copies them into a temp folder with no node_modules above it,
+      # starts each over stdio, checks the exact tool lists, starts the runtime with
+      # --http and requests /admin/onboarding, and parses a PDF from a bundle. It prints
+      # PASS/FAIL per check, shows the server's stderr on failure, and writes the same
+      # table to the run summary.
+      - name: Bundle runtime
+        working-directory: runtime
+        run: npm run bundle
+
+      - name: Bundle fulltext
+        working-directory: fulltext-runtime
+        run: npm run bundle
+
+      - name: Verify bundles start with no node_modules
+        run: node scripts/verify-bundles.mjs
+
+  # Dry run of the release packaging on every push and pull request, so a broken
+  # .mcpb manifest or archive layout shows up before a tag does. Publishes nothing.
+  release-assets:
+    name: release assets (dry run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js 22.13
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.13'
+
+      - name: Install and bundle runtime
+        working-directory: runtime
+        run: npm ci --no-audit --no-fund && npm run bundle
+
+      - name: Install and bundle fulltext
+        working-directory: fulltext-runtime
+        run: npm ci --no-audit --no-fund && npm run bundle
+
+      - name: Build the Zotero add-on
+        working-directory: literature-metrics
+        run: npm ci --no-audit --no-fund && npm run package
+
+      # Runs `mcpb validate` and `mcpb pack` (pinned in the script).
+      - name: Package release assets
+        run: node scripts/package-release.mjs --out release-out
+
+      - name: Verify the assets as a user would receive them
+        run: node scripts/verify-release.mjs release-out
+
   # One shared scan job, not a per-OS copy. D9 still requires the three test
   # jobs. D11/R13 require this scan to be a merge gate with the same pinned
   # binary and default rules. ubuntu-latest is the required scan runner:
