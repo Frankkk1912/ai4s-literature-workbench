@@ -16,40 +16,25 @@ description: >-
 
 ## Step 0: Check Your Tools
 
-Before the first Zotero task in a conversation, confirm that the Zotero tools
-are connected by checking that your tool list includes `zotero_whoami` (from
-the `ai4s-literature-zotero` server).
+Before the first Zotero task in a conversation, call `setup_status` (from the
+`ai4s-literature-zotero` server) with `wanted` set to `["zotero_save"]` when the
+task writes to Zotero, and `language` (`zh` or `en`) to match the user.
 
-If it is missing, stop. Do not claim that basic features work, do not try to
-build or install anything, and do not invent setup steps. Tell the user, in the
-language they write in and without component names: "My Zotero tools are not
-connected yet." Then give one next action: follow the route for their app in
-`INSTALL.md` in the plugin root, which usually ends with restarting the app.
-Re-check the tool list afterwards and continue only if `zotero_whoami` is there.
+If `setup_status` is not in your tool list, stop. Do not claim that basic
+features work, do not try to build or install anything, and do not invent setup
+steps. Tell the user, in the language they write in and without component
+names: "My search tools are not connected yet." Then give one next action: use
+the `ai4s-setup` skill, which connects them (and if that skill is missing too,
+follow the route for their app in `INSTALL.md` in the plugin root). Re-check
+afterwards and continue only if `setup_status` answers.
 
-If it is present, call `zotero_whoami` once. Report in plain words whether
-saving to Zotero works now or still needs a key; never say "not configured".
-
-## First-run API Onboarding
-
-When installed through `ai4s-literature-workbench`, follow the shared
-plugin-local onboarding check before the first workbench task:
-
-```text
-node <plugin-root>/scripts/onboard.mjs status --output <private-temp>/ai4s-onboarding-status.json
-```
-
-If `first_run` is true, explain the optional Zotero Web API, PubMed, and
-EasyScholar enhancements using the report's application links. State plainly
-that missing credentials do not block the basic literature workflow. Also
-prompt the user to install the separate Zotero Desktop XPI manually for AI4S
-columns and Priority controls, using the report's `zotero_desktop_xpi`
-instructions. Never request a credential in chat or put one in command
-arguments; direct the user to the local masked `setup` wizard. Mark the guide
-offered after presenting it.
-Use `reconfigure --provider ...` only when requested. If the onboarding script
-is unavailable, proceed with the skill and report only the capability that is
-actually missing.
+If it answers, read the `zotero_read` and `zotero_save` items. Reading the
+library works through the Zotero desktop app without a key; saving needs a
+Zotero key. When the task writes and `zotero_save` is under Needs you, say so in
+plain words and use the `ai4s-setup` skill to open the masked key page; never
+ask for the key in chat. A key saved after the app started takes effect after a
+restart. Never say "not configured". Do not write to Zotero until
+`zotero_save` is under Works now.
 
 ## Overview
 Use this skill to connect saved literature evidence with Frank's Zotero library

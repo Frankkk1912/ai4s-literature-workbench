@@ -5,6 +5,12 @@
   "notes": "Inventory and structure metadata only. Fixed source hashes are not stored and are not a daily gate. The one-time migration hash archive is docs/migration-from-parent.md.",
   "bundles": [
     {
+      "id": "ai4s-setup",
+      "path": "skills/ai4s-setup",
+      "kind": "skill",
+      "markers": ["SKILL.md"]
+    },
+    {
       "id": "literature-research",
       "path": "skills/literature-research",
       "kind": "skill",

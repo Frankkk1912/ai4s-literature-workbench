@@ -12,47 +12,29 @@ description: >-
 
 ## Step 0: Check Your Tools
 
-Before the first search in a conversation, confirm the search script can run:
+Before the first search in a conversation, call `setup_status` (from the
+`ai4s-literature-zotero` server). Pass `language` (`zh` or `en`) to match the
+user.
 
-```text
-uv --version
-```
-
-If it fails, stop. Do not claim that search works and do not improvise another
+If `setup_status` is not in your tool list, stop. Do not claim that search
+works, do not try to build or install anything, and do not improvise another
 retrieval route. Tell the user, in the language they write in and without
-component names: "I can't run the search yet because a small helper tool (uv)
-is missing on this computer." Then give one next action: offer to run the
-official installer from <https://docs.astral.sh/uv/getting-started/installation/>
-after the user approves it, or point them to `INSTALL.md` in the plugin root.
-Re-run `uv --version` afterwards and continue only if it succeeds.
+component names: "My search tools are not connected yet." Then give one next
+action: use the `ai4s-setup` skill, which connects them (and if that skill is
+missing too, follow the route for their app in `INSTALL.md` in the plugin root).
+Re-check afterwards and continue only if `setup_status` answers.
 
-## First-run API Onboarding
+If it answers, look at the `search` item. If it is under Needs you, stop: say in
+plain words that a small helper tool (uv) is missing on this computer, offer to
+install it with its official installer from
+<https://docs.astral.sh/uv/getting-started/installation/> after the user
+approves, and call `setup_status` again. Otherwise continue with the task
+without reciting the status. Show the three groups from `rendered` only when the
+user asks what works, or when a key they asked for is missing.
 
-When this skill is installed through `ai4s-literature-workbench`, check the
-plugin-local onboarding status before the first workbench task:
-
-```text
-node <plugin-root>/scripts/onboard.mjs status --output <private-temp>/ai4s-onboarding-status.json
-```
-
-If `first_run` is true, proactively tell the user that Zotero Web API, PubMed,
-and EasyScholar credentials are optional enhancements, show the
-`application_links` from the redacted status file, and state that retrieval,
-ranking, and writing basics remain available without them. Also remind the
-user that the separate Zotero Desktop XPI must be installed manually to show
-AI4S columns and Priority controls; use the returned `zotero_desktop_xpi`
-instructions. Never ask the user to paste a key into chat or pass one in
-command arguments. Offer the local masked wizard:
-
-```text
-node <plugin-root>/scripts/onboard.mjs setup --output <private-temp>/ai4s-onboarding-result.json
-```
-
-After presenting the guide, run `status --mark-offered --output ...` so it is
-not repeated on every task. Read only the redacted result. On later requests,
-use `reconfigure --provider zotero|pubmed|easyscholar --output ...`. If the
-plugin-local script is absent, continue with the base skill and do not block
-the literature task.
+Never ask for a key in chat. If the user wants PubMed speed or journal ratings
+and has no key, use the `ai4s-setup` skill to open the masked page; missing keys
+never block a search.
 
 ## Overview
 
