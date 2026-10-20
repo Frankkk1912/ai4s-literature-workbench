@@ -37,6 +37,15 @@ h1 {
 h2 {
   margin-top: 0;
 }
+.header-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+.lang-toggle {
+  padding: 6px 12px;
+}
 .eyebrow {
   color: #b34f32;
   font-size: 0.75rem;
@@ -350,4 +359,18 @@ input:focus-visible {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* One key at a time */
+#guided-root .action-pill {
+  display: inline-block;
+  margin: 4px 0 16px;
+}
+#guided-root label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+#guided-root .actions {
+  margin-top: 14px;
 }

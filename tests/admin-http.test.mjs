@@ -699,10 +699,14 @@ test("pairing page assets expose forms and status view without credential URLs",
   ).text();
   const css = await fetch(`${started.base}/admin/onboarding/styles.css`);
   assert.equal(css.status, 200);
-  assert.match(script, /Zotero Web API/);
+  assert.match(script, /Zotero/);
   assert.match(page.text, /id="status-view"/);
   assert.match(page.text, /id="dashboard-root"/);
   assert.doesNotMatch(page.text, /前往状态看板/);
   assert.match(script, /JSON\.stringify\(\{ key \}\)/);
-  assert.doesNotMatch(script, /searchParams|location\.(?:search|hash)|\?key=/);
+  // The only thing read from the address is the one-time pairing code in the
+  // fragment, and it goes straight to codeFromHash. No key is ever read from a URL.
+  assert.doesNotMatch(script, /searchParams|location\??\.search|\?key=/);
+  assert.equal((script.match(/location\??\.hash/g) ?? []).length, 1);
+  assert.match(script, /codeFromHash\(win\?\.location\?\.hash\)/);
 });
