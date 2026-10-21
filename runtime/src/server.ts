@@ -5,6 +5,7 @@ import { createLogger, type Logger } from './lib/logger.js';
 import { RateLimitedFetcher } from './api/http.js';
 import { WebApiClient } from './api/web-client.js';
 import { LocalApiClient } from './api/local-client.js';
+import { LocalWebClient } from './api/local-writer.js';
 import { probeCapabilities } from './router/capabilities.js';
 import { LibraryRouter } from './router/library-router.js';
 import { SchemaService } from './schema/schema-service.js';
@@ -78,7 +79,12 @@ export async function buildContext(config: ZoteusConfig, overrides: ContextOverr
   const apiKey = overrides.apiKey ?? config.apiKey;
   const perUser = overrides.apiKey !== undefined;
   const fetcher = new RateLimitedFetcher({ maxConcurrency: 4, logger });
-  const web = new WebApiClient({ apiKey, fetcher, contactEmail: config.contactEmail, logger });
+  // With no Zotero key, saving goes through Zotero 10 or later on this computer when it is there:
+  // Zotero asks the user once in its own window. A key, when present, is always what saves.
+  const web =
+    !apiKey && !perUser && config.local !== 'off' && config.localWrites !== 'off'
+      ? new LocalWebClient({ port: config.localPort, contactEmail: config.contactEmail, logger })
+      : new WebApiClient({ apiKey, fetcher, contactEmail: config.contactEmail, logger });
   // Per-user (hosted) contexts never touch the operator's desktop local API.
   const local = !perUser && config.local !== 'off' ? new LocalApiClient({ port: config.localPort, fetcher }) : undefined;
 

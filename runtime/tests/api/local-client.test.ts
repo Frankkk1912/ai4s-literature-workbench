@@ -48,4 +48,36 @@ describe('LocalApiClient', () => {
     const r = await makeLocal(fetchImpl).listItems({ collectionKey: 'ABC' });
     expect(r.data).toHaveLength(1);
   });
+
+  describe('probe', () => {
+    it('reports ok, and whether this Zotero accepts writes', async () => {
+      const fetchImpl = vi.fn(
+        async () => new Response('[]', { status: 200, headers: { 'Zotero-Server-ID': 'srv-1', 'X-Zotero-Version': '10.0.6' } }),
+      );
+      expect(await makeLocal(fetchImpl).probe()).toEqual({ state: 'ok', serverId: 'srv-1', version: '10.0.6' });
+      const older = vi.fn(async () => new Response('[]', { status: 200, headers: { 'X-Zotero-Version': '9.0.6' } }));
+      expect((await makeLocal(older).probe()).serverId).toBeUndefined();
+    });
+
+    it('tells a switched-off setting (403) from a closed Zotero', async () => {
+      const off = vi.fn(async () => new Response('Forbidden', { status: 403 }));
+      expect((await makeLocal(off).probe()).state).toBe('forbidden');
+      const closed = vi.fn(async () => {
+        throw new TypeError('fetch failed');
+      });
+      expect((await makeLocal(closed).probe()).state).toBe('unreachable');
+      const broken = vi.fn(async () => new Response('x', { status: 500 }));
+      expect((await makeLocal(broken).probe()).state).toBe('unreachable');
+    });
+  });
+
+  it('reads the children of an item from the desktop', async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      expect(url).toContain('/api/users/0/items/ABCD1234/children');
+      expect(url).toContain('limit=100');
+      return new Response(JSON.stringify([{ key: 'KID' }]), { status: 200, headers: { 'Total-Results': '1' } });
+    });
+    const r = await makeLocal(fetchImpl).getItemChildren('ABCD1234', { limit: 100 });
+    expect(r.data[0].key).toBe('KID');
+  });
 });

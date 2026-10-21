@@ -22,7 +22,7 @@ import { closeSetupSession } from '../../src/lib/setup-session.js';
 const ctx = (overrides: Record<string, unknown> = {}) =>
   ({
     config: { apiKey: undefined },
-    router: { whoami: () => null },
+    router: { whoami: () => null, refreshLocal: async () => {} },
     capabilities: { localApi: false, cloud: null },
     ...overrides,
   }) as never;
@@ -71,7 +71,10 @@ describe('setup_status tool', () => {
       {},
       ctx({
         config: { apiKey: secret },
-        router: { whoami: () => ({ key: secret, userID: 7, username: 'u', access: { user: { write: true } } }) },
+        router: {
+          whoami: () => ({ key: secret, userID: 7, username: 'u', access: { user: { write: true } } }),
+          refreshLocal: async () => {},
+        },
       }),
     );
     expect(JSON.stringify(result)).not.toContain(secret);

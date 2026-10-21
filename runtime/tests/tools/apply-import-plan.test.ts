@@ -96,6 +96,7 @@ function plan(): ImportPlan {
 function context(overrides: Record<string, any> = {}) {
   const web = {
     hasKey: true,
+    canWrite: true,
     listCollections: vi.fn(async () => ({
       data: [{ key: 'COLL001', version: 1, data: { name: 'Test project' } }],
       totalResults: 1,
@@ -287,13 +288,13 @@ describe('zotero import-plan execution', () => {
 });
 
 describe('zotero_apply_import_plan tool boundary', () => {
-  it('requires exact confirmation and a Web API key before apply', async () => {
+  it('requires exact confirmation and a way to save before apply', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'zotero-import-tool-'));
     const planPath = join(directory, 'plan.json');
     const value = plan();
     await writeFile(planPath, JSON.stringify(value), 'utf8');
     const ctx = context();
-    ctx.web.hasKey = false;
+    ctx.web.canWrite = false;
     const result = await applyImportPlanTool.handler(
       {
         plan_path: planPath,
@@ -304,7 +305,7 @@ describe('zotero_apply_import_plan tool boundary', () => {
       ctx,
     );
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toMatch(/Web API key/i);
+    expect(result.content[0]?.text).toMatch(/needs a Zotero key/i);
     expect(ctx.web.writeItems).not.toHaveBeenCalled();
   });
 });

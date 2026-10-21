@@ -1,6 +1,30 @@
 import { RateLimitedFetcher } from './http.js';
 import type { ItemQuery, ListResult } from './web-client.js';
 
+/**
+ * What a probe of the desktop connection found.
+ *   ok           Zotero answered
+ *   forbidden    Zotero is running but "Allow other applications on this computer to
+ *                communicate with Zotero" is off (it answers 403)
+ *   unreachable  nothing answered: Zotero is closed, or on another port
+ */
+export type LocalState = 'ok' | 'forbidden' | 'unreachable';
+
+export interface LocalProbe {
+  state: LocalState;
+  /** Set by Zotero 10 and later, which also accept writes through the local API. */
+  serverId?: string;
+  version?: string;
+}
+
+/** A non-2xx answer from the desktop connection. */
+export class LocalApiError extends Error {
+  constructor(readonly status: number, path: string) {
+    super(`Local API ${status} for ${path}`);
+    this.name = 'LocalApiError';
+  }
+}
+
 export interface LocalApiClientOptions {
   port?: number;
   fetcher?: RateLimitedFetcher;
@@ -44,7 +68,7 @@ export class LocalApiClient {
       { method: 'GET', headers: this.headers() },
       { maxRetries: 0 },
     );
-    if (!res.ok) throw new Error(`Local API ${res.status} for ${path}`);
+    if (!res.ok) throw new LocalApiError(res.status, path);
     return { json: await res.json(), headers: res.headers };
   }
 
@@ -58,13 +82,27 @@ export class LocalApiClient {
     };
   }
 
-  async ping(): Promise<boolean> {
+  async probe(): Promise<LocalProbe> {
     try {
-      await this.getJson('/users/0/items', this.buildQuery({ limit: 1 }));
-      return true;
-    } catch {
-      return false;
+      const { headers } = await this.getJson('/users/0/items', this.buildQuery({ limit: 1 }));
+      return {
+        state: 'ok',
+        serverId: headers.get('zotero-server-id') ?? undefined,
+        version: headers.get('x-zotero-version') ?? undefined,
+      };
+    } catch (err) {
+      return { state: err instanceof LocalApiError && err.status === 403 ? 'forbidden' : 'unreachable' };
     }
+  }
+
+  async ping(): Promise<boolean> {
+    return (await this.probe()).state === 'ok';
+  }
+
+  async getItemChildren(key: string, query: ItemQuery = {}): Promise<ListResult> {
+    const { top: _t, collectionKey: _c, ...rest } = query;
+    const { json, headers } = await this.getJson(`/users/0/items/${key}/children`, this.buildQuery(rest as any));
+    return this.toListResult(json, headers);
   }
 
   async listItems(query: ItemQuery = {}): Promise<ListResult> {

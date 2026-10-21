@@ -6,6 +6,8 @@ export interface ZoteusConfig {
   libraryId?: number;
   libraryType: 'user' | 'group';
   local: 'auto' | 'on' | 'off';
+  /** Save through Zotero 10+ when there is no Zotero key. 'off' keeps saving key-only. */
+  localWrites: 'auto' | 'off';
   localPort: number;
   translationServerUrl: string;
   embeddings: 'local' | 'openai' | 'gemini' | 'off';
@@ -69,6 +71,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ZoteusConfig {
     ZOTERO_LIBRARY_ID: z.coerce.number().int().positive().optional(),
     ZOTERO_LIBRARY_TYPE: z.enum(['user', 'group']).default('user'),
     ZOTEUS_LOCAL: z.enum(['auto', 'on', 'off']).default('auto'),
+    ZOTEUS_LOCAL_WRITES: z.enum(['auto', 'off']).default('auto'),
     ZOTERO_LOCAL_PORT: z.coerce.number().int().positive().default(23119),
     ZOTEUS_TRANSLATION_SERVER_URL: z.string().url().default('http://127.0.0.1:1969'),
     ZOTEUS_EMBEDDINGS: z.enum(['local', 'openai', 'gemini', 'off']).default('local'),
@@ -145,6 +148,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ZoteusConfig {
     libraryId: parsed.ZOTERO_LIBRARY_ID,
     libraryType: parsed.ZOTERO_LIBRARY_TYPE,
     local: parsed.ZOTEUS_LOCAL,
+    localWrites: parsed.ZOTEUS_LOCAL_WRITES,
     localPort: parsed.ZOTERO_LOCAL_PORT,
     translationServerUrl: parsed.ZOTEUS_TRANSLATION_SERVER_URL,
     embeddings: parsed.ZOTEUS_EMBEDDINGS,

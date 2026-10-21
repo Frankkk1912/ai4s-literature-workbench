@@ -66,6 +66,33 @@ describe('setup status groups', () => {
     expect(groupOf(evaluateSetup(facts), 'zotero_read')).toBe('works_now');
   });
 
+  it('says which of the two things Zotero needs when it cannot be read', () => {
+    const closed = evaluateSetup({ ...baseFacts(), zotero: { ...baseFacts().zotero, localState: 'unreachable' } });
+    expect(closed.find((i) => i.id === 'zotero_read')?.detail.en).toMatch(/Open Zotero/);
+    const off = evaluateSetup({ ...baseFacts(), zotero: { ...baseFacts().zotero, localState: 'forbidden' } });
+    const detail = off.find((i) => i.id === 'zotero_read')!.detail;
+    expect(detail.en).toMatch(/Zotero is open, but/);
+    expect(detail.en).toContain('Allow other applications on this computer to communicate with Zotero');
+    expect(detail.zh).toContain('允许这台电脑上的其他应用与 Zotero 通信');
+  });
+
+  it('says saving needs no key when Zotero 10 is open, and still asks for one otherwise', () => {
+    const zotero10 = { ...baseFacts(), zotero: { ...baseFacts().zotero, localApi: true, localSave: true } };
+    const item = evaluateSetup(zotero10).find((i) => i.id === 'zotero_save')!;
+    expect(item.group).toBe('works_now');
+    expect(item.detail.en).toContain('Always Allow');
+    const older = { ...baseFacts(), zotero: { ...baseFacts().zotero, localApi: true, localSave: false } };
+    expect(evaluateSetup(older).find((i) => i.id === 'zotero_save')!.action?.type).toBe('open_setup');
+    // A key that works takes precedence.
+    const withKey = { ...zotero10, zotero: { ...zotero10.zotero, keyPresent: true, keyLoadedAtStart: true, cloudOk: true, write: true } };
+    expect(evaluateSetup(withKey).find((i) => i.id === 'zotero_save')!.detail.en).toMatch(/Your key works/);
+  });
+
+  it('moves Zotero reading to Needs you only when the user asked for it', () => {
+    expect(groupOf(evaluateSetup(baseFacts()), 'zotero_read')).toBe('optional');
+    expect(groupOf(evaluateSetup(baseFacts(), ['zotero_read']), 'zotero_read')).toBe('needs_you');
+  });
+
   it('never claims the add-on works, only that it was found', () => {
     const items = evaluateSetup({ ...baseFacts(), addon: 'active' });
     const item = items.find((i) => i.id === 'partition_columns')!;

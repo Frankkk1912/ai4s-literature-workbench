@@ -17,10 +17,14 @@ const setupStatus: ToolDefinition = {
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async (args: { language?: 'zh' | 'en'; wanted?: Array<(typeof CAPABILITY_IDS)[number]> }, ctx) => {
+    // Zotero may have been opened (or its setting switched on) since the tools started.
+    await ctx.router.refreshLocal(true);
     const facts = gatherFacts({
       startedWithKey: Boolean(ctx.config.apiKey),
       cloud: ctx.router.whoami(),
       localApi: ctx.capabilities.localApi,
+      localState: ctx.capabilities.localState,
+      localServerId: ctx.capabilities.localServerId,
       uvAvailable: await probeUv(),
     });
     const status = buildSetupStatus(facts, { language: args.language, wanted: args.wanted });
