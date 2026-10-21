@@ -16,7 +16,7 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import {
-  cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync,
+  chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync,
 } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -105,6 +105,12 @@ for (const dir of ['.claude-plugin', '.codex-plugin', '.codebuddy-plugin']) {
 copyTree(join(repoRoot, 'skills'), join(pluginRoot, 'skills'), (name) => name === 'tests' || name === '__pycache__' || name.endsWith('.pyc'));
 copyTree(join(repoRoot, 'runtime', 'bundle'), join(pluginRoot, 'runtime', 'bundle'));
 copyTree(join(repoRoot, 'fulltext-runtime', 'bundle'), join(pluginRoot, 'fulltext-runtime', 'bundle'));
+// Double-click setup for hosts whose sandbox cannot start a server or a browser. Each runs
+// the bundle with --setup. The .command needs its execute bit to open from Finder.
+for (const name of ['Setup AI4S.bat', 'Setup AI4S.command']) {
+  cpSync(join(repoRoot, 'release', 'launchers', name), join(pluginRoot, name));
+}
+chmodSync(join(pluginRoot, 'Setup AI4S.command'), 0o755);
 mkdirSync(join(pluginRoot, 'scripts'), { recursive: true });
 cpSync(join(repoRoot, 'scripts', 'install-host.mjs'), join(pluginRoot, 'scripts', 'install-host.mjs'));
 for (const file of [

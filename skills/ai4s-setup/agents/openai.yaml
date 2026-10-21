@@ -1,0 +1,7 @@
+interface:
+  display_name: "AI4S Setup"
+  short_description: "Connect the tools, add optional keys safely, and run a first search"
+  default_prompt: "Use $ai4s-setup to get the literature workbench ready: check what works now, open the key page only for keys I want, and finish with a tiny real search."
+
+policy:
+  allow_implicit_invocation: true

@@ -11,6 +11,8 @@ import manageCollections from './manage-collections.js';
 import manageTags from './manage-tags.js';
 import savedSearches from './saved-searches.js';
 import onboardingPairing from './onboarding-pairing.js';
+import setupStatus from './setup-status.js';
+import openSetup from './open-setup.js';
 import groups from './groups.js';
 import exportTool from './export.js';
 import fulltext from './fulltext.js';
@@ -43,6 +45,9 @@ import aiSummaryContext from './ai-summary-context.js';
 import applyAiSummaries from './apply-ai-summaries.js';
 
 export const tools: ToolDefinition[] = [
+  // First-run setup
+  setupStatus,
+  openSetup,
   // Read
   whoami,
   searchItems,

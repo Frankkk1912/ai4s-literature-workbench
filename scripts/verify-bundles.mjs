@@ -9,10 +9,14 @@
 // instead of copying them from this repository (scripts/verify-release.mjs does this).
 //
 // Checks, in order (each prints PASS or FAIL, and the child process's stderr on FAIL):
-//   1. runtime bundle over stdio lists exactly the 17 workbench tools
+//   1. runtime bundle over stdio lists exactly the 19 workbench tools (17 plus the two
+//      setup tools, setup_status and open_setup)
 //   2. runtime bundle with --http serves the onboarding page (GET /admin/onboarding)
-//   3. fulltext bundle over stdio lists exactly its 6 tools and answers two status calls
-//   4. pdfjs parses a PDF from inside a bundle, for both packages, and each shipped
+//   3. setup_status answers in plain words and returns no key; open_setup starts a page that
+//      refuses a wrong code, takes the right one, and offers the keys that were asked for
+//   4. `--setup --check` (what the double-click launchers run) prints the page address and exits 0
+//   5. fulltext bundle over stdio lists exactly its 6 tools and answers two status calls
+//   6. pdfjs parses a PDF from inside a bundle, for both packages, and each shipped
 //      bundle contains the pdfjs worker (a probe built with the same options proves the
 //      parser works; the content check proves the shipped files carry the worker)
 //
@@ -30,6 +34,8 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const inActions = process.env.GITHUB_ACTIONS === 'true';
 
 const EXPECTED_RUNTIME_TOOLS = [
+  'open_setup',
+  'setup_status',
   'zotero_ai_summary_context',
   'zotero_apply_ai_summaries',
   'zotero_apply_citation_plan',
@@ -253,6 +259,95 @@ async function verifyHttp() {
   }
 }
 
+// Words that belong to the build, not to the user's world. Status text must not use them.
+const INTERNAL_WORDS = /\b(MCP|runtime|bundle|dist|node_modules|onboard\.mjs|bootstrap|stdio|npm|esbuild)\b/i;
+
+function toolBody(result) {
+  if (result.isError) throw new Error(`The tool returned an error: ${JSON.stringify(result.content)}`);
+  return result.structuredContent ?? JSON.parse(result.content.find((c) => c.type === 'text' && c.text.trim().startsWith('{')).text);
+}
+
+// setup_status: three groups, both languages, plain words, and no key value anywhere.
+async function verifySetupStatus(driver, entry) {
+  const planted = 'pubmed-planted-secret-0123456789abcdef';
+  await withStdioClient(driver, 'runtime bundle (setup_status)', entry,
+    cleanEnv({ LITERATURE_ZOTERO_MCP_TOOL_PROFILE: 'workbench', ZOTEUS_LOCAL: 'off', ZOTEUS_EMBEDDINGS: 'off', PUBMED_API_KEY: planted, AI4S_NO_BROWSER: '1' }),
+    async (client) => {
+      const raw = await client.callTool({ name: 'setup_status', arguments: { language: 'en', wanted: ['zotero_save'] } });
+      const body = toolBody(raw);
+      for (const group of ['works_now', 'needs_you', 'optional']) {
+        if (!Array.isArray(body[group])) throw new Error(`setup_status has no "${group}" list.`);
+      }
+      if (!/Works now/.test(body.rendered.en) || !/现在可用/.test(body.rendered.zh)) {
+        throw new Error(`setup_status did not render both languages:\n${JSON.stringify(body.rendered)}`);
+      }
+      if (!body.needs_you.some((item) => item.id === 'zotero_save')) {
+        throw new Error('A capability the user asked for (zotero_save) is not listed under needs_you.');
+      }
+      if (!body.works_now.some((item) => item.id === 'pubmed_key')) {
+        throw new Error('A PubMed key given through the environment is not reported as set.');
+      }
+      for (const lang of ['zh', 'en']) {
+        if (INTERNAL_WORDS.test(body.rendered[lang])) throw new Error(`setup_status uses a build word in ${lang}: ${body.rendered[lang]}`);
+      }
+      if (JSON.stringify(raw).includes(planted)) throw new Error('setup_status returned the value of a key.');
+    });
+}
+
+async function verifyOpenSetup(driver, entry) {
+  await withStdioClient(driver, 'runtime bundle (open_setup)', entry,
+    cleanEnv({ LITERATURE_ZOTERO_MCP_TOOL_PROFILE: 'workbench', ZOTEUS_LOCAL: 'off', ZOTEUS_EMBEDDINGS: 'off', AI4S_NO_BROWSER: '1' }),
+    async (client) => {
+      const raw = await client.callTool({ name: 'open_setup', arguments: { keys: ['zotero', 'pubmed'], language: 'en' } });
+      const body = toolBody(raw);
+      // No browser can be opened here, so the typed code is the way in and must be offered.
+      if (body.opened !== false || typeof body.fallback_code !== 'string') {
+        throw new Error(`Expected opened=false with a fallback code, got ${JSON.stringify(raw.structuredContent)}`);
+      }
+      if (String(body.url).includes('#') || String(body.url).includes(body.fallback_code)) {
+        throw new Error('The returned address carries the code.');
+      }
+      const base = String(body.url).replace(/\/$/, '');
+      const page = await fetch(`${base}/`, { signal: AbortSignal.timeout(10_000) });
+      if (page.status !== 200 || !/<html/i.test(await page.text())) throw new Error(`The setup page did not load (${page.status}).`);
+      const pairCookie = page.headers.getSetCookie().map((c) => c.split(';')[0]).find((c) => c.startsWith('ai4s_onboarding_pair_csrf='));
+      const csrf = decodeURIComponent(pairCookie.split('=').slice(1).join('='));
+      const origin = new URL(base).origin;
+      const redeem = (code) => fetch(`${base}/api/pair`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: pairCookie, 'x-csrf-token': csrf, origin },
+        body: JSON.stringify({ code }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if ((await fetch(`${base}/api/status`)).status !== 401) throw new Error('The page serves its status before anyone has paired.');
+      // Negative control: a wrong code must be refused, or the right one proves nothing.
+      if ((await redeem('not-the-code')).status === 200) throw new Error('A wrong pairing code was accepted.');
+      const paired = await redeem(body.fallback_code);
+      if (paired.status !== 200) throw new Error(`The pairing code from open_setup was refused (${paired.status}).`);
+      const session = paired.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+      const status = await fetch(`${base}/api/status`, { headers: { cookie: session }, signal: AbortSignal.timeout(10_000) });
+      const info = await status.json();
+      if (JSON.stringify(info.requested_providers) !== JSON.stringify(['zotero', 'pubmed']) || info.ui_language !== 'en') {
+        throw new Error(`The page was not told which keys to offer: ${JSON.stringify({ r: info.requested_providers, l: info.ui_language })}`);
+      }
+    });
+}
+
+// What the double-click launchers run. --check prints the address and exits at once.
+async function verifySetupFlag(entry) {
+  const child = spawn(process.execPath, [entry, '--setup', '--check'], {
+    cwd: pluginDir,
+    env: cleanEnv({ AI4S_NO_BROWSER: '1' }),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const stdoutText = collect(child.stdout);
+  const stderrText = collect(child.stderr);
+  const code = await withTimeout(new Promise((r) => child.once('exit', r)), 30_000, '--setup --check to exit');
+  const out = stdoutText();
+  if (code !== 0) throw new Error(`--setup --check exited with code ${code}.\nstdout: ${out}\nstderr: ${stderrText()}`);
+  if (!/http:\/\/127\.0\.0\.1:\d+\/admin\/onboarding\//.test(out)) throw new Error(`--setup --check did not print the page address:\n${out}`);
+}
+
 // Builds a tiny entry point with the shipped bundle options, then runs it where there is
 // no node_modules. This is how pdfjs breaks in a bundle: it loads its worker by path.
 async function verifyPdfProbe(packageName, expectText) {
@@ -280,7 +375,7 @@ try {
   const runtimeEntry = join(pluginDir, 'runtime', 'bundle', 'index.mjs');
   const fulltextEntry = join(pluginDir, 'fulltext-runtime', 'bundle', 'index.mjs');
 
-  await check('runtime bundle starts over stdio and lists its 17 workbench tools', () =>
+  await check('runtime bundle starts over stdio and lists its 19 workbench tools', () =>
     withStdioClient(driver, 'runtime bundle', runtimeEntry,
       cleanEnv({ LITERATURE_ZOTERO_MCP_TOOL_PROFILE: 'workbench', ZOTEUS_LOCAL: 'off', ZOTEUS_EMBEDDINGS: 'off' }),
       async (client) => {
@@ -289,6 +384,9 @@ try {
       }));
 
   await check('runtime bundle with --http serves GET /admin/onboarding', verifyHttp);
+  await check('setup_status reports capabilities in plain words and returns no key', () => verifySetupStatus(driver, runtimeEntry));
+  await check('open_setup starts a page that takes only the right code and offers the asked-for keys', () => verifyOpenSetup(driver, runtimeEntry));
+  await check('--setup --check prints the page address and exits (the double-click launchers)', () => verifySetupFlag(runtimeEntry));
 
   await check('fulltext bundle starts over stdio and lists its 6 tools', () => {
     const privateRoot = join(work, 'fulltext');

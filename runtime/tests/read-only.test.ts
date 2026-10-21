@@ -50,10 +50,12 @@ describe('read-only mode tool set', () => {
 });
 
 describe('workbench tool profile', () => {
-  const config = { toolProfile: 'workbench', readOnly: false } as any;
+  const config = { toolProfile: 'workbench', readOnly: false, oauth: { enabled: false } } as any;
 
-  it('exposes only the seventeen workflow-facing tools', () => {
+  it('exposes the two setup tools and only the seventeen workflow-facing tools', () => {
     expect(selectActiveTools(config).map((tool) => tool.name)).toEqual([
+      'setup_status',
+      'open_setup',
       'zotero_whoami',
       'zotero_search_items',
       'zotero_get_item',
@@ -74,6 +76,14 @@ describe('workbench tool profile', () => {
     ]);
   });
 
+  it('does not offer the local setup page in a remote (OAuth) deployment', () => {
+    const remote = selectActiveTools({ ...config, oauth: { enabled: true } } as any).map((tool) => tool.name);
+    expect(remote).not.toContain('open_setup');
+    expect(remote).toContain('setup_status');
+    // Negative control: the same filter keeps it when OAuth is off.
+    expect(selectActiveTools({ ...config, oauth: { enabled: false } } as any).map((tool) => tool.name)).toContain('open_setup');
+  });
+
   it('removes the write tool when combined with read-only mode', () => {
     const names = selectActiveTools({ ...config, readOnly: true }).map((tool) => tool.name);
     expect(names).not.toContain('zotero_apply_import_plan');
@@ -87,6 +97,9 @@ describe('workbench tool profile', () => {
     expect(names).toContain('zotero_semantic_tag_context');
     expect(names).toContain('zotero_ai_summary_context');
     expect(names).toContain('zotero_fulltext_context');
-    expect(names).toHaveLength(8);
+    // The two setup tools stay: they never touch the library.
+    expect(names).toContain('setup_status');
+    expect(names).toContain('open_setup');
+    expect(names).toHaveLength(10);
   });
 });

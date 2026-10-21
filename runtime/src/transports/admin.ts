@@ -37,6 +37,15 @@ export interface AdminOnboardingOptions {
   pairingCodeSink?: (code: string) => void;
   /** Called once, right after a pairing code is successfully redeemed. */
   onPaired?: () => void;
+  /**
+   * Keys the user asked for, in the order to offer them. Set by a setup session started
+   * from the MCP process; the page then shows one key at a time instead of all three.
+   */
+  requestedProviders?: ProviderName[];
+  /** Language the page should open in ('zh' by default); the user can switch it. */
+  uiLanguage?: 'zh' | 'en';
+  /** Called when the page reports that the user is done. */
+  onFinished?: () => void;
   fetchImpl?: typeof fetch;
   paths?: OnboardingPaths;
   env?: NodeJS.ProcessEnv;
@@ -336,7 +345,23 @@ export async function createAdminOnboardingRouter(
   });
 
   const status = (): RedactedOnboardingStatus => core.redactedStatus(paths, env);
-  router.get('/api/status', (_req, res) => res.json(status()));
+  router.get('/api/status', (_req, res) => {
+    const current = status();
+    res.json(
+      options.requestedProviders
+        ? {
+            ...current,
+            requested_providers: options.requestedProviders,
+            ui_language: options.uiLanguage ?? 'zh',
+          }
+        : current,
+    );
+  });
+
+  router.post('/api/finish', (_req, res) => {
+    res.json({ finished: true });
+    options.onFinished?.();
+  });
 
   // Decoupled from /api/status so the wizard contract stays credential-focused.
   // Host overlay uses T3.2 compatibility clues only; this endpoint never scans

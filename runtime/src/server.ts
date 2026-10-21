@@ -31,9 +31,12 @@ export interface ContextOverrides {
 
 /**
  * Tools exposed for this config: read-only mode hides mutating tools (plus zotero_index,
- * which only touches local index files). Mirrors the M10 selection.
+ * which only touches local index files, and open_setup, which only opens the page where
+ * the user types their own keys and never touches the library). Mirrors the M10 selection.
  */
 export const WORKBENCH_TOOL_NAMES = new Set([
+  'setup_status',
+  'open_setup',
   'zotero_whoami',
   'zotero_search_items',
   'zotero_get_item',
@@ -54,11 +57,14 @@ export const WORKBENCH_TOOL_NAMES = new Set([
 ]);
 
 export function selectActiveTools(config: ZoteusConfig): ToolDefinition[] {
-  const profiled = config.toolProfile === 'workbench'
+  const profiled = (config.toolProfile === 'workbench'
     ? tools.filter((tool) => WORKBENCH_TOOL_NAMES.has(tool.name))
-    : tools;
+    : tools
+  // A remote (OAuth) deployment deliberately has no local setup page, and its callers cannot
+  // reach this machine's loopback anyway, so the tool that opens one is not offered there.
+  ).filter((tool) => !(config.oauth.enabled && tool.name === 'open_setup'));
   return config.readOnly
-    ? profiled.filter((t) => t.annotations?.readOnlyHint === true || t.name === 'zotero_index')
+    ? profiled.filter((t) => t.annotations?.readOnlyHint === true || t.name === 'zotero_index' || t.name === 'open_setup')
     : profiled;
 }
 
@@ -124,7 +130,7 @@ export function createServer(ctx: ToolContext): McpServer {
         prompts: { listChanged: true },
       },
       instructions:
-        'Literature Zotero MCP exposes your Zotero library for auditable evidence workflows. Call zotero_whoami first to resolve identity. Prefer zotero_search_items for discovery, zotero_get_item for full records, and zotero_find_duplicates for read-only batch duplicate detection. Apply standalone import and existing-collection metrics plans only after their explicit review gates. The low-risk project-sync path may automatically apply available EasyScholar metrics for new create/reuse actions while preserving user Extra and unrelated tags. For Agent tags, call zotero_semantic_tag_context before zotero_apply_semantic_tags; the latter is an explicitly user-enabled automatic workflow that writes only AI4S:Semantic tags and optionally removes Zotero automatic tags while saving a plan and receipt. Generate AI Summary metadata only after an explicit user request: call zotero_ai_summary_context, write one Chinese sentence by default using only each returned title and abstract, then call zotero_apply_ai_summaries; never run this during import, project sync, metrics, tags, or report updates. Call tools sequentially rather than in large parallel batches — Zotero rate-limits, and parallel or very long calls can time out.',
+        'Literature Zotero MCP exposes your Zotero library for auditable evidence workflows. Call setup_status first in a new session to learn what works now and what needs the user; when a key is wanted, call open_setup so the user pastes it into a local page, never into chat. Then call zotero_whoami to resolve identity. Prefer zotero_search_items for discovery, zotero_get_item for full records, and zotero_find_duplicates for read-only batch duplicate detection. Apply standalone import and existing-collection metrics plans only after their explicit review gates. The low-risk project-sync path may automatically apply available EasyScholar metrics for new create/reuse actions while preserving user Extra and unrelated tags. For Agent tags, call zotero_semantic_tag_context before zotero_apply_semantic_tags; the latter is an explicitly user-enabled automatic workflow that writes only AI4S:Semantic tags and optionally removes Zotero automatic tags while saving a plan and receipt. Generate AI Summary metadata only after an explicit user request: call zotero_ai_summary_context, write one Chinese sentence by default using only each returned title and abstract, then call zotero_apply_ai_summaries; never run this during import, project sync, metrics, tags, or report updates. Call tools sequentially rather than in large parallel batches — Zotero rate-limits, and parallel or very long calls can time out.',
     },
   );
   registerAllTools(server, selectActiveTools(ctx.config), ctx);
