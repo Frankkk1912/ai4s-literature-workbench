@@ -6,6 +6,32 @@ documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
 
+## [Unreleased]
+
+### Added
+
+- Zotero add-on 0.1.14: the update feed (`literature-metrics/update.json`) now carries a
+  SHA-256 `update_hash`, and the release build fails when the feed does not describe the add-on
+  it packages. Copies installed before 0.1.14 checked a retired repository and never updated;
+  install the new file once by hand.
+- Every release carries the add-on a second time as `literature-metrics.xpi`, so
+  `releases/latest/download/literature-metrics.xpi` always gives the newest one. The setup page,
+  `setup_status` and the install guide link to it and show the four install steps in Chinese
+  and English.
+- Reading the Zotero library on this computer needs no key and now survives opening Zotero after
+  the tools started; `setup_status` says whether Zotero is closed or its "Allow other
+  applications on this computer to communicate with Zotero" setting is off. Item children are
+  read locally too.
+- Saving to Zotero without a key when Zotero 10 or later is open (`ZOTEUS_LOCAL_WRITES`). Tested
+  against a stand-in for the documented protocol only.
+- `docs/dev/zotero-local-write-spike.md`: finding on an add-on write endpoint (not built).
+
+### Fixed
+
+- The add-on status reads where an add-on updates from, not where its file was saved, so a
+  download from the browser is no longer reported as "not from this project".
+- `npm run package` no longer leaves an older `.xpi` in `dist/` for the release build to pick up.
+
 ## [0.1.0] - 2026-09-30
 
 Standalone first release covering delivered milestones M1–M5 (fresh-seed

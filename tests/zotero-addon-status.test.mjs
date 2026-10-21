@@ -89,6 +89,34 @@ test("active add-on from another source is flagged, not trusted", () => {
   }
 });
 
+test("a file saved in Downloads counts when the add-on updates from this repository", () => {
+  const downloaded = addon({
+    sourceURI: "file:///Users/someone/Downloads/literature-metrics.xpi",
+    updateURL: "https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/literature-metrics/update.json",
+  });
+  const root = fakeZoteroRoot([{ name: "p", extensions: [downloaded] }]);
+  try {
+    assert.equal(scanZoteroAddon({ roots: [root] }).profiles[0].state, "installed_active");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a copy that checks the retired repository for updates is flagged even from Downloads", () => {
+  const old = addon({
+    sourceURI: "file:///Users/someone/Downloads/literature-metrics-0.1.13.xpi",
+    updateURL: "https://raw.githubusercontent.com/Frankkk1912/Frank_AI4S_Skill/main/literature-metrics/update.json",
+  });
+  const root = fakeZoteroRoot([{ name: "p", extensions: [old] }]);
+  try {
+    const r = scanZoteroAddon({ roots: [root] });
+    assert.equal(r.profiles[0].state, "installed_unconfirmed");
+    assert.match(r.profiles[0].evidence, /reinstall/i);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("disabled add-on is not reported as active", () => {
   const root = fakeZoteroRoot([{ name: "p", extensions: [addon({ active: false })] }]);
   try {

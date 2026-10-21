@@ -242,19 +242,19 @@ test("XPI is a download action with a one-line install hint", () => {
   assert.equal(xpi.action.variant, "action-pill");
   assert.equal(
     xpi.action.href,
-    "https://github.com/Frankkk1912/ai4s-literature-workbench/releases",
+    "https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi",
   );
   assert.equal(xpi.action.target, "_blank");
   assert.equal(xpi.action.rel, "noreferrer");
   assert.equal(
     xpi.evidence,
-    "在 Zotero 中选择 Tools → Add-ons → 齿轮菜单 → Install Add-on From File…，选择下载的 .xpi 文件。",
+    "下载后，在 Zotero 中选择 工具 → 插件，点齿轮 → 从文件安装插件（Install Add-on From File…），选下载的 .xpi 文件，再重启 Zotero。",
   );
   assert.equal(xpi.details.length, 1);
   assert.equal(xpi.details[0].label, "完整步骤");
   assert.equal(xpi.details[0].mono, false);
-  assert.match(xpi.details[0].value, /访问 GitHub Releases/);
-  assert.match(xpi.details[0].value, /下载最新的 \.xpi 文件/);
+  assert.match(xpi.details[0].value, /literature-metrics\.xpi/);
+  assert.match(xpi.details[0].value, /releases/);
   assert.match(xpi.details[0].value, /Install Add-on From File/);
   assert.match(xpi.details[0].value, /重启 Zotero/);
   assert.doesNotMatch(xpi.statusLabel, /已安装|已连接|需要手动安装/);
@@ -733,4 +733,18 @@ test("expired session cannot read dashboard status or leftover data", async () =
   assert.equal(body.includes("build_artifacts"), false);
   assert.equal(body.includes("connections"), false);
   assert.equal(JSON.parse(body).error, "Pairing required.");
+});
+
+test("the add-on row says what this computer's Zotero profile shows, and never that it loaded", () => {
+  const label = (profiles) => mapDashboard({ ...fixtureStatus(), zotero_desktop_xpi: { ...fixtureStatus().zotero_desktop_xpi, profiles } }).sections.find((s) => s.id === "xpi").rows[0];
+  assert.match(label([{ state: "installed_active" }]).statusLabel, /已在你的 Zotero 里找到（无法确认已加载）/);
+  assert.match(label([{ state: "installed_unconfirmed" }]).statusLabel, /无法确认/);
+  assert.equal(label([{ state: "not_installed" }]).statusLabel, "尚未安装");
+  assert.match(label([]).statusLabel, /没有找到 Zotero/);
+  for (const state of ["installed_active", "installed_unconfirmed", "not_installed"]) {
+    const row = label([{ state }]);
+    assert.doesNotMatch(row.statusLabel, /已加载并|已启用并工作/);
+    assert.notEqual(row.statusTone, "verified");
+    assert.match(row.action.href, /releases\/latest\/download\/literature-metrics\.xpi$/);
+  }
 });

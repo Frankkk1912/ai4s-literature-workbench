@@ -82,7 +82,12 @@ One key at a time. For each key the user wants:
 
 1. Say in one plain sentence what it unlocks and that search works without it.
    Zotero: saving papers into their library. PubMed: faster, steadier PubMed
-   search. EasyScholar: journal ratings in reports.
+   search. EasyScholar: journal ratings in reports. Before asking for a Zotero
+   key, check the Zotero line in `setup_status`: reading their library needs no
+   key, only Zotero open with "Allow other applications on this computer to
+   communicate with Zotero" ticked (Settings, Advanced), and with Zotero 10 or
+   later saving needs no key either: Zotero asks once in its own window and
+   they choose Always Allow.
 2. Call `open_setup` with `keys` set to just that key and the user's `language`.
 3. Tell the user a page has opened, to paste the key there, and that you cannot
    see it. If `opened` is false, give them `url` and `fallback_code` to type into
@@ -126,6 +131,7 @@ and give the one reason in plain words (no network, helper missing), never
 ## Step 6: Finish
 
 Call `setup_status` one last time and show the three groups. End with the
-optional add-on if it is listed: one file to download, then in Zotero choose
-Tools, Add-ons, the gear menu, Install Add-on From File. Do not offer to build
-it. Do not claim it works; say it was found or not.
+optional add-on if it is listed: one file to download (use the link in the
+status text), then in Zotero choose Tools, Add-ons, the gear menu, Install
+Add-on From File, pick the file, and restart Zotero. Do not offer to build it.
+Do not claim it works; say it was found or not.

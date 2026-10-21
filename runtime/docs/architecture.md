@@ -13,9 +13,10 @@ Tool Registry      single source of truth (name, zod schema, annotations, handle
       │              → search_tools catalog (progressive disclosure)
       │
 LibraryRouter      startup capability probe → per-operation routing
-      │              reads → local API when up, else cloud; writes → cloud
+      │              reads → local API when up (re-probed while down), else cloud
+      │              writes → cloud with a key; Zotero 10+ local API without one
       │
-Clients            WebApiClient · LocalApiClient (read-only)
+Clients            WebApiClient · LocalApiClient (reads) · LocalWebClient (Zotero 10 writes)
       │              RateLimitedFetcher: concurrency cap + Backoff/Retry-After
       │
 Feature modules    SchemaService · citation (translation-server, CSL, citeproc)

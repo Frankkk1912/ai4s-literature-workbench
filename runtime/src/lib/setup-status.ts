@@ -61,6 +61,10 @@ export interface SetupFacts {
     write: boolean;
     /** Zotero desktop answered on its local connection. */
     localApi: boolean;
+    /** Why it did not: Zotero is closed, or it is open with "allow other applications" off. */
+    localState?: 'ok' | 'forbidden' | 'unreachable';
+    /** Zotero 10 or later is open, so saving works without a key (Zotero asks once in its own window). */
+    localSave?: boolean;
   };
   pubmedKey: boolean;
   easyscholarKey: boolean;
@@ -80,7 +84,9 @@ export interface SetupStatus {
 
 const LINKS = {
   zoteroKeys: 'https://www.zotero.org/settings/keys',
-  addon: 'https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest',
+  // Every release carries the add-on under this fixed name, so the link is always the newest one.
+  addon: 'https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi',
+  addonReleases: 'https://github.com/Frankkk1912/ai4s-literature-workbench/releases',
   uv: 'https://docs.astral.sh/uv/getting-started/installation/',
 };
 
@@ -125,16 +131,22 @@ export function evaluateSetup(facts: SetupFacts, wanted: readonly CapabilityId[]
   );
 
   const canRead = facts.zotero.localApi || facts.zotero.cloudOk;
+  const readDetail = canRead
+    ? text('已连接。', 'Connected.')
+    : facts.zotero.localState === 'forbidden'
+    ? text(
+        'Zotero 已打开，但不允许其他应用访问。请在 Zotero 的 设置 → 高级 里勾选“允许这台电脑上的其他应用与 Zotero 通信”（读取文献库不需要密钥）。',
+        'Zotero is open, but it does not let other applications talk to it. In Zotero, open Settings → Advanced and tick “Allow other applications on this computer to communicate with Zotero” (reading your library needs no key).',
+      )
+    : text(
+        '请先打开这台电脑上的 Zotero，并在 设置 → 高级 里勾选“允许这台电脑上的其他应用与 Zotero 通信”（读取文献库不需要密钥）；也可以改用 Zotero 密钥。',
+        'Open Zotero on this computer and tick “Allow other applications on this computer to communicate with Zotero” in Settings → Advanced (reading your library needs no key); a Zotero key also works.',
+      );
   items.push({
     id: 'zotero_read',
-    group: canRead ? 'works_now' : 'optional',
+    group: classify(canRead, want.has('zotero_read')),
     title: text('读取你的 Zotero 文献库', 'Read your Zotero library'),
-    detail: canRead
-      ? text('已连接。', 'Connected.')
-      : text(
-          '打开这台电脑上的 Zotero，并在设置里勾选“允许这台电脑上的其他应用与 Zotero 通信”；也可以改用 Zotero 密钥。',
-          'Open Zotero on this computer and tick “Allow other applications on this computer to communicate with Zotero” in its settings; a Zotero key also works.',
-        ),
+    detail: readDetail,
   });
 
   const z = facts.zotero;
@@ -152,6 +164,16 @@ export function evaluateSetup(facts: SetupFacts, wanted: readonly CapabilityId[]
         `Your current key can only read. Create one that allows writing at ${LINKS.zoteroKeys}, then paste it into the page I just opened.`,
       ),
       action: openSetup(['zotero'], '打开设置页', 'Open the setup page'),
+    };
+  } else if (z.localSave && !z.cloudOk && !z.keyLoadedAtStart) {
+    save = {
+      id: 'zotero_save',
+      group: 'works_now',
+      title: saveTitle,
+      detail: text(
+        '不需要密钥：第一次保存时，Zotero 会弹出一个窗口询问，请选“始终允许”，以后就不再询问。',
+        'No key needed: the first time you save, Zotero asks in its own window. Choose “Always Allow” and it will not ask again.',
+      ),
     };
   } else if (z.keyPresent && !z.keyLoadedAtStart) {
     save = {
@@ -227,17 +249,17 @@ export function evaluateSetup(facts: SetupFacts, wanted: readonly CapabilityId[]
     const detail =
       facts.addon === 'unconfirmed'
         ? text(
-            `在 Zotero 配置里发现了这个插件，但无法确认它已启用或来自本项目。可以重新安装发布页上的文件：${LINKS.addon}`,
-            `An add-on with this name is in your Zotero profile, but I cannot confirm it is turned on or comes from this project. You can reinstall the file from the releases page: ${LINKS.addon}`,
+            `在 Zotero 配置里发现了这个插件，但无法确认它已启用或来自本项目。可以重新下载这个文件再装一次：${LINKS.addon}`,
+            `An add-on with this name is in your Zotero profile, but I cannot confirm it is turned on or comes from this project. You can download this file and install it again: ${LINKS.addon}`,
           )
         : facts.addon === 'no_zotero'
         ? text(
-            `这台电脑上没有找到 Zotero。装好 Zotero 后，再下载并安装这个插件（一个文件）：${LINKS.addon}`,
-            `I could not find Zotero on this computer. After installing Zotero, install this add-on (one file): ${LINKS.addon}`,
+            `这台电脑上没有找到 Zotero。装好 Zotero 后，再下载并安装这个插件（一个文件）：${LINKS.addon} （没有开始下载就打开 ${LINKS.addonReleases}）`,
+            `I could not find Zotero on this computer. After installing Zotero, install this add-on (one file): ${LINKS.addon} (if nothing downloads, open ${LINKS.addonReleases})`,
           )
         : text(
-            `尚未安装。下载插件（一个文件）：${LINKS.addon} ，然后在 Zotero 中选择 工具 → 插件 → 齿轮 → 从文件安装插件，最后重启 Zotero。`,
-            `Not installed yet. Download the add-on (one file): ${LINKS.addon} , then in Zotero choose Tools → Add-ons → gear → Install Add-on From File, and restart Zotero.`,
+            `尚未安装。下载插件（一个文件）：${LINKS.addon} ，然后在 Zotero 中选择 工具 → 插件，点齿轮 → 从文件安装插件，选下载的文件，最后重启 Zotero。（没有开始下载就打开 ${LINKS.addonReleases}）`,
+            `Not installed yet. Download the add-on (one file): ${LINKS.addon} , then in Zotero choose Tools → Add-ons, click the gear → Install Add-on From File, pick the downloaded file, and restart Zotero. (If nothing downloads, open ${LINKS.addonReleases}.)`,
           );
     items.push({
       id: 'partition_columns',
@@ -298,6 +320,8 @@ export function buildSetupStatus(
     diagnostics: {
       search_helper: facts.uvAvailable,
       zotero_local_connection: facts.zotero.localApi,
+      zotero_local_state: facts.zotero.localState ?? null,
+      zotero_local_save: Boolean(facts.zotero.localSave),
       zotero_key_present: facts.zotero.keyPresent,
       zotero_key_loaded_at_start: facts.zotero.keyLoadedAtStart,
       zotero_key_accepted: facts.zotero.cloudOk,
@@ -338,6 +362,9 @@ export interface FactSources {
   startedWithKey: boolean;
   cloud: { access?: Record<string, unknown> } | null;
   localApi: boolean;
+  localState?: 'ok' | 'forbidden' | 'unreachable';
+  /** Zotero answered with a server id, which only Zotero 10 and later send. */
+  localServerId?: string;
   uvAvailable: boolean;
 }
 
@@ -355,6 +382,8 @@ export function gatherFacts(sources: FactSources): SetupFacts {
       cloudOk: sources.cloud !== null,
       write: Boolean(user?.write),
       localApi: sources.localApi,
+      localState: sources.localState,
+      localSave: sources.localApi && Boolean(sources.localServerId),
     },
     pubmedKey: status.providers.pubmed.configured,
     easyscholarKey: status.providers.easyscholar.configured,
