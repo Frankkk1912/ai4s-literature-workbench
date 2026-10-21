@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { checkFeed } from "./update-feed.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const required = ["manifest.json", "bootstrap.js", "src/metrics-payload.js", "src/article-types.js", "src/semantic-tags.js", "src/ai-summaries.js", "src/priorities.js", "src/literature-metrics.js", "README.md", "LICENSE"];
@@ -18,6 +19,10 @@ if (manifest.applications?.zotero?.strict_min_version !== "7.0") {
 if (typeof manifest.applications?.zotero?.update_url !== "string" || !manifest.applications.zotero.update_url.startsWith("https://")) {
   throw new Error("manifest must provide an HTTPS applications.zotero.update_url");
 }
+
+const feed = JSON.parse(readFileSync(resolve(root, "update.json"), "utf8"));
+const feedProblems = checkFeed({ manifest, feed });
+if (feedProblems.length > 0) throw new Error(`update.json is out of step with the add-on:\n- ${feedProblems.join("\n- ")}`);
 
 for (const relative of ["bootstrap.js", "src/metrics-payload.js", "src/article-types.js", "src/semantic-tags.js", "src/ai-summaries.js", "src/priorities.js", "src/literature-metrics.js"]) {
   const result = spawnSync(process.execPath, ["--check", resolve(root, relative)], { encoding: "utf8" });

@@ -12,6 +12,9 @@
 //   ai4s-literature-zotero-<version>.mcpb     Claude Desktop bundle (validated and packed
 //                                             with the official mcpb CLI)
 //   literature-metrics-<xpi version>.xpi      the Zotero add-on
+//   literature-metrics.xpi                    the same file under a fixed name, so the link
+//                                             .../releases/latest/download/literature-metrics.xpi
+//                                             always gives the newest add-on
 //   SHA256SUMS.txt                            checked with `sha256sum -c` or Get-FileHash
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -19,8 +22,9 @@ import {
   chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync,
 } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
+const { checkFeed } = await import(pathToFileURL(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'literature-metrics', 'scripts', 'update-feed.mjs')).href);
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const isWindows = process.platform === 'win32';
 
@@ -85,8 +89,9 @@ for (const [relative, step] of [
   if (!existsSync(join(repoRoot, relative))) fail(`missing ${relative}. Run ${step} first.`);
 }
 const xpiDir = join(repoRoot, 'literature-metrics', 'dist');
-const xpiName = existsSync(xpiDir) ? readdirSync(xpiDir).find((name) => /^literature-metrics-.+\.xpi$/.test(name)) : undefined;
-if (!xpiName) fail('missing literature-metrics/dist/*.xpi. Run npm run package (in literature-metrics/) first.');
+const xpiVersion = readJson('literature-metrics/manifest.json').version;
+const xpiName = `literature-metrics-${xpiVersion}.xpi`;
+if (!existsSync(join(xpiDir, xpiName))) fail(`missing literature-metrics/dist/${xpiName}. Run npm run package (in literature-metrics/) first.`);
 
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
@@ -170,9 +175,22 @@ if (args.skipMcpb) {
 
 // --- Zotero add-on ---
 
-const xpiPath = join(outDir, xpiName);
-cpSync(join(xpiDir, xpiName), xpiPath);
-assets.push(xpiPath);
+// The update feed Zotero reads (literature-metrics/update.json) must describe these exact bytes
+// and point at this release, or installed copies would never update.
+const xpiBytes = readFileSync(join(xpiDir, xpiName));
+const feedProblems = checkFeed({
+  manifest: readJson('literature-metrics/manifest.json'),
+  feed: readJson('literature-metrics/update.json'),
+  xpiBytes,
+  pluginVersion: version,
+});
+if (feedProblems.length > 0) fail(`literature-metrics/update.json is out of step with the add-on:\n- ${feedProblems.join('\n- ')}`);
+
+for (const name of [xpiName, 'literature-metrics.xpi']) {
+  const xpiPath = join(outDir, name);
+  cpSync(join(xpiDir, xpiName), xpiPath);
+  assets.push(xpiPath);
+}
 
 rmSync(staging, { recursive: true, force: true });
 

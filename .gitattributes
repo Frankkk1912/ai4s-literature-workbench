@@ -25,3 +25,6 @@
 *.pdf   binary
 *.xpi   binary
 *.zip   binary
+
+# Packaged into the Zotero add-on, whose update_hash must be the same on every OS.
+literature-metrics/LICENSE text eol=lf
