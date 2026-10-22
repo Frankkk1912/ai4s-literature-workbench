@@ -10,15 +10,18 @@
   <body>
     <main>
       <header>
-        <p class="eyebrow">LOCAL ONBOARDING</p>
-        <h1>AI4S Literature Workbench 配置向导</h1>
+        <div class="header-row">
+          <p id="eyebrow" class="eyebrow">本机设置</p>
+          <button id="lang-toggle" class="secondary lang-toggle" type="button">English</button>
+        </div>
+        <h1>AI4S Literature Workbench <span id="page-title">配置向导</span></h1>
       </header>
 
       <section id="pairing" class="panel">
-        <h2>配对本次会话</h2>
-        <p>从启动 MCP 的终端复制一次性配对码。配对码仅限本次会话有效，请在五分钟内填入。</p>
+        <h2 id="pairing-title">连接这个页面</h2>
+        <p id="pairing-help">通常这一步会自动完成。如果页面要求输入配对码，请输入助手给你的配对码；它五分钟内有效，只能用一次。</p>
         <form id="pair-form" autocomplete="off">
-          <label for="pair-code">终端配对码</label>
+          <label id="pair-code-label" for="pair-code">配对码</label>
           <div class="row">
             <input
               id="pair-code"
@@ -28,17 +31,21 @@
               autocomplete="off"
               spellcheck="false"
             />
-            <button type="submit">配对会话</button>
+            <button id="pair-submit" type="submit">连接</button>
           </div>
         </form>
         <p id="pair-result" class="result" role="status"></p>
       </section>
 
+      <section id="guided" class="panel" hidden>
+        <div id="guided-root"></div>
+      </section>
+
       <section id="wizard" class="panel" hidden>
         <div class="section-heading">
           <div>
-            <h2>校验并保存凭证</h2>
-            <p>已存凭证永不回显；状态只显示是否存在与来源。</p>
+            <h2 id="wizard-title">检查并保存密钥</h2>
+            <p id="wizard-help">已保存的密钥不会再显示；这里只显示是否已设置，以及它来自哪里。</p>
           </div>
           <button id="refresh-status" class="secondary" type="button">刷新状态</button>
         </div>
@@ -48,9 +55,9 @@
       <section id="status-view" class="panel status-view" hidden>
         <div class="section-heading">
           <div>
-            <h2>配置状态</h2>
+            <h2 id="status-title">配置状态</h2>
             <p id="dashboard-read-meta" class="dashboard-meta"></p>
-            <p class="dashboard-note">读取状态不代表执行连接测试。</p>
+            <p id="status-note" class="dashboard-note">读取状态不代表执行连接测试。</p>
           </div>
           <button id="refresh-dashboard" class="secondary" type="button">刷新状态</button>
         </div>

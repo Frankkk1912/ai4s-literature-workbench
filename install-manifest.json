@@ -1,11 +1,33 @@
 {
   "schema_version": 1,
-  "notes": "Machine-readable twin of INSTALL.md. Keep both in sync. status values: documented = commands taken from the repo README; unverified = taken from vendor docs or search results, never run on the host; planned = not available yet. Release assets are built by .github/workflows/release.yml; a route that uses one is only usable once a published release lists it.",
+  "notes": "Machine-readable twin of INSTALL.md. Keep both in sync. status values: documented = commands taken from the repo README; unverified = taken from vendor docs or search results, never run on the host; planned = not available yet. Release assets are built by .github/workflows/release.yml; a route that uses one is only usable once a published release lists it. first_run and keys describe the setup tools: setup_status (what works now) and open_setup (the masked key page); both are in the runtime bundle, the .mcpb and a source build.",
   "after_install": {
     "description": "Source route only. dist/ folders are build output and are not in git, so every route that installs from the repository must build once. Skip this when runtime/bundle/index.mjs exists (release archive).",
     "command": "node <plugin-root>/scripts/bootstrap.mjs",
     "requires": "Node.js 22.13 or newer",
     "locate_plugin_root": "The folder that contains scripts/bootstrap.mjs and .mcp.json. Search for it; do not guess."
+  },
+  "first_run": {
+    "skill": "ai4s-setup",
+    "description": "Owns first-run: detects the app, follows the route for it in this file, calls setup_status, opens the key page only when a key is wanted, re-checks, and ends with a tiny real search.",
+    "status_tool": "setup_status",
+    "status_shape": "Three groups, works_now, needs_you and optional, each item with Chinese and English text. rendered.zh and rendered.en hold the text to show. Chinese is the default.",
+    "smoke_test": "uv run literature-research/scripts/literature_search.py review --question \"setup check\" --pubmed-query \"CRISPR base editing[Title]\" --limit 3 --top-n 3 --output <private-temp>/ai4s-setup-check"
+  },
+  "keys": {
+    "rule": "Never in chat and never in a command or tool argument. Optional: search needs no key. Ask only for a key that unlocks something the user asked for.",
+    "available_keys": [
+      "zotero",
+      "pubmed",
+      "easyscholar"
+    ],
+    "tool": "open_setup",
+    "tool_arguments": "keys: the keys to offer, in order (omit for all three); language: zh or en",
+    "tool_result": "opened (whether the browser was launched), url (no code in it), keys, message; fallback_code only when opened is false",
+    "if_browser_not_opened": "Give the user url and fallback_code to type into the page.",
+    "if_tool_missing_or_failing": "Double-click Setup AI4S.bat (Windows) or Setup AI4S.command (Mac) in the archive folder. Only if that fails, give one line: node runtime/bundle/index.mjs --setup (runtime/dist/index.js on a source build), after saying how to open a terminal in the plugin folder.",
+    "takes_effect": "PubMed and EasyScholar keys are read on the next search. A Zotero key takes effect after the app restarts; setup_status says so.",
+    "developer_only": "scripts/onboard.mjs. Never mention it to a beginner."
   },
   "hosts": {
     "claude-code": {
@@ -78,7 +100,7 @@
         "restart Claude Desktop"
       ],
       "covers": "Zotero tools only. Not the three skills and not the full-text tools.",
-      "note": "Built and validated with the mcpb CLI by CI; not yet installed in Claude Desktop, and the Node version it ships is unconfirmed (the bundle asks for 22.13 or newer). If the releases page does not list the file, say so."
+      "note": "Built and validated with the mcpb CLI by CI; not yet installed in Claude Desktop, and the Node version it ships is unconfirmed (the bundle asks for 22.13 or newer). If the releases page does not list the file, say so. The key page is also available through open_setup."
     }
   },
   "get_files": {
@@ -90,8 +112,9 @@
       "build_needed": false,
       "requires": "Node.js 22.13 or newer on the computer, except for Claude Desktop",
       "detect": "<plugin-root>/runtime/bundle/index.mjs exists",
-      "keys": "Key setup (scripts/onboard.mjs) is not in the archive, so the skills skip it. Search, ranking and writing need no key; saving to Zotero does, so use the source route for that until a setup page opened by the tools exists.",
-      "note": "Use the extracted folder wherever a host route names the GitHub address. Built and checked by CI; not yet tested through any host. If the latest release does not list the file, use the source route and say so."
+      "keys": "Keys are entered through open_setup, or by double-clicking Setup AI4S.bat or Setup AI4S.command in the archive folder. scripts/onboard.mjs is not in the archive.",
+      "note": "Use the extracted folder wherever a host route names the GitHub address. Built and checked by CI; not yet tested through any host. If the latest release does not list the file, use the source route and say so.",
+      "launchers": "Setup AI4S.bat (Windows) and Setup AI4S.command (Mac) in the archive folder. Each runs: node runtime/bundle/index.mjs --setup. They need Node.js 22.13 or newer. On a Mac the first double-click may need right-click, Open."
     },
     "source": {
       "status": "documented",

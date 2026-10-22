@@ -1,5 +1,9 @@
 # API onboarding
 
+> This page is for developers. A beginner never opens it: the agent follows
+> [`INSTALL.md`](../../INSTALL.md) and the `ai4s-setup` skill, which use the
+> `setup_status` and `open_setup` tools described below.
+
 AI4S Literature Workbench can run its basic literature workflow without API
 credentials. The first Agent interaction reports the local configuration
 status and offers three optional enhancements:
@@ -20,7 +24,7 @@ an additional UX entry on the same validation and private-file semantics; it
 does not replace the CLI.
 
 Related documents: [`local-dashboard.md`](local-dashboard.md),
-[`zotero-xpi.md`](zotero-xpi.md),
+[`zotero-xpi.md`](../zotero-xpi.md),
 [`migration-from-parent.md`](migration-from-parent.md).
 
 ## Zotero Desktop XPI reminder
@@ -30,8 +34,66 @@ redacted onboarding status reports the add-on as `zotero_desktop_xpi`, read
 from Zotero's own profile records on this machine. It can show that the add-on
 is installed and active, and whether it came from this repository. It cannot
 prove the add-on loads and works. For build and install steps, see
-[`zotero-xpi.md`](zotero-xpi.md). The Agent must remind the user during
+[`zotero-xpi.md`](../zotero-xpi.md). The Agent must remind the user during
 first-run onboarding.
+
+## Setup page opened by the tools (Phase 2)
+
+The same wizard can be started from inside the MCP process, so a stdio-only
+install (the `.mcpb`, a plugin archive) needs no `--http` server and no code
+copied out of a terminal. Two tools in the `workbench` profile:
+
+| Tool | What it does |
+| --- | --- |
+| `setup_status` | Read-only. Reports capabilities in three groups (works now, needs you, optional) in Chinese and English, Chinese by default. Reads settings on this computer and tests no key. Never returns a key. |
+| `open_setup` | Starts the wizard on `127.0.0.1` with a random port and opens the default browser on it. `keys` names the keys to offer, one at a time, each with a reason, a link and Skip. Returns `opened`, a plain `url`, and `fallback_code` only when the browser could not be opened. |
+
+`node runtime/bundle/index.mjs --setup` (the double-click launchers run this)
+starts the same page from a desktop window. It prints the address and the typed
+code in that window when the browser did not open. `--check` prints and exits;
+`--keys zotero,pubmed` limits what is offered. `AI4S_NO_BROWSER=1` stops any
+browser launch.
+
+### One-time token in the URL fragment (decision 3 of the plan)
+
+The browser is opened on `http://127.0.0.1:<port>/admin/onboarding/#code=<pairing code>`.
+The page redeems the code at once through the same `POST /api/pair`, and
+replaces the address with the plain page (`history.replaceState`) before it does
+anything else. The typed pairing form remains as a fallback.
+
+What this changes, written down so it is not a surprise:
+
+- A fragment is handled by the browser alone. It is not in the HTTP request, so
+  it never reaches the server, a request log, or a `Referer` header (the page
+  also sends `Referrer-Policy: no-referrer`, and the script only reads the code
+  from the fragment, never a key).
+- It **is** visible in three places for a short time: the arguments of the
+  launcher process (`open`, `rundll32`, `xdg-open`), which other processes of
+  the same user can list; the browser's history entry for the first load; and,
+  only when no browser could be opened, the `fallback_code` in the tool result
+  (the user types it, as with D12).
+- The code is 16 random bytes, single-use, valid for 5 minutes, and rate
+  limited. The page serves nothing but itself until it is redeemed. A process
+  of the same user that redeemed it first could write a key of its own
+  choosing, but it could already read the private key files directly, so no new
+  capability is gained. The code does not let anything read a saved key: status
+  shows presence and a short mask, as before.
+- Host, Origin and CSRF checks, DNS-rebinding protection and the session cookie
+  (`HttpOnly`, `SameSite=Strict`, 30 minutes) are unchanged. The launcher only
+  opens loopback `http` addresses; it refuses anything else.
+- Unlike `onboarding_pairing_code`, which closes its server the moment the code
+  is redeemed (so the page can stall before a key is typed), a setup session
+  stays up until the user finishes, the session expires, or a newer session
+  replaces it. An unused code closes the page after 5 minutes (15 minutes from
+  `--setup`).
+
+`open_setup` is not offered when OAuth is enabled: a remote deployment has no
+local setup page, and its callers cannot reach this machine's loopback. (The
+older `onboarding_pairing_code`, in the `full` profile only, has no such filter.)
+
+Keys are written to the same private files as before; nothing in the tool result,
+the page address or the logs contains one. A Zotero key saved while the tools run
+takes effect after the app restarts; `setup_status` says so.
 
 ## Local web wizard (M4)
 
@@ -69,7 +131,7 @@ It contains no configuration status and no secrets.
 
 Pairing-code properties (unchanged by D12): 16 random bytes (≥128-bit),
 5-minute TTL, single-use, constant-time compare, attempt limiting. The code
-never enters a URL or server log. The session lives in memory and dies when
+never enters a URL the server sees or a server log. The session lives in memory and dies when
 the process restarts.
 
 ### Agent may relay the pairing code (D12)
@@ -82,8 +144,9 @@ code it just saw on stderr. Guardrails:
 - Relay only a code from the service started in this session. Do not write it
   into notes, memory, or any durable file.
 - The terminal stderr line remains a parallel channel.
-- Keys still follow R12; the pairing code still never enters a URL or server
-  log.
+- Keys still follow R12; the pairing code never enters a URL the server sees
+  or a server log. (A setup session started by the tools puts it in the URL
+  fragment only; see the section above.)
 
 ### All management APIs require a session
 
@@ -123,7 +186,9 @@ because they are real (D10).
 
 **Local / browser URL, address bar, logs, errors, responses, reports, and
 chat must never contain a plaintext key or a key-bearing URL.** That includes
-retry and exception paths. Pairing codes also never enter a URL or server log.
+retry and exception paths. Pairing codes also never enter a URL the server sees
+or a server log; a setup session started by the tools carries one in the URL
+fragment only.
 
 Do not paste an API key into Agent chat or pass it as a command argument.
 

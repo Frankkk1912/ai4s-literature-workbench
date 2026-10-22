@@ -30,6 +30,8 @@ const { tools } = await client.listTools();
 await client.close();
 
 const expected = [
+  'open_setup',
+  'setup_status',
   'zotero_ai_summary_context',
   'zotero_apply_ai_summaries',
   'zotero_apply_citation_plan',

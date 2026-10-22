@@ -70,7 +70,7 @@ Your agent can call these on your behalf — they speak the same protocol your a
 - **Audit and metrics** — keep an evidence-to-claim table, audit tag consistency, refresh journal indicators. (`tag-audit`, `apply-metrics-plan`)
 
 ### Zotero Desktop add-on
-A separate XPI you install into Zotero Desktop. It adds columns and controls on the right of your library, all read-only by default:
+A separate XPI you install into Zotero Desktop ([download the newest](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi), then Tools → Add-ons → gear → Install Add-on From File…; [details](docs/zotero-xpi.md)). It adds columns and controls on the right of your library, all read-only by default:
 - Colored **IF / JCR / CAS** columns for at-a-glance journal quality
 - **Article Type** auto-detection, **AI Summary** field, **Agent Tags** for fast navigation
 - **Priority 1 / 2 / 3** — the only direct write path, set explicitly by you with a star control, number shortcut, or context menu
@@ -79,23 +79,51 @@ A separate XPI you install into Zotero Desktop. It adds columns and controls on 
 ## Get started
 
 ### What you need
-- Use **Claude Code** or **Codex** as your agent app.
-- Add **Zotero Desktop** if you want to organize your papers there.
-- Add optional Zotero, PubMed/NCBI, or EasyScholar credentials for library writes, higher retrieval allowances, or extra journal metrics.
-- Let your agent check the technical prerequisites during first-run setup and explain anything you need to install.
+- An agent app: **Claude Desktop**, **Claude Code**, **Codex**, WorkBuddy, CodeBuddy, Trae or Qoder.
+- **Zotero Desktop**, if you want your papers organized there and the journal columns.
+- A web browser, for the page where you paste optional keys.
 
-### 1. Install
-Paste this into Codex, Claude Code, or WorkBuddy:
+That is all you install yourself. If your computer also needs a small free tool (Node.js, or the search helper `uv`), your agent says so, asks first, and tells you where to get it. Claude Desktop needs neither for the Zotero tools.
+
+### 1. Install (pick your app)
+
+**Claude Desktop** (Zotero tools only; the skills and full-text tools are not included)
+1. Open the [latest release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest) and download `ai4s-literature-zotero-<version>.mcpb`.
+2. Double-click it, or drag it onto the Claude Desktop window, and accept the install screen. Leave the two optional settings as they are.
+
+**Claude Code, Codex, WorkBuddy, CodeBuddy**: paste this into the app:
 > Please install the plugin from https://github.com/Frankkk1912/ai4s-literature-workbench.git into this app. Follow INSTALL.md in that repository exactly and do not add steps of your own. When it's done, tell me in plain language what works now and what I need to do myself.
 
-Your app may ask permission to reach GitHub or the network. Choose **Allow**; the install cannot continue without it. WorkBuddy and CodeBuddy support is not yet tested on a real machine.
+**Trae, Qoder**: see "Other agents & manual install" below.
+
+Before you start: your app may ask permission to reach GitHub or the network. Choose **Allow**; the install cannot continue without it. WorkBuddy and CodeBuddy have not been tested on a real machine yet.
 
 ### 2. First-run setup
-- **Optional:** Obtain the credentials you need and enter them through masked setup on your computer—not in chat. Allow Zotero library writes if you want to sync items or notes.
-- **Optional:** Ask your agent to build the Zotero add-on for colored metrics and reading priorities. In Zotero, choose **Tools → Add-ons → gear menu → Install Add-on From File…**, select the file it built, and follow Zotero's prompts.
+Your agent runs the `ai4s-setup` skill: it tells you in plain words what works now and what needs you.
+- **Keys are optional.** Search, ranking and drafting need none. If you want one, the agent opens a page on your own computer; paste the key there, never into chat.
+- **Reading your Zotero library needs no key.** Open Zotero and, in Settings → Advanced, tick **Allow other applications on this computer to communicate with Zotero**.
+- **Saving to Zotero** needs a Zotero key, or Zotero 10 or later (it asks once in its own window; choose Always Allow).
+- **Journal columns in Zotero** (IF / JCR / CAS): download [the add-on](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi), then in Zotero choose Tools → Add-ons, click the gear → Install Add-on From File…, pick the file, and restart Zotero.
 
 ### 3. Say your first prompt
-Start with **Find papers worth reading** above. You can retrieve, rank, and draft from saved evidence without optional credentials.
+Start with **Find papers worth reading** above. The first search should take a few minutes at most.
+
+### If something goes wrong
+| What you see | What to do |
+| --- | --- |
+| The agent says "My search tools are not connected yet" | Restart the app, then ask: "run the ai4s-setup skill". |
+| The setup page did not open | The agent gives you an address and a short code: open the address and type the code. Or double-click `Setup AI4S.bat` (Windows) / `Setup AI4S.command` (Mac) in the extracted release folder. On a Mac, if it is blocked, right-click it, choose Open, then Open. |
+| The agent cannot read my Zotero library | Open Zotero and tick **Allow other applications on this computer to communicate with Zotero** in Settings → Advanced. |
+| It cannot save to Zotero | Add a Zotero key on the setup page, or use Zotero 10 or later and choose Always Allow when Zotero asks. |
+| No journal columns in Zotero | Install the add-on (step 2), restart Zotero, then ask the agent to sync or refresh a collection: the columns show data the tools wrote to your items. |
+| The app asks to reach GitHub or the network | Choose Allow. |
+
+More detail: [Getting started](docs/getting-started.md).
+
+### Keys, in plain words
+- **What is a key?** A long password-like string that lets this tool use a service as you. You paste it into the setup page on your own computer; it is stored in a private file there and never shown in chat.
+- **Which are free?** A PubMed key is free with an NCBI account. A Zotero key is free with a Zotero account. EasyScholar issues its own; check their terms.
+- **Why does search work without any?** Searching uses public sources. Keys raise PubMed's request allowance, let the tools save to Zotero, and add more journal ratings.
 
 <details>
 <summary>Other agents & manual install</summary>
@@ -157,9 +185,11 @@ node --import ./runtime/node_modules/tsx/dist/loader.mjs --test "tests/*.test.mj
 ```
 
 ### Docs
-- [First-run setup and credentials](docs/onboarding.md)
-- [Zotero Desktop add-on: build and install](docs/zotero-xpi.md)
-- [Local configuration status view](docs/local-dashboard.md)
+- [Getting started (step by step, with troubleshooting)](docs/getting-started.md)
+- [Zotero Desktop add-on: install, updates and build](docs/zotero-xpi.md)
+- [First-run setup and credentials (developer reference)](docs/dev/onboarding.md)
+- [Local configuration status view (developer reference)](docs/dev/local-dashboard.md)
+- [Release checklist](docs/dev/release-checklist.md)
 
 ### Citation & Acknowledgements
 Follow **No Evidence, No Conclusion**: trace scientific claims to saved evidence.

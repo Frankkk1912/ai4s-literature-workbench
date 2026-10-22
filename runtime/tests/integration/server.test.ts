@@ -69,13 +69,15 @@ async function connect() {
 }
 
 describe('Literature Zotero MCP server (in-process)', () => {
-  it('lists all forty-two tools', async () => {
+  it('lists all forty-four tools', async () => {
     const { client } = await connect();
     const { tools: listed } = await client.listTools();
     const names = listed.map((t) => t.name).sort();
     expect(names).toEqual([
       'onboarding_pairing_code',
+      'open_setup',
       'search_tools',
+      'setup_status',
       'zotero_ai_summary_context',
       'zotero_apply_ai_summaries',
       'zotero_apply_citation_plan',

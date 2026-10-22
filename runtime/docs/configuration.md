@@ -19,6 +19,7 @@ readable for migration compatibility.
 | `ZOTERO_API_KEY` | — | Cloud auth (writes/sync/groups; optional for local-only reads). Create one at https://www.zotero.org/settings/keys |
 | `ZOTERO_LIBRARY_ID` / `ZOTERO_LIBRARY_TYPE` | auto | Pin a library; otherwise resolved automatically from the key. |
 | `ZOTEUS_LOCAL` | `auto` | `auto\|on\|off` — use the Zotero desktop local API for reads. |
+| `ZOTEUS_LOCAL_WRITES` | `auto` | `auto\|off` — with no Zotero key, save through Zotero 10 or later on this computer (Zotero asks the user once in its own window). `off` keeps saving key-only. A Zotero key always wins. |
 | `ZOTERO_LOCAL_PORT` | `23119` | Desktop local server port. |
 | `ZOTEUS_TRANSLATION_SERVER_URL` | `http://127.0.0.1:1969` | Add-by-identifier/URL (later milestone). |
 | `ZOTEUS_EMBEDDINGS` | `local` | Semantic-search embeddings provider (later milestone). |
@@ -85,14 +86,18 @@ npm i pdfjs-dist
 
 Zoteus uses both Zotero backends and chooses per request:
 
-- **Desktop local API** (`http://127.0.0.1:23119/api`, library `users/0`) — fast, key-free, full local PDFs, and it can execute saved searches. **Read-only.** Preferred for reads of your personal library when available.
-- **Cloud Web API v3** (`https://api.zotero.org`) — universal, and the path for writes, sync, and group libraries.
+- **Desktop local API** (`http://127.0.0.1:23119/api`, library `users/0`) — fast, key-free, full local PDFs, and it can execute saved searches. Preferred for reads of your personal library when available. **Read-only before Zotero 10.** Zotero 10 and later also accept writes, authorised by a dialog inside Zotero (see below).
+- **Cloud Web API v3** (`https://api.zotero.org`) — universal, and the path for writes with a Zotero key, sync, and group libraries.
 
 At startup Zoteus probes both and logs the result, e.g.
-`Capabilities: cloud=user 19552201, localApi=true`.
+`Capabilities: cloud=user 19552201, localApi=true`. The desktop connection is looked at again (at most every 20 seconds) while it is down, so opening Zotero after the tools started works without a restart, and a desktop connection that stops answering is dropped for the cloud.
 
 ### Local API prerequisite
 
 To use the fast, key-free local read path, run Zotero 7 or newer and enable
 **Settings → Advanced → "Allow other applications on this computer to communicate with Zotero."**
-If the desktop app is not running or the toggle is off, Zoteus transparently falls back to the cloud Web API.
+If the desktop app is not running or the toggle is off, Zoteus falls back to the cloud Web API, or, with no Zotero key, says which of the two it is (Zotero closed, or the setting off). Zotero answers 403 when the setting is off.
+
+### Saving without a key (Zotero 10 or later)
+
+With no `ZOTERO_API_KEY`, Zoteus saves through the desktop connection when Zotero 10 or later is open: it asks `POST /api/local/authorize`, Zotero shows an Allow / Always Allow / Deny window, and the key it returns is held in memory only (never logged, never written to disk). Choose **Always Allow**, or Zotero asks again for every save. Older Zotero versions answer without a `Zotero-Server-ID`; Zoteus then says to add a Zotero key. Not yet run against a real Zotero 10 — see [`docs/dev/zotero-local-write-spike.md`](../../docs/dev/zotero-local-write-spike.md).

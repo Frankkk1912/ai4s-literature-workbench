@@ -45,8 +45,14 @@ export function listProfiles(root) {
   });
 }
 
-function sourceLooksReleased(sourceURI) {
-  return typeof sourceURI === "string" && sourceURI.includes(RELEASE_SOURCE_MARKER);
+// A downloaded add-on is installed from wherever the browser saved it (for example
+// file:///.../Downloads/literature-metrics.xpi), so the file's own location says nothing.
+// What it says is where the add-on checks for updates, which comes from its manifest, and where
+// Zotero fetched it from when it updated itself.
+function sourceLooksReleased(addon) {
+  return [addon.updateURL, addon.sourceURI].some(
+    (uri) => typeof uri === "string" && uri.includes(RELEASE_SOURCE_MARKER),
+  );
 }
 
 export function inspectProfile(profile) {
@@ -65,7 +71,7 @@ export function inspectProfile(profile) {
     return { profile: profile.name, state: "not_installed", evidence: "Add-on not present in this profile." };
   }
   const active = addon.active === true;
-  const released = sourceLooksReleased(addon.sourceURI);
+  const released = sourceLooksReleased(addon);
   return {
     profile: profile.name,
     state: active && released ? "installed_active" : "installed_unconfirmed",

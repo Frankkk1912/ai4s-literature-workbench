@@ -73,6 +73,11 @@ export class WebApiClient {
     return Boolean(this.apiKey);
   }
 
+  /** Whether a save can be attempted at all: a Zotero key, or (in a subclass) the desktop connection. */
+  get canWrite(): boolean {
+    return this.hasKey;
+  }
+
   private headers(): Record<string, string> {
     const h: Record<string, string> = { 'Zotero-API-Version': '3' };
     if (this.apiKey) h['Zotero-API-Key'] = this.apiKey;

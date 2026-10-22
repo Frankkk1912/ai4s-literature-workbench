@@ -9,12 +9,14 @@ import {
 } from "node:fs";
 import { resolve, relative } from "node:path";
 import { unzipSync, zipSync } from "fflate";
+import { checkFeed, newestEntry, sha256Hex } from "./update-feed.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const dist = resolve(root, "dist");
 const manifest = JSON.parse(readFileSync(resolve(root, "manifest.json"), "utf8"));
 const output = resolve(dist, `literature-metrics-${manifest.version}.xpi`);
-const excluded = new Set(["dist", "node_modules", ".git", ".gitignore"]);
+// update.json carries the hash of this very archive, so it cannot be inside it.
+const excluded = new Set(["dist", "node_modules", ".git", ".gitignore", "update.json"]);
 // fflate writes the DOS timestamp from local-time fields and rejects years before 1980,
 // so a UTC midnight date fails west of UTC. Local midnight is valid in every timezone and
 // gives the same stored timestamp everywhere.
@@ -42,7 +44,10 @@ function collectFiles(directory, files = {}) {
 const check = await import("./check.mjs");
 void check;
 mkdirSync(dist, { recursive: true });
-rmSync(output, { force: true });
+// A leftover add-on from an earlier version must not be mistaken for this build.
+for (const name of readdirSync(dist)) {
+  if (/^literature-metrics-.+\.xpi$/.test(name)) rmSync(resolve(dist, name), { force: true });
+}
 
 const archive = zipSync(collectFiles(root), { level: 9 });
 writeFileSync(output, archive);
@@ -56,5 +61,16 @@ for (const required of ["manifest.json", "bootstrap.js", "src/literature-metrics
 if (!existsSync(output) || readFileSync(output).byteLength === 0) {
   throw new Error("Generated XPI is empty.");
 }
+
+// The feed Zotero reads must describe exactly these bytes. --update-feed rewrites the hash.
+const feedPath = resolve(root, "update.json");
+const feed = JSON.parse(readFileSync(feedPath, "utf8"));
+const entry = newestEntry(feed);
+if (process.argv.includes("--update-feed") && entry) {
+  entry.update_hash = `sha256:${sha256Hex(archive)}`;
+  writeFileSync(feedPath, `${JSON.stringify(feed, null, 2)}\n`);
+}
+const problems = checkFeed({ manifest, feed, xpiBytes: archive });
+if (problems.length > 0) throw new Error(`update.json does not describe this XPI:\n- ${problems.join("\n- ")}`);
 
 console.log(`Success! Literature Metrics XPI written to: ${output}`);

@@ -10,7 +10,7 @@
   "interface": {
     "displayName": "AI4S Literature Workbench",
     "shortDescription": "Retrieve, manage, and write from auditable evidence.",
-    "longDescription": "A three-skill literature workflow for source retrieval and ranking, optional OA-first verified fulltext jobs, lightweight Zotero project sync for reports plus selected papers, high-risk import and metrics plans, reusable English Agent Tags, explicitly requested Chinese-by-default AI Summary metadata, and evidence-traced scientific prose. Its bundled MCPs isolate fulltext and Zotero failure domains.",
+    "longDescription": "A literature workflow with a guided first-run setup, for source retrieval and ranking, optional OA-first verified fulltext jobs, lightweight Zotero project sync for reports plus selected papers, high-risk import and metrics plans, reusable English Agent Tags, explicitly requested Chinese-by-default AI Summary metadata, and evidence-traced scientific prose. Its bundled MCPs isolate fulltext and Zotero failure domains.",
     "developerName": "Frank AI4S Skill contributors",
     "category": "Productivity",
     "capabilities": [
@@ -18,7 +18,7 @@
       "MCP"
     ],
     "defaultPrompt": [
-      "Check first-run API onboarding, explain the optional Zotero Web API, PubMed, and EasyScholar setup, and remind the user to install the Zotero Desktop XPI manually for AI4S columns and Priority controls.",
+      "Set up the literature workbench: show what works now and what needs me, and open the key page only for keys I want.",
       "Retrieve and rank PubMed evidence for my research question.",
       "Create a reviewed Zotero import plan from selected ranked evidence.",
       "Sync a finalized literature report and its selected papers into one Zotero collection.",

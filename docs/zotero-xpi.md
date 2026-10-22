@@ -1,50 +1,72 @@
-# Zotero Desktop XPI (`literature-metrics`)
+# Zotero Desktop add-on (`literature-metrics`)
 
-The XPI is the MCP-adjacent Zotero Desktop add-on for AI4S columns (metrics,
-Agent Tags, AI Summary) and the interactive Priority control.
+The add-on adds the AI4S columns (IF / JCR / CAS, citations), Agent Tags, AI Summary
+and the interactive Priority control to Zotero Desktop. It is one file.
 
-This repository **does not automatically verify** whether the add-on is
-installed, enabled, or loaded in Zotero Desktop. The configuration dashboard
-label is **本轮未核验**. That is a statement about this round, not a promise
-that verification will never exist.
+## Install (beginners)
 
-The credential wizard and MCP do **not** install Zotero Desktop add-ons.
-This page does **not** say that the add-on will auto-enable after a file
-install.
+1. Download the newest add-on:
+   <https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi>
+   (if nothing downloads, open the [releases page](https://github.com/Frankkk1912/ai4s-literature-workbench/releases)
+   and pick the `.xpi` file).
+2. Open **Zotero Desktop** and choose **Tools → Add-ons** (中文界面：工具 → 插件).
+3. Click the gear at the top right → **Install Add-on From File…**, and pick the file you downloaded.
+4. Restart Zotero.
 
-## Build
+The setup page and `setup_status` show the same four steps in Chinese and English, and say
+whether the add-on was **found in your Zotero profile** or is **not installed yet**. Finding
+the file is all they can see: this repository does not prove that Zotero loaded the add-on, and
+neither the setup page nor the MCP installs or changes Zotero add-ons for you.
 
-From this repository root (Node.js `>=22.13`):
+## Updates
+
+The add-on's manifest names an update feed, [`literature-metrics/update.json`](../literature-metrics/update.json),
+served from this repository's `main` branch. Zotero reads it, and when it lists a newer version
+it downloads the file at `update_link`, which is the add-on attached to that GitHub release, and
+checks it against `update_hash` (a SHA-256 of the file).
+
+- Every release carries the add-on twice: `literature-metrics-<version>.xpi` and
+  `literature-metrics.xpi` (the same bytes under a fixed name, which is what the
+  `releases/latest/download/` link above relies on).
+- The release build refuses to run when `update.json` does not describe the add-on it is
+  packaging: version, link, hash and Zotero range are all checked
+  (`literature-metrics/scripts/update-feed.mjs`; `npm run package` checks the hash too).
+- Copies installed **before 0.1.14 never update on their own.** They were built from a
+  retired private repository and check its address, which no longer answers. Install the newest
+  file once by hand; from then on Zotero checks this repository.
+- **Not yet confirmed:** Zotero's developer documentation shows `update_link` values that are
+  direct download addresses and does not say whether a GitHub release address (which redirects)
+  is followed. Other add-ons publish this way, but the first real update has to be watched:
+  install an older build, publish the next one, and check that Zotero offers it.
+
+## Build (developers)
+
+From the repository root (Node.js `>=22.13`):
 
 ```bash
-cd literature-metrics && npm run package
+cd literature-metrics && npm ci && npm run check && npm run package
 ```
 
-That is the same command the dashboard lists under XPI details. It writes
-`literature-metrics/dist/literature-metrics-<version>.xpi`. Substitute the
-version from `literature-metrics/package.json`; do not assume a host or
-marketplace version string.
+This writes `literature-metrics/dist/literature-metrics-<version>.xpi` (it removes any older
+`.xpi` from `dist/` first). The archive is byte-for-byte reproducible and does not contain
+`update.json`. **Any change to a file in the add-on changes the hash**, so after editing, run:
 
-`npm run check` validates the add-on source. This round does not extend XPI
-features.
+```bash
+cd literature-metrics && npm run package -- --update-feed
+```
 
-## Manual install
-
-1. Build the XPI as above.
-2. Open **Zotero Desktop**.
-3. Choose **Tools → Add-ons**.
-4. Open the gear menu → **Install Add-on From File…**
-5. Select `literature-metrics/dist/literature-metrics-<version>.xpi`.
-
-Whether Zotero then enables the add-on, prompts for a restart, or shows it as
-disabled is **未核验** here. Confirm inside Zotero Desktop yourself.
+to rewrite `update_hash`, and commit `update.json` with the change. When you raise the add-on
+version, also point `update_link` at the release tag that will carry the file
+(`.../releases/download/v<plugin version>/literature-metrics-<add-on version>.xpi`).
 
 ## Dashboard copy
 
 | UI | Meaning |
 | --- | --- |
-| 本轮未核验 | This round did not inspect Zotero Desktop. Not “已安装”. |
-| 查看安装步骤 | Expands the build command and the Tools → Add-ons path |
-| evidence | `本轮未检查 Zotero Desktop 内的安装状态` plus the API `verification.level` |
+| 已在你的 Zotero 里找到（无法确认已加载） | The add-on is in a Zotero profile, active, from this project. Not proof that it works. |
+| 找到了，但无法确认已启用或来自本项目 | Present but disabled, or installed from somewhere else (for example the retired repository). Reinstall the newest file. |
+| 尚未安装 | Zotero was found and the add-on is not in it. |
+| 没有找到 Zotero | No Zotero profile on this computer. |
 
-Related: [`onboarding.md`](onboarding.md), [`local-dashboard.md`](local-dashboard.md).
+Related: [`onboarding.md`](dev/onboarding.md), [`local-dashboard.md`](dev/local-dashboard.md),
+[`dev/zotero-local-write-spike.md`](dev/zotero-local-write-spike.md).

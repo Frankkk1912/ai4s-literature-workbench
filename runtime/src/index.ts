@@ -9,6 +9,7 @@ import { loadStartupEnvFiles } from './lib/env-files.js';
 import { createMetrics } from './lib/metrics.js';
 import { makeReadiness, storeCheck, zoteroPingCheck } from './lib/health.js';
 import { installShutdownHandlers } from './lib/lifecycle.js';
+import { runSetupCli } from './lib/setup-cli.js';
 import type { Server } from 'node:http';
 
 function flag(name: string): string | undefined {
@@ -21,6 +22,10 @@ function flag(name: string): string | undefined {
 const VERSION = '0.1.0';
 
 async function main(): Promise<void> {
+  // The double-click launchers run this. It needs no Zotero connection, so it runs before one is made.
+  if (flag('setup') !== undefined) {
+    process.exit(await runSetupCli({ check: flag('check') !== undefined, keys: flag('keys') }));
+  }
   loadStartupEnvFiles();
   const config = loadConfig(process.env);
   const logger = createLogger(config.logLevel, config.logFormat);

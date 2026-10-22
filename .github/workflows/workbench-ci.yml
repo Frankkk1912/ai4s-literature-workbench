@@ -119,6 +119,11 @@ jobs:
       - name: Verify bundles start with no node_modules
         run: node scripts/verify-bundles.mjs
 
+      # The double-click launchers run the bundle with --setup. This is the only place the
+      # Windows .bat runs, so it is checked on every OS here, not only in the release dry run.
+      - name: Verify the double-click launchers
+        run: node scripts/verify-launchers.mjs
+
   # Dry run of the release packaging on every push and pull request, so a broken
   # .mcpb manifest or archive layout shows up before a tag does. Publishes nothing.
   release-assets:

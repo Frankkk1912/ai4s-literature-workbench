@@ -1,6 +1,6 @@
 {
   "name": "literature-metrics",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "private": true,
   "description": "Interactive Priority rating plus read-only AI Summary, Agent Tags, and literature metrics columns for the AI4S Zotero workflow.",
   "type": "module",

@@ -4,8 +4,11 @@
 //   1. every asset matches SHA256SUMS.txt
 //   2. the plugin archive, extracted into a temp folder, runs both bundles over stdio
 //      (the same checks as scripts/verify-bundles.mjs --plugin-dir)
-//   3. the .mcpb, extracted and started exactly as its manifest says, with an unset
-//      optional key passed as Claude Desktop passes it, lists the 17 workbench tools
+//   3. the double-click launchers in the extracted archive run the bundle with --setup and
+//      exit 0 (scripts/verify-launchers.mjs); the archive still leaves out the
+//      developer-only scripts/onboard.mjs and scripts/bootstrap.mjs
+//   4. the .mcpb, extracted and started exactly as its manifest says, with an unset
+//      optional key passed as Claude Desktop passes it, lists the 19 workbench tools
 //
 //   node scripts/verify-release.mjs <release-dir>
 //
@@ -76,6 +79,21 @@ try {
     }
   });
 
+  await check('the Zotero add-on is attached under both names and the update feed describes it', async () => {
+    const versioned = find(/^literature-metrics-\d+\.\d+\.\d+\.xpi$/);
+    const bytes = readFileSync(versioned);
+    if (!bytes.equals(readFileSync(join(releaseDir, 'literature-metrics.xpi')))) {
+      throw new Error('literature-metrics.xpi is not the same file as the versioned add-on.');
+    }
+    const { checkFeed } = await import(pathToFileURL(join(repoRoot, 'literature-metrics', 'scripts', 'update-feed.mjs')).href);
+    const problems = checkFeed({
+      manifest: JSON.parse(readFileSync(join(repoRoot, 'literature-metrics', 'manifest.json'), 'utf8')),
+      feed: JSON.parse(readFileSync(join(repoRoot, 'literature-metrics', 'update.json'), 'utf8')),
+      xpiBytes: bytes,
+    });
+    if (problems.length > 0) throw new Error(problems.join(' '));
+  });
+
   const pluginArchive = find(/^ai4s-literature-workbench-.*\.zip$/);
   const pluginParent = join(work, 'plugin');
   extract(pluginArchive, pluginParent);
@@ -93,14 +111,26 @@ try {
   });
 
   const bundleRun = spawnSync(process.execPath, [join(repoRoot, 'scripts', 'verify-bundles.mjs'), '--plugin-dir', pluginDir], { encoding: 'utf8' });
-  process.stdout.write(bundleRun.stdout.replace(/^/gm, '  [archive] '));
+  process.stdout.write(`${bundleRun.stdout.trimEnd().replace(/^/gm, '  [archive] ')}\n`);
   if (bundleRun.status !== 0) {
     report('plugin archive bundles start and list their tools', false, bundleRun.stderr || 'see the [archive] lines above');
   } else {
     report('plugin archive bundles start and list their tools', true);
   }
 
-  await check('.mcpb starts as its manifest says and lists the 17 workbench tools', async () => {
+  await check('the archive still omits the developer-only scripts', () => {
+    for (const name of ['onboard.mjs', 'bootstrap.mjs']) {
+      if (existsSync(join(pluginDir, 'scripts', name))) throw new Error(`scripts/${name} is developer-only and must not be in the archive.`);
+    }
+  });
+
+  // The launchers are what a user double-clicks when the agent's sandbox cannot start a server
+  // or a browser. They must run from the extracted folder, with no node_modules anywhere.
+  const launcherRun = spawnSync(process.execPath, [join(repoRoot, 'scripts', 'verify-launchers.mjs'), '--plugin-dir', pluginDir], { encoding: 'utf8' });
+  process.stdout.write(`${launcherRun.stdout.trimEnd().replace(/^/gm, '  [archive] ')}\n`);
+  report('plugin archive launchers run the bundle with --setup', launcherRun.status === 0, launcherRun.stderr || 'see the [archive] lines above');
+
+  await check('.mcpb starts as its manifest says and lists the 19 workbench tools', async () => {
     const mcpbDir = join(work, 'mcpb');
     extract(find(/\.mcpb$/), mcpbDir);
     const manifest = JSON.parse(readFileSync(join(mcpbDir, 'manifest.json'), 'utf8'));
@@ -139,7 +169,7 @@ try {
     try {
       await Promise.race([client.connect(transport), new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out after 60s.')), 60_000))]);
       const { tools } = await client.listTools();
-      if (tools.length !== 17) throw new Error(`Expected 17 tools, got ${tools.length}.`);
+      if (tools.length !== 19) throw new Error(`Expected 19 tools, got ${tools.length}.`);
       const whoami = await client.callTool({ name: 'zotero_whoami', arguments: {} });
       const text = JSON.stringify(whoami);
       if (text.includes('user_config')) throw new Error(`The unset key reached the server as a real value: ${text.slice(0, 300)}`);

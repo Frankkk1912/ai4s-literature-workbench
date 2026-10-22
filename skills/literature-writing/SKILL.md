@@ -11,25 +11,22 @@ description: >-
 
 # Literature Writing
 
-## Step 0: Check Your Inputs
+## Step 0: Check Your Tools and Inputs
 
-This skill needs no tools of its own, only saved evidence: `ranked_all.json`
-(or `.csv`) and `report.md` from `literature-research`. Before drafting, confirm
-those files exist. If they do not, stop and say plainly: "I don't have saved
-evidence to write from yet." Then offer to run `literature-research` first.
-Never draft from memory.
+Before drafting, call `setup_status` (from the `ai4s-literature-zotero`
+server) with `language` (`zh` or `en`) to match the user. If it is not in your
+tool list, stop. Do not claim that basic features work and do not invent setup
+steps. Tell the user, in the language they write in and without component
+names: "My search tools are not connected yet." Then give one next action: use
+the `ai4s-setup` skill, which connects them (and if that skill is missing too,
+follow the route for their app in `INSTALL.md` in the plugin root). Continue
+only once `setup_status` answers.
 
-## First-run API Onboarding
-
-When installed through `ai4s-literature-workbench`, honor the plugin-local
-first-run onboarding status before the first workbench task. If the redacted
-status reports `first_run`, tell the user that Zotero Web API, PubMed, and
-EasyScholar credentials are optional, provide the returned application links,
-and offer the plugin's local masked `setup` wizard. Also remind the user to
-install the separate Zotero Desktop XPI manually for AI4S columns and Priority
-controls, using `zotero_desktop_xpi` from the status report. Never ask for keys
-in chat. Missing credentials never block writing from existing evidence. Mark
-the guide offered after presenting it so the full introduction is not repeated.
+This skill needs no keys. It needs saved evidence: `ranked_all.json` (or
+`.csv`) and `report.md` from `literature-research`. Confirm those files exist.
+If they do not, stop and say plainly: "I don't have saved evidence to write
+from yet." Then offer to run `literature-research` first. Never draft from
+memory. Never ask for a key in chat.
 
 ## Overview
 Use this skill to write scientific prose from saved evidence artifacts. It does

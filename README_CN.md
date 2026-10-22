@@ -70,7 +70,7 @@ flowchart LR
 - **审计与指标** — 维护证据-论点对应表，审计标签一致性，更新期刊指标。`tag-audit`、`apply-metrics-plan`
 
 ### Zotero 桌面端附加组件
-需要单独安装到 Zotero 桌面端的插件（XPI）。它在你的文库右侧增加这些列与控件，默认只读：
+需要单独安装到 Zotero 桌面端的插件（XPI）：[下载最新版](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi)，在 Zotero 里选 工具 → 插件 → 齿轮 → 从文件安装插件，再重启（[详细步骤](docs/zotero-xpi.md)）。它在你的文库右侧增加这些列与控件，默认只读：
 - 彩色 **IF / JCR / CAS** 指标列，一眼看清期刊质量
 - **文章类型（Article Type）** 自动识别、**AI 摘要（AI Summary）** 字段、**智能标签（Agent Tags）** 便于导航
 - **优先级 1 / 2 / 3** — 唯一允许直接写入的路径，必须由你通过星标控件、数字快捷键或右键菜单显式设置
@@ -79,23 +79,51 @@ flowchart LR
 ## 开始使用
 
 ### 你需要什么
-- 使用 **Claude Code** 或 **Codex** 作为你的 agent 应用。
-- 如果要在 Zotero 中整理文献，准备 **Zotero 桌面版（Zotero Desktop）**。
-- 按需准备 Zotero、PubMed/NCBI 或 EasyScholar 的可选凭据，用于文库写入、提高检索请求额度或补充期刊指标。
-- 让你的 agent 在首次设置时替你检查技术前置条件，并说明还需要安装什么。
+- 一个 agent 应用：**Claude Desktop**、**Claude Code**、**Codex**，或 WorkBuddy、CodeBuddy、Trae、Qoder。
+- 如果想在 Zotero 里整理文献、看到期刊分区列，需要 **Zotero 桌面版**。
+- 一个浏览器，用来打开填写可选密钥的页面。
 
-### 1. 安装
-把下面这段话发给 Codex、Claude Code 或 WorkBuddy：
+这些就是你要自己装的全部。如果你的电脑还缺一个小的免费工具（Node.js，或检索辅助工具 `uv`），agent 会先告诉你、征得同意后再装，并说明去哪里下载。用 Claude Desktop 装 Zotero 工具则两者都不需要。
+
+### 1. 安装（选你用的应用）
+
+**Claude Desktop**（只包含 Zotero 工具，不含技能和全文工具）
+1. 打开[最新发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest)，下载 `ai4s-literature-zotero-<版本号>.mcpb`。
+2. 双击它，或把它拖进 Claude Desktop 窗口，在安装界面点确认。两个可选设置保持默认即可。
+
+**Claude Code、Codex、WorkBuddy、CodeBuddy**：把下面这段话发给应用：
 > 请帮我从 https://github.com/Frankkk1912/ai4s-literature-workbench.git 安装这个插件到当前应用。严格按该仓库里的 INSTALL.md 操作，不要自己添加步骤。装好后，用通俗的话告诉我现在能用什么、我自己还需要做什么。
 
-应用可能会请求访问 GitHub 或网络的权限，请选择**允许**，否则安装无法继续。WorkBuddy 与 CodeBuddy 目前还没有在真实电脑上测试过。
+**Trae、Qoder**：见下面“其他 agent 与手动安装”。
+
+开始之前：应用可能会请求访问 GitHub 或网络的权限，请选择**允许**，否则安装无法继续。WorkBuddy 与 CodeBuddy 目前还没有在真实电脑上测试过。
 
 ### 2. 首次设置
-- **可选：** 申请所需凭据，在你电脑上隐藏输入内容的设置向导中录入，不要贴进聊天。若要同步条目或笔记，请允许 Zotero 文库写入。
-- **可选：** 请你的 agent 构建用于彩色指标和阅读优先级的 Zotero 附加组件。在 Zotero 中选择 **工具 → 附加组件 → 齿轮菜单 → 从文件安装附加组件…**，选中构建出的文件，再按 Zotero 提示操作。
+agent 会运行 `ai4s-setup` 技能，用通俗的话告诉你：现在能用什么，哪些需要你处理。
+- **密钥都是可选的。** 检索、排序、起草都不需要密钥。想用时，agent 会在你自己的电脑上打开一个页面，把密钥贴到那个页面里，不要贴进聊天。
+- **读取你电脑上的 Zotero 文献库不需要密钥。** 打开 Zotero，在 设置 → 高级 里勾选**“允许这台电脑上的其他应用与 Zotero 通信”**。
+- **把文献存进 Zotero** 需要 Zotero 密钥，或使用 Zotero 10 及以上版本（保存时 Zotero 会弹窗询问一次，请选“始终允许”）。
+- **Zotero 里的期刊分区列**（IF / JCR / 中科院分区）：下载[插件](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi)，在 Zotero 中选择 工具 → 插件，点齿轮 → 从文件安装插件（Install Add-on From File…），选下载的文件，再重启 Zotero。
 
 ### 3. 发出你的第一条指令
-从上面的 **找到值得读的论文** 开始。不配置可选凭据，你也能检索、排序，并基于已保存的证据起草。
+从上面的 **找到值得读的论文** 开始。第一次检索最多几分钟。
+
+### 遇到问题时
+| 你看到的 | 怎么办 |
+| --- | --- |
+| agent 说“检索工具还没有连上”（My search tools are not connected yet） | 重启应用，然后对它说：“运行 ai4s-setup 技能”。 |
+| 设置页没有自动打开 | agent 会给你一个网址和一个短码：打开网址，输入短码。也可以在解压出来的发布文件夹里双击 `Setup AI4S.bat`（Windows）或 `Setup AI4S.command`（Mac）。Mac 上如果被拦截，右键点它，选“打开”，再点“打开”。 |
+| agent 读不到我的 Zotero 文献库 | 打开 Zotero，在 设置 → 高级 里勾选“允许这台电脑上的其他应用与 Zotero 通信”。 |
+| 存不进 Zotero | 在设置页填入 Zotero 密钥；或使用 Zotero 10 及以上，Zotero 弹窗时选“始终允许”。 |
+| Zotero 里没有期刊分区列 | 按第 2 步安装插件并重启 Zotero，再让 agent 同步或刷新一个分类：这些列显示的是工具写进条目里的数据。 |
+| 应用请求访问 GitHub 或网络 | 选择“允许”。 |
+
+更多说明：[入门指南](docs/getting-started_CN.md)。
+
+### 关于密钥，用大白话说
+- **密钥是什么？** 一长串像密码的字符，让这个工具以你的身份使用某个服务。你把它贴进自己电脑上的设置页，它只存在这台电脑的私有文件里，不会出现在聊天中。
+- **哪些免费？** PubMed 密钥用 NCBI 账号免费申请；Zotero 密钥用免费的 Zotero 账号即可创建；EasyScholar 密钥由 EasyScholar 发放，请以其网站说明为准。
+- **为什么不配密钥也能检索？** 检索用的是公开数据源。密钥的作用是提高 PubMed 的请求额度、让工具能存进 Zotero，以及补充更多期刊指标。
 
 <details>
 <summary>其他 agent 与手动安装</summary>
@@ -157,9 +185,10 @@ node --import ./runtime/node_modules/tsx/dist/loader.mjs --test "tests/*.test.mj
 ```
 
 ### 文档
-- [首次设置与凭据](docs/onboarding.md)
+- [入门指南（分步说明与问题排查）](docs/getting-started_CN.md)
+- [首次设置与凭据（开发者参考）](docs/dev/onboarding.md)
 - [Zotero 桌面端附加组件：构建与安装](docs/zotero-xpi.md)
-- [本地配置状态页](docs/local-dashboard.md)
+- [本地配置状态页（开发者参考）](docs/dev/local-dashboard.md)
 
 ### 引用与致谢
 遵循 **No Evidence, No Conclusion（无证据，不下结论）**：把科学论断追溯到保存的证据。

@@ -1,6 +1,6 @@
 # AI4S Literature Workbench: Zero-Terminal Onboarding Plan
 
-Oct 18, 2026 · @Frank
+Oct 18, 2026 · @Frank · updated Oct 20, 2026: DeepSeek Harness Desktop added as a host · Oct 21, 2026: Phase 3 findings (Zotero 10 local writes, update feed)
 
 ## Goal and success criteria
 
@@ -178,34 +178,34 @@ The partition columns are what this user wanted first, so the add-on stops being
 
 **Add-on tasks**
 
-- [ ] Attach the XPI to every release and correct the stale "Private repo" release note.
-- [ ] Have the setup page and the agent link straight to the latest XPI, with a three-step picture guide in Chinese and English: Tools → Add-ons → gear → Install Add-on From File.
-- [ ] Report the result in plain words: "found in your Zotero profile" or "not installed yet". Keep the existing note that load success cannot be proven.
-- [ ] Check whether Zotero's add-on update mechanism can point at the release feed, so later versions arrive without a manual download. Confirm in Zotero's plugin docs before committing.
-- [ ] Stop recommending a local XPI build in the beginner path.
+- [x] Attach the XPI to every release (done by `package-release`, now also under the fixed name `literature-metrics.xpi`). The published v0.1.13 release note no longer says "Private repo"; the stale line in the diagnosis table is history.
+- [x] Have the setup page and the agent link straight to the latest XPI (`releases/latest/download/literature-metrics.xpi`), with a four-step guide in Chinese and English. The picture guide is still to do (Phase 4). The link works once a release that carries the fixed-name file is published.
+- [x] Report the result in plain words: "found in your Zotero profile" or "not installed yet", keeping the note that load success cannot be proven. The check now reads where the add-on updates from, so a file saved in Downloads counts.
+- [x] Update route. Zotero's developer docs describe the feed (`update_url` in the manifest, a JSON file with `update_link` and `update_hash`); this add-on already pointed at one. Phase 3 added the missing `update_hash` and a release-time check that the feed describes the packaged file. **Found:** copies installed before 0.1.14 check a retired private repository and will never update, so they need one manual reinstall. **Open:** the docs do not say whether a GitHub release address (a redirect) is accepted as `update_link`; confirm on the first real update.
+- [x] Stop recommending a local XPI build in the beginner path (the build steps moved to a developer section in `docs/zotero-xpi.md`).
 
 **Zotero connection tasks**
 
-Today every Zotero feature needs a Web API key. Zotero Desktop 7 also offers a local HTTP API on port 23119 that needs no key, enabled by the setting "Allow other applications on this computer to communicate with Zotero". The Zotero developers described it as read-only and said write support was planned but undecided ([zotero-dev post, June 2024](https://groups.google.com/g/zotero-dev/c/ElvHhIFAXrY/m/fA7SKKwsAgAJ)). Check whether that is still true on current Zotero.
+Today every Zotero feature needs a Web API key. Zotero Desktop 7 also offers a local HTTP API on port 23119 that needs no key, enabled by the setting "Allow other applications on this computer to communicate with Zotero". The Zotero developers described it as read-only and said write support was planned but undecided ([zotero-dev post, June 2024](https://groups.google.com/g/zotero-dev/c/ElvHhIFAXrY/m/fA7SKKwsAgAJ)). **Checked on 2026-10-21: no longer true.** Zotero 10.0 (released 2026-08-17; 10.0.6 is the current stable release) accepts writes on the local API, authorised once by a dialog inside Zotero ([local API page](https://www.zotero.org/support/dev/web_api/v3/local_api)). Zotero 7 to 9 stay read-only (Zotero 9.0.6 tested).
 
-- [ ] Read paths (list collections, find duplicates, check existing items) use the local API when Zotero is running, with no key.
-- [ ] Write paths keep the Web API key until a no-key route exists. The wizard links to Zotero's key page and explains which permissions to tick. Check whether the key page accepts prefilled permissions.
-- [ ] Spike: could the add-on, which runs inside Zotero, expose a small local write endpoint protected by a one-time token? If yes, the key disappears entirely. Treat this as an experiment, not a commitment: it adds a local port and a maintenance burden across Zotero versions.
-- [ ] Tell the user about the "allow other applications" setting in the wizard, because it is a real requirement for the key-free read path and is missing from the README today.
+- [x] Read paths (list collections, find duplicates, check existing items, item children) use the local API when Zotero is running, with no key. They were partly there already; Phase 3 added re-probing (opening Zotero after the tools started works), telling "Zotero closed" from "setting off", and local children. Tried against a real Zotero 9.0.6 with no key.
+- [x] Write paths keep the Web API key as the default. With no key and Zotero 10 or later open, saving goes through the local API (`ZOTEUS_LOCAL_WRITES=off` turns it off). Tested against a stand-in written from the documentation, **not against a real Zotero 10**. The wizard links to Zotero's key page and says to tick write access. Whether the key page accepts prefilled permissions is **unverified**: the documented parameters belong to the OAuth exchange and the page needs a sign-in.
+- [x] Spike: an add-on write endpoint. Written finding only, in [zotero-local-write-spike.md](zotero-local-write-spike.md): Zotero 10 makes it unnecessary for most users; recommendation is not to build it.
+- [x] Tell the user about the "allow other applications" setting in the wizard, in `setup_status`, and in the runtime docs.
 
 ## Workstream E: README and docs rewrite
 
 The README should give one install route per host, in the order a beginner meets them. Everything about builds, keys and threat models moves out of the beginner path.
 
-- [ ] **Install by host, not one generic prompt.** Four short blocks: Claude Desktop (download the `.mcpb`, double-click), Claude Code (the plugin install lines, typed inside Claude Code), Codex (a prompt that names the plugin marketplace route and points to `INSTALL.md`), and Trae/Qoder.
-- [ ] **Reword "What you need".** Host app, a browser, and Zotero Desktop if wanted. Drop Node, uv and Git from this list.
-- [ ] **Set expectations before the first run.** Say the agent may ask for permission to reach GitHub or the network, and that the user should choose Allow. In the transcript that approval cost a full round trip.
-- [ ] **Show the finish line.** Add a short GIF or four screenshots: install, the setup page, the first search result, and the partition columns in Zotero.
-- [ ] **Add a symptom-based troubleshooting table** in the user's words: "the agent says the tools are not connected", "no partition columns", "the setup page did not open".
-- [ ] **Add a plain FAQ**: what a key is, which keys are free, and why search works without any.
-- [ ] **Split the docs.** Create `docs/getting-started.md` and `docs/getting-started_CN.md` for beginners. Move `onboarding.md` and `local-dashboard.md` to `docs/dev/` and remove the internal IDs (D12, R12, M4, T5.2) from anything a beginner might open.
-- [ ] **Treat Chinese as first-class.** The same steps and screenshots in README\_CN, not a translation of the English one.
-- [ ] **Keep README and the install docs in sync automatically.** A CI check fails if a command in README is missing from `INSTALL.md` or the plugin manifests.
+- [x] **Install by host, not one generic prompt.** Four short blocks: Claude Desktop (download the `.mcpb`, double-click), Claude Code (the plugin install lines, typed inside Claude Code), Codex (a prompt that names the plugin marketplace route and points to `INSTALL.md`), DeepSeek Harness (paste one package spec into the Plugins page), and Trae/Qoder. *Done for Claude Desktop, the paste-a-prompt hosts and Trae/Qoder; the DeepSeek Harness block waits for its plugin package (PR 17) to merge.*
+- [x] **Reword "What you need".** Host app, a browser, and Zotero Desktop if wanted. Drop Node, uv and Git from this list.
+- [x] **Set expectations before the first run.** Say the agent may ask for permission to reach GitHub or the network, and that the user should choose Allow. In the transcript that approval cost a full round trip.
+- [ ] **Show the finish line.** Add a short GIF or four screenshots: install, the setup page, the first search result, and the partition columns in Zotero. *Not done: needs real runs on the target hosts; the placeholders are still commented out in the READMEs.*
+- [x] **Add a symptom-based troubleshooting table** in the user's words: "the agent says the tools are not connected", "no partition columns", "the setup page did not open".
+- [x] **Add a plain FAQ**: what a key is, which keys are free, and why search works without any.
+- [x] **Split the docs.** Create `docs/getting-started.md` and `docs/getting-started_CN.md` for beginners. Move `onboarding.md` and `local-dashboard.md` to `docs/dev/` and remove the internal IDs (D12, R12, M4, T5.2) from anything a beginner might open.
+- [x] **Treat Chinese as first-class.** The same steps and screenshots in README\_CN, not a translation of the English one.
+- [x] **Keep README and the install docs in sync automatically.** A CI check fails if a command in README is missing from `INSTALL.md` or the plugin manifests.
 - [ ] If README is generated from your readme-writer prompt templates, change the templates as well, or the next regeneration will undo this work.
 
 ## Workstream F: Testing and release gates
@@ -228,7 +228,7 @@ GitHub-hosted CI cannot drive the desktop host apps, so the host-by-OS rows stay
 
 ## Roadmap
 
-Five phases ship in order, and a gate after phases 1, 2 and 4 decides whether the next one starts. Phase 0 can ship as a patch this week. Phase 1 is done (Gate 1 passed on Windows, macOS and Linux CI).
+Five phases ship in order, and a gate after phases 1, 2 and 4 decides whether the next one starts. Phase 0 can ship as a patch this week. Phase 1 is done (Gate 1 passed on Windows, macOS and Linux CI). Phases 2 and 3 are done and release v0.1.0 is published (Oct 22, 2026). Phase 4 has its documents and automatic checks in place; the manual runs (clean machines, three beginners) and the screenshots are still to do, see [release-checklist.md](release-checklist.md). Phase 1b, the DeepSeek Harness spike, is new and can run in parallel with the host tests that Phase 2 needs.
 
 &#91;embedded content: roadmap · 5 phases, 3 gates\]
 
@@ -239,7 +239,7 @@ Effort figures are my rough estimates for one developer; re-plan them after the 
 | 0 Quick wins | A: `bootstrap.mjs`. E: Codex and WorkBuddy install prompts, CodeBuddy marketplace file, `INSTALL.md`, release-note fix. C: tools check at the start of each skill | 1 to 2 days | None |
 | 1 Package | A: bundles, `.mcpb`, release assets, binary-versus-portable-Node spike, `uv` fetch-versus-ship spike. F: validation jobs in CI | About 1 week | Gate 1: bundles start on Windows and macOS |
 | 2 Setup flow | B: `setup_status`, `open_setup`, wizard that opens itself, launchers. C: `ai4s-setup` skill and status template | 1 to 2 weeks | Gate 2: no typed commands, first search works |
-| 3 Zotero | D: XPI in every release, local-API reads, add-on update route. Spike: key-free writes through the add-on | About 1 week, spike open-ended | None |
+| 3 Zotero | D: XPI in every release, local-API reads, add-on update route. Spike: key-free writes through the add-on (replaced by Zotero 10's own local writes; see the finding) | About 1 week, spike open-ended | None |
 | 4 Prove it | F: clean-machine runs, WorkBuddy first, then each other host. E: getting-started pages in both languages, screenshots | About 1 week | Gate 3: first search in 10 minutes or less for three beginners |
 
 ## Risks and decisions
@@ -252,7 +252,7 @@ The biggest risk is that a host's sandbox blocks something the plan assumes, and
 | Claude Code's key prompt misbehaves | A plugin README reports the configure dialog not taking input and secrets not persisting in some versions ([FlutterFlow plugin](https://github.com/FlutterFlow/flutterflow-claude)) | Browser wizard and private config file |
 | Claude Desktop does not inject `user_config` in cowork sessions | A March 2026 issue reports the values missing there ([claude-code#39125](https://github.com/anthropics/claude-code/issues/39125)) | Runtime reads its own config file as a backup |
 | Unsigned executables trigger antivirus, SmartScreen or macOS Gatekeeper warnings | Beginners will stop at a warning | Prefer the `.mcpb` route where possible; evaluate code signing, plus Apple notarization, for binaries |
-| Zotero's local API changes | Write support was undecided in 2024 | Feature-detect at runtime; keep the Web API key path |
+| Zotero's local API changes | Write support was undecided in 2024; it shipped in Zotero 10 (Aug 2026) and Zotero said it was still adjusting it | Feature-detect at runtime (a `Zotero-Server-ID` header means Zotero 10+); keep the Web API key path |
 | The agent's shell blocks the `uv` or Python download | Search then cannot run, and it is the first thing a beginner tries | Ship `uv` inside the archive; the skill already stops with a plain message |
 | Seven hosts times two operating systems | Maintenance cost grows quickly | WorkBuddy first, then Codex and Claude Desktop, then CodeBuddy and Claude Code; Trae and Qoder best-effort |
 
