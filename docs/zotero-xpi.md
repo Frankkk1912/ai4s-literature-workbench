@@ -68,5 +68,5 @@ version, also point `update_link` at the release tag that will carry the file
 | 尚未安装 | Zotero was found and the add-on is not in it. |
 | 没有找到 Zotero | No Zotero profile on this computer. |
 
-Related: [`onboarding.md`](onboarding.md), [`local-dashboard.md`](local-dashboard.md),
+Related: [`onboarding.md`](dev/onboarding.md), [`local-dashboard.md`](dev/local-dashboard.md),
 [`dev/zotero-local-write-spike.md`](dev/zotero-local-write-spike.md).

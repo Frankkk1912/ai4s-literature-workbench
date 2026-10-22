@@ -232,15 +232,15 @@ Today every Zotero feature needs a Web API key. Zotero Desktop 7 also offers a l
 
 The README should give one install route per host, in the order a beginner meets them. Everything about builds, keys and threat models moves out of the beginner path.
 
-- [ ] **Install by host, not one generic prompt.** Four short blocks: Claude Desktop (download the `.mcpb`, double-click), Claude Code (the plugin install lines, typed inside Claude Code), Codex (a prompt that names the plugin marketplace route and points to `INSTALL.md`), DeepSeek Harness (paste one package spec into the Plugins page), and Trae/Qoder.
-- [ ] **Reword "What you need".** Host app, a browser, and Zotero Desktop if wanted. Drop Node, uv and Git from this list.
-- [ ] **Set expectations before the first run.** Say the agent may ask for permission to reach GitHub or the network, and that the user should choose Allow. In the transcript that approval cost a full round trip.
-- [ ] **Show the finish line.** Add a short GIF or four screenshots: install, the setup page, the first search result, and the partition columns in Zotero.
-- [ ] **Add a symptom-based troubleshooting table** in the user's words: "the agent says the tools are not connected", "no partition columns", "the setup page did not open".
-- [ ] **Add a plain FAQ**: what a key is, which keys are free, and why search works without any.
-- [ ] **Split the docs.** Create `docs/getting-started.md` and `docs/getting-started_CN.md` for beginners. Move `onboarding.md` and `local-dashboard.md` to `docs/dev/` and remove the internal IDs (D12, R12, M4, T5.2) from anything a beginner might open.
-- [ ] **Treat Chinese as first-class.** The same steps and screenshots in README\_CN, not a translation of the English one.
-- [ ] **Keep README and the install docs in sync automatically.** A CI check fails if a command in README is missing from `INSTALL.md` or the plugin manifests.
+- [x] **Install by host, not one generic prompt.** Four short blocks: Claude Desktop (download the `.mcpb`, double-click), Claude Code (the plugin install lines, typed inside Claude Code), Codex (a prompt that names the plugin marketplace route and points to `INSTALL.md`), DeepSeek Harness (paste one package spec into the Plugins page), and Trae/Qoder. *Done for Claude Desktop, the paste-a-prompt hosts and Trae/Qoder; the DeepSeek Harness block waits for its plugin package (PR 17) to merge.*
+- [x] **Reword "What you need".** Host app, a browser, and Zotero Desktop if wanted. Drop Node, uv and Git from this list.
+- [x] **Set expectations before the first run.** Say the agent may ask for permission to reach GitHub or the network, and that the user should choose Allow. In the transcript that approval cost a full round trip.
+- [ ] **Show the finish line.** Add a short GIF or four screenshots: install, the setup page, the first search result, and the partition columns in Zotero. *Not done: needs real runs on the target hosts; the placeholders are still commented out in the READMEs.*
+- [x] **Add a symptom-based troubleshooting table** in the user's words: "the agent says the tools are not connected", "no partition columns", "the setup page did not open".
+- [x] **Add a plain FAQ**: what a key is, which keys are free, and why search works without any.
+- [x] **Split the docs.** Create `docs/getting-started.md` and `docs/getting-started_CN.md` for beginners. Move `onboarding.md` and `local-dashboard.md` to `docs/dev/` and remove the internal IDs (D12, R12, M4, T5.2) from anything a beginner might open.
+- [x] **Treat Chinese as first-class.** The same steps and screenshots in README\_CN, not a translation of the English one.
+- [x] **Keep README and the install docs in sync automatically.** A CI check fails if a command in README is missing from `INSTALL.md` or the plugin manifests.
 - [ ] If README is generated from your readme-writer prompt templates, change the templates as well, or the next regeneration will undo this work.
 
 ## Workstream F: Testing and release gates
@@ -263,7 +263,7 @@ GitHub-hosted CI cannot drive the desktop host apps, so the host-by-OS rows stay
 
 ## Roadmap
 
-Five phases ship in order, and a gate after phases 1, 2 and 4 decides whether the next one starts. Phase 0 can ship as a patch this week. Phase 1 is done (Gate 1 passed on Windows, macOS and Linux CI). Phase 1b, the DeepSeek Harness spike, is new and can run in parallel with the host tests that Phase 2 needs.
+Five phases ship in order, and a gate after phases 1, 2 and 4 decides whether the next one starts. Phase 0 can ship as a patch this week. Phase 1 is done (Gate 1 passed on Windows, macOS and Linux CI). Phases 2 and 3 are done and release v0.1.0 is published (Oct 22, 2026). Phase 4 has its documents and automatic checks in place; the manual runs (clean machines, three beginners) and the screenshots are still to do, see [release-checklist.md](release-checklist.md). Phase 1b, the DeepSeek Harness spike, is new and can run in parallel with the host tests that Phase 2 needs.
 
 &#91;embedded content: roadmap · 5 phases, 3 gates\]
 
