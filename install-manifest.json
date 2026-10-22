@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "notes": "Machine-readable twin of INSTALL.md. Keep both in sync. status values: documented = commands taken from the repo README; unverified = taken from vendor docs or search results, never run on the host; planned = not available yet. Release assets are built by .github/workflows/release.yml; a route that uses one is only usable once a published release lists it. first_run and keys describe the setup tools: setup_status (what works now) and open_setup (the masked key page); both are in the runtime bundle, the .mcpb and a source build.",
+  "notes": "Machine-readable twin of INSTALL.md. Keep both in sync. status values: documented = commands taken from the repo README; unverified = taken from vendor docs or search results, never run on the host; planned = not available yet. Release assets (the plugin archive, the .mcpb, the DeepSeek Harness package and the add-on) are built by .github/workflows/release.yml; a route that uses one is only usable once a published release lists it. first_run and keys describe the setup tools: setup_status (what works now) and open_setup (the masked key page); both are in the runtime bundle, the .mcpb and a source build.",
   "after_install": {
     "description": "Source route only. dist/ folders are build output and are not in git, so every route that installs from the repository must build once. Skip this when runtime/bundle/index.mjs exists (release archive).",
     "command": "node <plugin-root>/scripts/bootstrap.mjs",
@@ -101,6 +101,32 @@
       ],
       "covers": "Zotero tools only. Not the three skills and not the full-text tools.",
       "note": "Built and validated with the mcpb CLI by CI; not yet installed in Claude Desktop, and the Node version it ships is unconfirmed (the bundle asks for 22.13 or newer). If the releases page does not list the file, say so. The key page is also available through open_setup."
+    },
+    "deepseek-harness": {
+      "label": "DeepSeek Harness",
+      "status": "unverified",
+      "asset": "dsh-ai4s-literature-workbench-<version>.tgz",
+      "asset_fixed_name": "dsh-ai4s-literature-workbench.tgz",
+      "steps": [
+        "download the .tgz from the releases page",
+        "DeepSeek Harness: Plugins page, Add plugin, paste the path of the downloaded file",
+        "quit and reopen DeepSeek Harness",
+        "Keys and Check at the end"
+      ],
+      "done_by": "The user. The Plugins page is the one install step an agent cannot do.",
+      "no_build": "The package carries the prebuilt tools, so after_install does not apply. No separate Node.js is needed: the tools run on DeepSeek Harness's own Node, which for Desktop is unconfirmed.",
+      "covers": "The Zotero tools (19), the full-text tools (6) and all four skills. Tools appear as mcp__ai4s-literature-zotero__<tool> and mcp__ai4s-literature-fulltext__<tool>.",
+      "command_line": "dsh plugin --profile desktop add <path to the .tgz>, with Desktop closed. Tried with dsh web 0.2.1-rc.2 (profile web) on macOS and checked by CI on Linux; the profile name desktop comes from the vendor docs and is untried.",
+      "address": "https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/dsh-ai4s-literature-workbench.tgz",
+      "not_yet_tested": [
+        "the Plugins page and installing from the address",
+        "Desktop itself, and whether the tools run on its Electron Node (ELECTRON_RUN_AS_NODE=1)",
+        "Windows",
+        "whether open_setup can open the user's browser from inside DeepSeek Harness (fallback: url and fallback_code)",
+        "how the DeepSeek models use the skills; the 500-character skill description cut in the model's skill list (literature-manager is 787 characters)",
+        "whether DeepSeek Harness has a masked field for plugin settings; none was found, so keys use the setup page"
+      ],
+      "engines": "engines.dsh >=0.2.1-rc.2 <0.3.0. DeepSeek Harness is a developer preview."
     }
   },
   "get_files": {

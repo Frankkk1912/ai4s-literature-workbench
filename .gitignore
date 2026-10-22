@@ -47,10 +47,6 @@ Thumbs.db
 .vscode/
 *.swp
 
-# DeepSeek Harness plugin: copies made by scripts/build-dsh-plugin.mjs
-dsh-plugin/servers/
-dsh-plugin/skills/
-
 # Release assets written by scripts/package-release.mjs
 release-out/
 

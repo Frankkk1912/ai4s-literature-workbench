@@ -15,6 +15,13 @@ Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
 
 ### Added
 
+- DeepSeek Harness support: the release carries `dsh-ai4s-literature-workbench-<version>.tgz`
+  (and a fixed-name copy for `releases/latest/download/`), a plugin package with the Zotero and
+  full-text tools and all skills. `INSTALL.md`, `install-manifest.json`, both READMEs and both
+  getting-started pages have a DeepSeek Harness route, marked as not yet tested on a real machine
+  (Desktop, Windows, the Plugins page, and how the DeepSeek models use the skills are untried).
+  `scripts/verify-dsh-plugin.mjs` and `scripts/verify-dsh-install.mjs` check the package and a
+  pinned `dsh` install of it. See `docs/dev/deepseek-harness-support-plan.md`.
 - Zotero add-on 0.1.14: the update feed (`literature-metrics/update.json`) now carries a
   SHA-256 `update_hash`, and the release build fails when the feed does not describe the add-on
   it packages. Copies installed before 0.1.14 checked a retired repository and never updated;

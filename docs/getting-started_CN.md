@@ -17,10 +17,11 @@
 | 你用的应用 | 怎么做 |
 | --- | --- |
 | **Claude Desktop** | 打开[最新发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest)，下载 `ai4s-literature-zotero-<版本号>.mcpb`，双击它（或拖进 Claude Desktop 窗口）。在安装界面点确认，两个可选设置保持默认。这样装上的只有 Zotero 工具，不含技能和全文工具。 |
+| **DeepSeek Harness**（还没有在真实电脑上测试过） | 打开[最新发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest)，下载 `dsh-ai4s-literature-workbench-<版本号>.tgz`。在 DeepSeek Harness 里打开**插件（Plugins）**页面，点**添加插件（Add plugin）**，把下载好的文件路径贴进去。完全退出并重新打开 DeepSeek Harness，然后对它说：“运行 ai4s-setup 技能”。这样装上的有 Zotero 工具、全文工具和全部技能。 |
 | **Claude Code、Codex、WorkBuddy、CodeBuddy** | 把 [README_CN](../README_CN.md#1-安装选你用的应用) 里的安装指令发给应用。agent 会按 [INSTALL.md](../INSTALL.md) 操作，并告诉你哪些已经能用、哪些需要你处理。 |
 | **Trae、Qoder** | 按 [README_CN](../README_CN.md) 里“其他 agent 与手动安装”操作。 |
 
-WorkBuddy 与 CodeBuddy 目前还没有在真实电脑上测试过；如果失败，agent 会说明卡在哪一步。
+WorkBuddy、CodeBuddy 与 DeepSeek Harness 目前还没有在真实电脑上测试过；如果失败，agent 会说明卡在哪一步。DeepSeek Harness 还包括插件页面、Windows，以及 DeepSeek 模型如何使用这些技能。
 
 ## 第 2 步：看看现在能用什么
 
@@ -70,6 +71,7 @@ Zotero 密钥要在重启应用后才生效，agent 会提醒你。
 | 存不进 Zotero | 在设置页填入 Zotero 密钥；或使用 Zotero 10 及以上，Zotero 弹窗时选“始终允许”。 |
 | Zotero 里没有分区列 | 按第 3 步安装插件并重启 Zotero，再让 agent 同步或刷新一个分类。 |
 | 很早以前装的插件一直不更新 | 0.1.14 之前的版本不能自己更新。请手动安装一次最新文件。 |
+| 在 DeepSeek Harness 里添加了插件包，却看不到工具 | 完全退出并重新打开它（插件包在启动时加载），确认插件页面里列出了这个包，然后对它说：“运行 ai4s-setup 技能”。 |
 | 应用请求访问 GitHub 或网络 | 选择“允许”。 |
 | 检索提示缺少辅助工具 | agent 会提出安装一个小的检索辅助工具（`uv`），请同意。 |
 

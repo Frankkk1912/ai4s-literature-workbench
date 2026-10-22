@@ -2,7 +2,7 @@
 
 Oct 20, 2026 · @Frank
 
-**Status: research and a first spike are done; implementation has not started.** Work on this plan begins once the [zero-terminal onboarding plan](zero-terminal-onboarding-plan.md) is finished. That plan stays the source of truth for the shared runtime, the setup flow, and the release process; this one covers only what is specific to DeepSeek Harness.
+**Status (Oct 22, 2026): research, the first spike and Stages 2 and 3 are done; nothing has run on Desktop.** Stage 1 (the Desktop spike), the model-behaviour part of Stage 4 and Stage 5 wait for the owner's manual tests. That plan stays the source of truth for the shared runtime, the setup flow, and the release process; this one covers only what is specific to DeepSeek Harness.
 
 Facts come from two pieces of work: the research in PR #16 (the official DeepSeek Harness docs and design notes, read on 2026-10-20) and the `dsh web` spike in PR #17 (macOS, Node 26, `dsh` 0.2.1-rc.2). Neither involved Desktop itself or any DeepSeek model.
 
@@ -54,7 +54,8 @@ Things the spike found that the docs did not say:
 ## What already exists in the repository
 
 - `dsh-plugin/package.json` and `dsh-plugin/cordis.patch.yml`: a patch-only bundle with two MCP rows (the Zotero and full-text servers) and one skills row. `engines.dsh` is `>=0.2.1-rc.2 <0.3.0`.
-- `scripts/build-dsh-plugin.mjs --out <dir>`: copies the prebuilt bundles and the skills into the package and runs `npm pack`. The copies are gitignored build output. It stops if the package version differs from `.claude-plugin/plugin.json`.
+- `scripts/build-dsh-plugin.mjs --out <dir>`: copies the prebuilt bundles, the skills and the licence files next to the patch in a temporary folder and runs `npm pack`. It stops if the package version differs from `.claude-plugin/plugin.json`. `scripts/package-release.mjs` runs it and adds the result to the release assets.
+- `scripts/verify-dsh-plugin.mjs <tgz>` and `scripts/verify-dsh-install.mjs <tgz>`: the checks described under Stage 2. `tests/dsh-plugin.test.mjs` feeds them broken packages.
 
 To repeat the spike without touching a real profile:
 
@@ -67,7 +68,15 @@ Then open the printed `127.0.0.1:3080` link, and type `/` in a new session to se
 
 ## Implementation plan
 
-Start only when the main plan is finished. Stages run in order, and each gate must pass before the next stage.
+Stages run in order, and each gate should pass before the next stage. Stages 2 and 3 were built before Stage 1 (Oct 22, 2026): the Desktop test needs a release file and an install route to test, so the route is marked unverified until Stage 1 passes. Progress:
+
+| Stage | State |
+| --- | --- |
+| 1. Desktop spike | **Not started.** Needs Desktop on real machines. The owner's test script is in the pull request that built Stages 2 and 3 |
+| 2. Release asset and CI | **Built.** `package-release.mjs` writes `dsh-ai4s-literature-workbench-<version>.tgz` and a fixed-name copy, both in `SHA256SUMS.txt`; `verify-release.mjs` and `verify-dsh-plugin.mjs` check the metadata, the patch paths, the skills and that both servers start from their patch rows; `verify-dsh-install.mjs` installs it with a pinned `dsh` into a scratch profile and starts the servers from the installed copy. The tarball is not in a published release yet |
+| 3. Install docs | **Built.** `deepseek-harness` route in `INSTALL.md` and `install-manifest.json`, the DeepSeek block in both READMEs and both getting-started pages, all marked as not yet tested. The optional plugin market index was not built |
+| 4. Key entry | **No new code.** The package reuses the setup flow. The package check confirms `setup_status` and `open_setup` answer from inside the package and that the setup page files are served from the installed folder. Whether `open_setup` can open the browser from inside DeepSeek Harness, and whether there is a masked field for plugin settings, wait for Stage 1 |
+| 5. Prove it | **Not started** |
 
 | Stage | Work | Gate |
 | --- | --- | --- |
@@ -76,6 +85,13 @@ Start only when the main plan is finished. Stages run in order, and each gate mu
 | 3. Install docs | Add the route to `INSTALL.md` and `install-manifest.json` as `deepseek-harness`, marked unverified until Stage 1 passes. Add a DeepSeek block to the README install section, in both languages, when the main plan's README rewrite happens. Optional: host a plugin market index so users can install from **Discover** without typing a spec | The route matches the manifest; the README check passes |
 | 4. Key entry | Use whatever the main plan's setup flow provides (`setup_status`, `open_setup`, the browser wizard). If Stage 1 finds a masked field for plugin secrets, use it as well and write to the same private file | A key entered through the DeepSeek route is read by both servers |
 | 5. Prove it | A clean-machine run on Desktop, recorded on video: minutes to first search, commands typed, agent turns. Compare the skills' behaviour on the DeepSeek models against another host. Update the dashboard row from "unverified" to measured | The main plan's release gate: no typed commands and a first search in 10 minutes or less |
+
+### What building Stages 2 and 3 found
+
+- The tarball installs with the pinned `dsh` 0.2.1-rc.2 (`plugin --profile web add <tgz>`): the profile's `package.json` lists the package under `dsh.profile.bundles`, and `node_modules/dsh-ai4s-literature-workbench` holds it. Both servers then start from that installed copy using the patch's own command, arguments and environment (evaluated with `ctx.get('profileContext').dir` set to the profile folder). Tried on macOS and in the CI dry run; not on Windows.
+- The 500-character cut on skill descriptions is the `catalogDescriptionMaxLength` setting of `@deepseek-ai/dsh-tool-skill` (default 500, minimum 3), not of the skill-filesystem row this package adds. A patch from this package could override that plugin's config, but only if the row's id in DeepSeek Harness's own profile is known. That was not looked up, so the setting is **not** changed: the description of `literature-manager` is unchanged and may be cut. Stage 1 should read what the model is actually shown before anything is changed.
+- `npm pack` of the tarball is assembled in a temporary folder, so `dsh-plugin/` holds only the patch and `package.json`.
+- A release build takes `dsh` from npm at a pinned version. On a cold cache that download is large (several minutes), so the install check runs in the release and dry-run jobs, not in the per-OS test matrix.
 
 ## Dependencies on the main plan
 
@@ -91,7 +107,7 @@ Start only when the main plan is finished. Stages run in order, and each gate mu
 | DeepSeek Harness is a developer preview | Its README warns of compatibility-breaking changes and releases are release candidates, so a plugin can stop loading after an update | Pin an `engines.dsh` range, recheck on each DeepSeek Harness release, and treat the route as best-effort until a stable release |
 | A stdio server on Desktop cannot run our bundle | The Host runs on Electron's Node; the child may not behave like Node or find `node` on its PATH | Run the bundle with Desktop's own Node (`process.execPath` with `ELECTRON_RUN_AS_NODE=1`); if that fails, a standalone binary |
 | `!!js` evaluation changes | The patch relies on `ctx.get('profileContext').dir` and `process.getBuiltinModule`, which are not documented as stable | The Stage 2 install check catches a break; fall back to a small plugin module that locates its own files |
-| Skill descriptions are cut in the prompt | `literature-manager`'s description is 787 characters against a 500-character default | Shorten the description so the "Use when" clause comes first, or raise `catalogDescriptionMaxLength` (the skill design note documents it) in the patch |
+| Skill descriptions are cut in the prompt | `literature-manager`'s description is 787 characters against a 500-character default | Shorten the description so the "Use when" clause comes first, or raise `catalogDescriptionMaxLength`, which belongs to the `@deepseek-ai/dsh-tool-skill` plugin and so needs a patch entry that targets that plugin's row (not done; see Stage 2 findings) |
 | A real home folder leaks into tests | The skill list and the MCP child both see it | Run every test with a clean home folder |
 | The Desktop installer is hard to obtain | None of the 30 latest GitHub releases carries an installer, so a clean-machine run depends on a download page I have not found | Ask where DeepSeek publishes it before Stage 1 |
 

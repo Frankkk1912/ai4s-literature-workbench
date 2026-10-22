@@ -1,6 +1,6 @@
 # AI4S Literature Workbench: Zero-Terminal Onboarding Plan
 
-Oct 18, 2026 · @Frank · updated Oct 20, 2026: DeepSeek Harness Desktop added as a host · Oct 21, 2026: Phase 3 findings (Zotero 10 local writes, update feed)
+Oct 18, 2026 · @Frank · updated Oct 20, 2026: DeepSeek Harness Desktop added as a host · Oct 21, 2026: Phase 3 findings (Zotero 10 local writes, update feed) · Oct 22, 2026: DeepSeek Harness package and route built
 
 ## Goal and success criteria
 
@@ -85,7 +85,7 @@ WorkBuddy ships first. It is a desktop agent aimed at non-technical users, which
 
 ## DeepSeek Harness Desktop
 
-DeepSeek Harness has its own plugin model: an npm package that carries a configuration patch, not a `.claude-plugin` folder or a `.mcp.json`. It gets its own plan, [deepseek-harness-support-plan.md](deepseek-harness-support-plan.md), which holds the research, the `dsh web` spike results, the tasks and the risks. Implementation starts once this plan is finished. A first package (`dsh-plugin/`) and its build script already exist in the repository; nothing in this plan depends on them.
+DeepSeek Harness has its own plugin model: an npm package that carries a configuration patch, not a `.claude-plugin` folder or a `.mcp.json`. It gets its own plan, [deepseek-harness-support-plan.md](deepseek-harness-support-plan.md), which holds the research, the `dsh web` spike results, the tasks and the risks. Its package (`dsh-plugin/`), the release asset and the install route are built (Oct 22, 2026); what is left there is testing on Desktop, which this plan's release gate does not wait for.
 
 ## Workstream A: Packaging and prebuilt runtimes
 
@@ -197,7 +197,7 @@ Today every Zotero feature needs a Web API key. Zotero Desktop 7 also offers a l
 
 The README should give one install route per host, in the order a beginner meets them. Everything about builds, keys and threat models moves out of the beginner path.
 
-- [x] **Install by host, not one generic prompt.** Four short blocks: Claude Desktop (download the `.mcpb`, double-click), Claude Code (the plugin install lines, typed inside Claude Code), Codex (a prompt that names the plugin marketplace route and points to `INSTALL.md`), DeepSeek Harness (paste one package spec into the Plugins page), and Trae/Qoder. *Done for Claude Desktop, the paste-a-prompt hosts and Trae/Qoder; the DeepSeek Harness block waits for its plugin package (PR 17) to merge.*
+- [x] **Install by host, not one generic prompt.** Four short blocks: Claude Desktop (download the `.mcpb`, double-click), Claude Code (the plugin install lines, typed inside Claude Code), Codex (a prompt that names the plugin marketplace route and points to `INSTALL.md`), DeepSeek Harness (paste one package spec into the Plugins page), and Trae/Qoder. *Done for all five blocks. The DeepSeek Harness block is marked as not yet tested on a real machine.*
 - [x] **Reword "What you need".** Host app, a browser, and Zotero Desktop if wanted. Drop Node, uv and Git from this list.
 - [x] **Set expectations before the first run.** Say the agent may ask for permission to reach GitHub or the network, and that the user should choose Allow. In the transcript that approval cost a full round trip.
 - [ ] **Show the finish line.** Add a short GIF or four screenshots: install, the setup page, the first search result, and the partition columns in Zotero. *Not done: needs real runs on the target hosts; the placeholders are still commented out in the READMEs.*
@@ -228,7 +228,7 @@ GitHub-hosted CI cannot drive the desktop host apps, so the host-by-OS rows stay
 
 ## Roadmap
 
-Five phases ship in order, and a gate after phases 1, 2 and 4 decides whether the next one starts. Phase 0 can ship as a patch this week. Phase 1 is done (Gate 1 passed on Windows, macOS and Linux CI). Phases 2 and 3 are done and release v0.1.0 is published (Oct 22, 2026). Phase 4 has its documents and automatic checks in place; the manual runs (clean machines, three beginners) and the screenshots are still to do, see [release-checklist.md](release-checklist.md). Phase 1b, the DeepSeek Harness spike, is new and can run in parallel with the host tests that Phase 2 needs.
+Five phases ship in order, and a gate after phases 1, 2 and 4 decides whether the next one starts. Phase 0 can ship as a patch this week. Phase 1 is done (Gate 1 passed on Windows, macOS and Linux CI). Phases 2 and 3 are done and release v0.1.0 is published (Oct 22, 2026). Phase 4 has its documents and automatic checks in place; the manual runs (clean machines, three beginners) and the screenshots are still to do, see [release-checklist.md](release-checklist.md). The DeepSeek Harness package, release asset and install route are in place (Oct 22, 2026); testing it on Desktop is the owner's manual run, see [deepseek-harness-support-plan.md](deepseek-harness-support-plan.md).
 
 &#91;embedded content: roadmap · 5 phases, 3 gates\]
 
@@ -263,7 +263,7 @@ The biggest risk is that a host's sandbox blocks something the plan assumes, and
 3. The wizard opens with a one-time token in the URL fragment (Workstream B).
 4. Per-OS binaries of tens of megabytes are acceptable for releases.
 5. Chinese is the default language of the setup page and status text.
-6. DeepSeek Harness Desktop is a later host with its own plan, started after this one is finished (Oct 20, 2026).
+6. DeepSeek Harness Desktop is a host with its own plan; its package and install route were built after this plan's phases 1 to 4 (Oct 22, 2026) and wait for the manual test.
 
 ## Sources
 

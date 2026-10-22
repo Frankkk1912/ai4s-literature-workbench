@@ -1,5 +1,5 @@
-# Release assets: plugin archive with prebuilt bundles, Claude Desktop .mcpb, Zotero XPI,
-# and SHA256SUMS.txt.
+# Release assets: plugin archive with prebuilt bundles, Claude Desktop .mcpb, DeepSeek Harness
+# plugin package (.tgz), Zotero XPI, and SHA256SUMS.txt.
 #
 # Pushing a tag like v0.1.0 runs this. The tag (without the "v") must equal the version in
 # .claude-plugin/plugin.json, or packaging stops. The publish job creates a DRAFT release,
@@ -53,7 +53,7 @@ jobs:
     name: package assets
     needs: bundles
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -86,6 +86,9 @@ jobs:
 
       - name: Verify the assets as a user would receive them
         run: node scripts/verify-release.mjs release-out
+
+      - name: Install the DeepSeek Harness package with a pinned dsh
+        run: node scripts/verify-dsh-install.mjs release-out/dsh-ai4s-literature-workbench.tgz
 
       - name: Upload assets
         uses: actions/upload-artifact@v4

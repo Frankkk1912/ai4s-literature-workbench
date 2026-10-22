@@ -9,6 +9,9 @@
 //      developer-only scripts/onboard.mjs and scripts/bootstrap.mjs
 //   4. the .mcpb, extracted and started exactly as its manifest says, with an unset
 //      optional key passed as Claude Desktop passes it, lists the 19 workbench tools
+//   5. the DeepSeek Harness package is attached under both names with the same bytes, and
+//      scripts/verify-dsh-plugin.mjs passes on it (well formed, patch paths exist, both
+//      servers start from their patch rows)
 //
 //   node scripts/verify-release.mjs <release-dir>
 //
@@ -17,7 +20,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -74,7 +77,7 @@ try {
       const actual = createHash('sha256').update(readFileSync(join(releaseDir, name))).digest('hex');
       if (actual !== hash) throw new Error(`${name}: SHA256SUMS.txt says ${hash}, file is ${actual}.`);
     }
-    for (const name of ['.zip', '.mcpb', '.xpi']) {
+    for (const name of ['.zip', '.mcpb', '.xpi', '.tgz']) {
       if (![...listed].some((entry) => entry.endsWith(name))) throw new Error(`SHA256SUMS.txt has no ${name} entry.`);
     }
   });
@@ -93,6 +96,21 @@ try {
     });
     if (problems.length > 0) throw new Error(problems.join(' '));
   });
+
+  await check('the DeepSeek Harness package is attached under both names, with the same bytes', () => {
+    const versioned = find(/^dsh-ai4s-literature-workbench-\d+\.\d+\.\d+\.tgz$/);
+    if (!readFileSync(versioned).equals(readFileSync(join(releaseDir, 'dsh-ai4s-literature-workbench.tgz')))) {
+      throw new Error('dsh-ai4s-literature-workbench.tgz is not the same file as the versioned package.');
+    }
+    const listed = readFileSync(join(releaseDir, 'SHA256SUMS.txt'), 'utf8');
+    for (const name of [basename(versioned), 'dsh-ai4s-literature-workbench.tgz']) {
+      if (!listed.includes(`  ${name}\n`)) throw new Error(`SHA256SUMS.txt does not list ${name}.`);
+    }
+  });
+
+  const dshRun = spawnSync(process.execPath, [join(repoRoot, 'scripts', 'verify-dsh-plugin.mjs'), join(releaseDir, 'dsh-ai4s-literature-workbench.tgz')], { encoding: 'utf8' });
+  process.stdout.write(`${dshRun.stdout.trimEnd().replace(/^/gm, '  [dsh] ')}\n`);
+  report('the DeepSeek Harness package passes its own checks', dshRun.status === 0, dshRun.stderr || 'see the [dsh] lines above');
 
   const pluginArchive = find(/^ai4s-literature-workbench-.*\.zip$/);
   const pluginParent = join(work, 'plugin');
