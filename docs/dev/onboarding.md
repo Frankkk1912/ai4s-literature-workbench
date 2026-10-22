@@ -1,7 +1,7 @@
 # API onboarding
 
 > This page is for developers. A beginner never opens it: the agent follows
-> [`INSTALL.md`](../INSTALL.md) and the `ai4s-setup` skill, which use the
+> [`INSTALL.md`](../../INSTALL.md) and the `ai4s-setup` skill, which use the
 > `setup_status` and `open_setup` tools described below.
 
 AI4S Literature Workbench can run its basic literature workflow without API
@@ -24,7 +24,7 @@ an additional UX entry on the same validation and private-file semantics; it
 does not replace the CLI.
 
 Related documents: [`local-dashboard.md`](local-dashboard.md),
-[`zotero-xpi.md`](zotero-xpi.md),
+[`zotero-xpi.md`](../zotero-xpi.md),
 [`migration-from-parent.md`](migration-from-parent.md).
 
 ## Zotero Desktop XPI reminder
@@ -34,7 +34,7 @@ redacted onboarding status reports the add-on as `zotero_desktop_xpi`, read
 from Zotero's own profile records on this machine. It can show that the add-on
 is installed and active, and whether it came from this repository. It cannot
 prove the add-on loads and works. For build and install steps, see
-[`zotero-xpi.md`](zotero-xpi.md). The Agent must remind the user during
+[`zotero-xpi.md`](../zotero-xpi.md). The Agent must remind the user during
 first-run onboarding.
 
 ## Setup page opened by the tools (Phase 2)

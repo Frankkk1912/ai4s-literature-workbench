@@ -8,6 +8,11 @@ Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
 
 ## [Unreleased]
 
+### Changed
+
+- README and README_CN: install by app (Claude Desktop `.mcpb`, a pasted prompt for the plugin hosts, Trae/Qoder by hand), what to expect before the first run, a symptom table and a plain FAQ, written separately in Chinese rather than translated. New `docs/getting-started.md` and `docs/getting-started_CN.md`; `onboarding.md` and `local-dashboard.md` moved to `docs/dev/`. `tests/readme-sync.test.mjs` fails when a README command is missing from `INSTALL.md`.
+- `docs/dev/release-checklist.md`: the automated and manual release gates, with the three numbers to record per beginner run.
+
 ### Added
 
 - Zotero add-on 0.1.14: the update feed (`literature-metrics/update.json`) now carries a

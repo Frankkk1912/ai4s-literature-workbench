@@ -6,7 +6,7 @@ and how strongly do we know that?” It does **not** run connection tests,
 自动轮询, or 自动连接测试.
 
 Wizard and pairing details: [`onboarding.md`](onboarding.md). XPI install:
-[`zotero-xpi.md`](zotero-xpi.md). Visual constraints for the dashboard are listed in the section below.
+[`zotero-xpi.md`](../zotero-xpi.md). Visual constraints for the dashboard are listed in the section below.
 
 ## Where it appears
 
