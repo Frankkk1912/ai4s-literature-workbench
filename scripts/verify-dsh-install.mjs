@@ -70,6 +70,11 @@ async function main() {
   mkdirSync(home, { recursive: true });
   let ok = false;
   try {
+    const pnpm = spawnSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['--version'], { encoding: 'utf8', shell: process.platform === 'win32' });
+    if (pnpm.status !== 0) {
+      process.stdout.write('FAIL  dsh runs pnpm to install a plugin, and pnpm is not on PATH. Install it first (npm install --global pnpm).\n');
+      process.exit(1);
+    }
     const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
     const run = spawnSync(npx, ['--yes', `@deepseek-ai/dsh@${dshVersion}`, 'plugin', '--profile', 'web', 'add', archive], {
       cwd: work,

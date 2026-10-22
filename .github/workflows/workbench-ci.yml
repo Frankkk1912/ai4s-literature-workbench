@@ -164,6 +164,10 @@ jobs:
           # dsh 0.2.1-rc.2 needs 22.19 or newer; on 22.13 it exits 0 without installing anything.
           node-version: '22.19'
 
+      # dsh runs pnpm to install a plugin and stops if it is not on PATH. Desktop bundles its own.
+      - name: Install pnpm for dsh
+        run: npm install --global pnpm@11.23.0
+
       # Installs the DeepSeek Harness package with a pinned dsh into a scratch profile, then
       # starts both servers from the installed copy. Needs the network; dsh is a developer
       # preview, so a break here is a reason to look at engines.dsh, not a flaky test.
