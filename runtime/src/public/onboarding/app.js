@@ -48,17 +48,19 @@ const PROVIDER_NAMES = {
   easyscholar: 'EasyScholar',
 };
 const XPI_RELEASES_HREF = 'https://github.com/Frankkk1912/ai4s-literature-workbench/releases';
+// Always the newest add-on: every release carries it under this fixed name.
+const XPI_DOWNLOAD_HREF = 'https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi';
 const xpiEvidence = () =>
   t(
-    '在 Zotero 中选择 Tools → Add-ons → 齿轮菜单 → Install Add-on From File…，选择下载的 .xpi 文件。',
-    'In Zotero choose Tools → Add-ons → gear menu → Install Add-on From File…, then pick the downloaded .xpi file.',
+    '下载后，在 Zotero 中选择 工具 → 插件，点齿轮 → 从文件安装插件（Install Add-on From File…），选下载的 .xpi 文件，再重启 Zotero。',
+    'After downloading, in Zotero choose Tools → Add-ons, click the gear → Install Add-on From File…, pick the .xpi file, then restart Zotero.',
   );
 const xpiDetails = () => [
   {
     label: t('完整步骤', 'Full steps'),
     value: t(
-      '1. 访问 GitHub Releases：https://github.com/Frankkk1912/ai4s-literature-workbench/releases\n2. 下载最新的 .xpi 文件\n3. 在 Zotero 中选择 Tools → Add-ons → 齿轮菜单 → Install Add-on From File…\n4. 选择下载的 .xpi 文件\n5. 重启 Zotero',
-      '1. Open GitHub Releases: https://github.com/Frankkk1912/ai4s-literature-workbench/releases\n2. Download the latest .xpi file\n3. In Zotero choose Tools → Add-ons → gear menu → Install Add-on From File…\n4. Pick the downloaded .xpi file\n5. Restart Zotero',
+      `1. 点击“点击下载”，保存 literature-metrics.xpi（如果没有开始下载，打开 ${XPI_RELEASES_HREF} 下载最新的 .xpi）\n2. 打开 Zotero，选择 工具 → 插件（Tools → Add-ons）\n3. 点右上角的齿轮 → 从文件安装插件…（Install Add-on From File…），选择下载的 .xpi 文件\n4. 重启 Zotero`,
+      `1. Click Download and save literature-metrics.xpi (if nothing downloads, open ${XPI_RELEASES_HREF} and get the newest .xpi)\n2. Open Zotero and choose Tools → Add-ons\n3. Click the gear at the top right → Install Add-on From File…, and pick the downloaded .xpi file\n4. Restart Zotero`,
     ),
     mono: false,
   },
@@ -71,8 +73,8 @@ const providers = {
     label: 'Zotero',
     get purpose() {
       return t(
-        '把文献存进你的 Zotero 资料库需要它。它只保存在这台电脑的私有文件里。不填也能检索。',
-        'Needed to save papers into your Zotero library. It is kept only in a private file on this computer. Search works without it.',
+        '读取你电脑上的 Zotero 文献库不需要密钥：打开 Zotero，在 设置 → 高级 里勾选“允许这台电脑上的其他应用与 Zotero 通信”即可。把文献存进 Zotero 需要这个密钥（Zotero 10 及以上也可以不用密钥，保存时 Zotero 会弹出窗口询问，请选“始终允许”）。密钥只保存在这台电脑的私有文件里。不填也能检索。',
+        'Reading the Zotero library on this computer needs no key: open Zotero and, in Settings → Advanced, tick “Allow other applications on this computer to communicate with Zotero”. Saving papers into Zotero needs this key (Zotero 10 or later can also save without one: it asks in its own window, and you choose “Always Allow”). The key is kept only in a private file on this computer. Search works without it.',
       );
     },
     get how() {
@@ -210,13 +212,26 @@ export function mapXpi(xpi) {
       t('缺少 zotero_desktop_xpi 字段，不能判断安装状态。', 'The add-on status is missing, so installation cannot be judged.'),
     );
   }
+  // What this computer's Zotero profile shows. Finding the file never proves the add-on loaded.
+  const profiles = Array.isArray(record.profiles) ? record.profiles.map(asRecord).filter(Boolean) : null;
+  let statusLabel = t('安装步骤', 'Install steps');
+  let statusTone = 'verified';
+  if (profiles !== null) {
+    const states = profiles.map((p) => p.state);
+    statusTone = 'neutral';
+    if (profiles.length === 0) statusLabel = t('没有找到 Zotero', 'Zotero not found on this computer');
+    else if (states.includes('installed_active')) statusLabel = t('已在你的 Zotero 里找到（无法确认已加载）', 'Found in your Zotero profile (cannot confirm it loaded)');
+    else if (states.includes('installed_unconfirmed')) statusLabel = t('找到了，但无法确认已启用或来自本项目', 'Found, but not confirmed as enabled or from this project');
+    else statusLabel = t('尚未安装', 'Not installed yet');
+  }
+  const installed = profiles !== null && profiles.some((p) => p.state === 'installed_active');
   return {
     name: 'literature-metrics',
-    statusLabel: t('安装步骤', 'Install steps'),
-    statusTone: 'verified',
+    statusLabel,
+    statusTone,
     action: {
-      label: t('点击下载', 'Download'),
-      href: XPI_RELEASES_HREF,
+      label: installed ? t('重新下载', 'Download again') : t('点击下载', 'Download'),
+      href: XPI_DOWNLOAD_HREF,
       target: '_blank',
       rel: 'noreferrer',
       variant: 'action-pill',

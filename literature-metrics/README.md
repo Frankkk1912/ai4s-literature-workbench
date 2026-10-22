@@ -136,7 +136,7 @@ Colors are a redundant visual cue only: every value remains visible as text,
 IF/5-Year IF retain continuous numeric sort keys, and JCR/CAS retain explicit
 ordinal sort keys. Descending JCR/CAS sorting places Q1/1区 before Q4/4区.
 
-`npm run package` creates `dist/literature-metrics-0.1.13.xpi`. The add-on
+`npm run package` creates `dist/literature-metrics-<version>.xpi`. The add-on
 declares Zotero 7.0 through 10.9 compatibility.
 
 ## Install in Zotero

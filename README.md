@@ -70,7 +70,7 @@ Your agent can call these on your behalf — they speak the same protocol your a
 - **Audit and metrics** — keep an evidence-to-claim table, audit tag consistency, refresh journal indicators. (`tag-audit`, `apply-metrics-plan`)
 
 ### Zotero Desktop add-on
-A separate XPI you install into Zotero Desktop. It adds columns and controls on the right of your library, all read-only by default:
+A separate XPI you install into Zotero Desktop ([download the newest](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi), then Tools → Add-ons → gear → Install Add-on From File…; [details](docs/zotero-xpi.md)). It adds columns and controls on the right of your library, all read-only by default:
 - Colored **IF / JCR / CAS** columns for at-a-glance journal quality
 - **Article Type** auto-detection, **AI Summary** field, **Agent Tags** for fast navigation
 - **Priority 1 / 2 / 3** — the only direct write path, set explicitly by you with a star control, number shortcut, or context menu

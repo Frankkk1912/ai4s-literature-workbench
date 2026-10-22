@@ -18,11 +18,17 @@ const whoami: ToolDefinition = {
       displayName: cloud?.displayName,
       access: cloud?.access ?? null,
       localApi: ctx.capabilities.localApi,
+      localState: ctx.capabilities.localState ?? null,
+      saveWithoutKey: ctx.capabilities.localApi && Boolean(ctx.capabilities.localServerId),
       defaultLibrary: lib,
     };
     const summary = cloud
       ? `Signed in as ${cloud.username} (userID ${cloud.userID}). Local API: ${ctx.capabilities.localApi ? 'available' : 'unavailable'}.`
-      : `No cloud API key configured — running in local-only read mode (local API ${ctx.capabilities.localApi ? 'available' : 'unavailable'}).`;
+      : `No cloud API key configured — reading the desktop library (local API ${ctx.capabilities.localApi ? 'available' : 'unavailable'}). ${
+          ctx.capabilities.localApi && ctx.capabilities.localServerId
+            ? 'This Zotero (10 or later) can also save without a key: it asks the user once in its own window.'
+            : 'Saving needs a Zotero key, or Zotero 10 or later.'
+        }`;
     return ok(structured, summary);
   },
 };

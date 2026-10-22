@@ -79,6 +79,21 @@ try {
     }
   });
 
+  await check('the Zotero add-on is attached under both names and the update feed describes it', async () => {
+    const versioned = find(/^literature-metrics-\d+\.\d+\.\d+\.xpi$/);
+    const bytes = readFileSync(versioned);
+    if (!bytes.equals(readFileSync(join(releaseDir, 'literature-metrics.xpi')))) {
+      throw new Error('literature-metrics.xpi is not the same file as the versioned add-on.');
+    }
+    const { checkFeed } = await import(pathToFileURL(join(repoRoot, 'literature-metrics', 'scripts', 'update-feed.mjs')).href);
+    const problems = checkFeed({
+      manifest: JSON.parse(readFileSync(join(repoRoot, 'literature-metrics', 'manifest.json'), 'utf8')),
+      feed: JSON.parse(readFileSync(join(repoRoot, 'literature-metrics', 'update.json'), 'utf8')),
+      xpiBytes: bytes,
+    });
+    if (problems.length > 0) throw new Error(problems.join(' '));
+  });
+
   const pluginArchive = find(/^ai4s-literature-workbench-.*\.zip$/);
   const pluginParent = join(work, 'plugin');
   extract(pluginArchive, pluginParent);

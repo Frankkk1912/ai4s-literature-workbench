@@ -30,7 +30,7 @@ const applyImportPlanTool: ToolDefinition = {
       const summary = await dryRunImportPlan(ctx, plan, lib);
       return ok(summary as unknown as Record<string, unknown>, `Dry-run ${summary.status}: ${plan.plan_hash.slice(0, 19)}.`);
     }
-    if (!ctx.web.hasKey) return err('Apply mode requires a Zotero Web API key; the desktop Local API is read-only.');
+    if (!ctx.web.canWrite) return err('Saving to Zotero needs a Zotero key, or Zotero 10 or later open on this computer. Call setup_status.');
     if (!args.receipt_path) return err('`receipt_path` is required for apply mode.');
     if (!args.confirm_plan_hash) return err('`confirm_plan_hash` is required for apply mode.');
     if (args.confirm_plan_hash !== plan.plan_hash) return err('Confirmed plan hash does not match the plan file; no writes were attempted.');

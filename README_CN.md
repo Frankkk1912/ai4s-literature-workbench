@@ -70,7 +70,7 @@ flowchart LR
 - **审计与指标** — 维护证据-论点对应表，审计标签一致性，更新期刊指标。`tag-audit`、`apply-metrics-plan`
 
 ### Zotero 桌面端附加组件
-需要单独安装到 Zotero 桌面端的插件（XPI）。它在你的文库右侧增加这些列与控件，默认只读：
+需要单独安装到 Zotero 桌面端的插件（XPI）：[下载最新版](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi)，在 Zotero 里选 工具 → 插件 → 齿轮 → 从文件安装插件，再重启（[详细步骤](docs/zotero-xpi.md)）。它在你的文库右侧增加这些列与控件，默认只读：
 - 彩色 **IF / JCR / CAS** 指标列，一眼看清期刊质量
 - **文章类型（Article Type）** 自动识别、**AI 摘要（AI Summary）** 字段、**智能标签（Agent Tags）** 便于导航
 - **优先级 1 / 2 / 3** — 唯一允许直接写入的路径，必须由你通过星标控件、数字快捷键或右键菜单显式设置

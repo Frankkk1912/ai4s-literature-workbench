@@ -77,9 +77,10 @@ export function ok(structured: Record<string, unknown>, summary: string): ToolHa
 }
 
 /**
- * Resolve the library a WRITE should target. Writes only go to the cloud Web API
- * (the local API is read-only), so this throws a friendly error when no API key is
- * configured. The thrown message is surfaced to the model as an isError result.
+ * Resolve the library a WRITE should target. With a Zotero key that is the key's library. With
+ * no key it is the personal library on the desktop, when this process saves through Zotero 10
+ * or later (the desktop connection of older versions is read-only). The thrown message is
+ * surfaced to the model as an isError result.
  */
 export function requireCloudLibrary(
   ctx: ToolContext,
@@ -87,12 +88,11 @@ export function requireCloudLibrary(
 ): LibraryRef {
   if (args?.library_id) return { type: args.library_type ?? 'group', id: args.library_id };
   const cloud = ctx.capabilities.cloud;
-  if (!cloud) {
-    throw new Error(
-      'This operation writes to Zotero and requires a cloud API key (set ZOTERO_API_KEY). The desktop local API is read-only.',
-    );
-  }
-  return { type: 'user', id: cloud.userID };
+  if (cloud) return { type: 'user', id: cloud.userID };
+  if (ctx.web.canWrite) return { type: 'user', id: 0 };
+  throw new Error(
+    'This operation saves to Zotero. That needs a Zotero key (call setup_status, then open_setup so the user can paste one), or Zotero 10 or later open on this computer.',
+  );
 }
 
 export function registerAllTools(

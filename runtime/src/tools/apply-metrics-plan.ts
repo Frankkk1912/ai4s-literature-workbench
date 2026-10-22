@@ -10,7 +10,7 @@ const applyMetricsPlan: ToolDefinition = {
   handler: async (args, ctx) => {
     const plan = await readMetricsPlan(args.plan_path); const lib = requireCloudLibrary(ctx, args);
     if (lib.type !== plan.target.library_type || lib.id !== plan.target.library_id) throw new Error('Plan target does not match selected Zotero library');
-    if (args.mode === 'apply') { if (!ctx.web.hasKey) throw new Error('A Zotero Web API key is required for apply'); if (args.confirm_plan_hash !== plan.plan_hash) throw new Error('Apply requires confirm_plan_hash exactly matching plan_hash'); if (!args.receipt_path) throw new Error('Apply requires receipt_path'); }
+    if (args.mode === 'apply') { if (!ctx.web.canWrite) throw new Error('Saving to Zotero needs a Zotero key, or Zotero 10 or later open on this computer. Call setup_status.'); if (args.confirm_plan_hash !== plan.plan_hash) throw new Error('Apply requires confirm_plan_hash exactly matching plan_hash'); if (!args.receipt_path) throw new Error('Apply requires receipt_path'); }
     const result = await executeMetricsPlan(ctx, plan, lib, args.mode, args.receipt_path);
     return ok(result, args.mode === 'dry_run' ? `Metrics dry run ${result.status}.` : `Metrics apply ${result.status}.`);
   },
