@@ -72,7 +72,7 @@ Stages run in order, and each gate should pass before the next stage. Stages 2 a
 
 | Stage | State |
 | --- | --- |
-| 1. Desktop spike | **Not started.** Needs Desktop on real machines. The owner's test script is in the pull request that built Stages 2 and 3 |
+| 1. Desktop spike | **Not started.** Needs Desktop on real machines. The owner's test script is [deepseek-harness-test-script.md](deepseek-harness-test-script.md) |
 | 2. Release asset and CI | **Built.** `package-release.mjs` writes `dsh-ai4s-literature-workbench-<version>.tgz` and a fixed-name copy, both in `SHA256SUMS.txt`; `verify-release.mjs` and `verify-dsh-plugin.mjs` check the metadata, the patch paths, the skills and that both servers start from their patch rows; `verify-dsh-install.mjs` installs it with a pinned `dsh` into a scratch profile and starts the servers from the installed copy. The tarball is not in a published release yet |
 | 3. Install docs | **Built.** `deepseek-harness` route in `INSTALL.md` and `install-manifest.json`, the DeepSeek block in both READMEs and both getting-started pages, all marked as not yet tested. The optional plugin market index was not built |
 | 4. Key entry | **No new code.** The package reuses the setup flow. The package check confirms `setup_status` and `open_setup` answer from inside the package and that the setup page files are served from the installed folder. Whether `open_setup` can open the browser from inside DeepSeek Harness, and whether there is a masked field for plugin settings, wait for Stage 1 |
