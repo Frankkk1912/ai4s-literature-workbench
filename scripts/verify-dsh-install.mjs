@@ -11,7 +11,7 @@
 // It proves the package installs and mounts under that dsh. It does not run a model, and it
 // does not prove that Desktop's Add plugin page or Electron's Node behave the same way.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -32,6 +32,19 @@ export async function checkProfile(profileDir, { pluginVersion, workDir }) {
   problems.push(...await inspectPackage(installed, { pluginVersion, profileDir }));
   if (problems.length === 0) problems.push(...await startServers(installed, { profileDir, workDir }));
   return problems;
+}
+
+function listTree(dir, depth) {
+  if (!existsSync(dir)) return `${dir} does not exist`;
+  const lines = [];
+  const walk = (current, level) => {
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      lines.push(`${'  '.repeat(level)}${entry.name}${entry.isDirectory() ? '/' : ''}`);
+      if (entry.isDirectory() && level < depth) walk(join(current, entry.name), level + 1);
+    }
+  };
+  walk(dir, 0);
+  return lines.join('\n');
 }
 
 async function main() {
@@ -64,7 +77,12 @@ async function main() {
       const problems = await checkProfile(join(dshHome, 'profiles', 'web'), { pluginVersion, workDir: work });
       ok = problems.length === 0;
       process.stdout.write(`${ok ? 'PASS' : 'FAIL'}  dsh ${dshVersion} installs the package into a scratch profile and both servers start from the installed copy\n`);
-      if (!ok) process.stdout.write(`${problems.join('\n').replace(/^/gm, '      ')}\n`);
+      if (!ok) {
+        process.stdout.write(`${problems.join('\n').replace(/^/gm, '      ')}\n`);
+        // What dsh printed and what it left in the profile, so a failure on another system can be read from the log.
+        process.stdout.write(`      dsh said:\n${`${run.stdout}\n${run.stderr}`.trim().split(/\r?\n/).slice(-40).join('\n').replace(/^/gm, '        ')}\n`);
+        process.stdout.write(`      profile folder:\n${listTree(join(dshHome, 'profiles'), 3).replace(/^/gm, '        ')}\n`);
+      }
     }
   } finally {
     rmSync(work, { recursive: true, force: true });
