@@ -87,6 +87,12 @@ jobs:
       - name: Verify the assets as a user would receive them
         run: node scripts/verify-release.mjs release-out
 
+      - name: Setup Node.js 22.19 for dsh
+        uses: actions/setup-node@v6
+        with:
+          # dsh 0.2.1-rc.2 needs 22.19 or newer; on 22.13 it exits 0 without installing anything.
+          node-version: '22.19'
+
       - name: Install the DeepSeek Harness package with a pinned dsh
         run: node scripts/verify-dsh-install.mjs release-out/dsh-ai4s-literature-workbench.tgz
 

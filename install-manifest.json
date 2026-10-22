@@ -116,7 +116,7 @@
       "done_by": "The user. The Plugins page is the one install step an agent cannot do.",
       "no_build": "The package carries the prebuilt tools, so after_install does not apply. No separate Node.js is needed: the tools run on DeepSeek Harness's own Node, which for Desktop is unconfirmed.",
       "covers": "The Zotero tools (19), the full-text tools (6) and all four skills. Tools appear as mcp__ai4s-literature-zotero__<tool> and mcp__ai4s-literature-fulltext__<tool>.",
-      "command_line": "dsh plugin --profile desktop add <path to the .tgz>, with Desktop closed. Tried with dsh web 0.2.1-rc.2 (profile web) on macOS and checked by CI on Linux; the profile name desktop comes from the vendor docs and is untried.",
+      "command_line": "dsh plugin --profile desktop add <path to the .tgz>, with Desktop closed; dsh needs Node.js 22.19 or newer and exits without installing on older versions. Tried with dsh web 0.2.1-rc.2 (profile web) on macOS and checked by CI on Linux; the profile name desktop comes from the vendor docs and is untried.",
       "address": "https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/dsh-ai4s-literature-workbench.tgz",
       "not_yet_tested": [
         "the Plugins page and installing from the address",

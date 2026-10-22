@@ -47,7 +47,15 @@ function listTree(dir, depth) {
   return lines.join('\n');
 }
 
+// dsh 0.2.1-rc.2 declares Node 22.19 or newer. Below that it exits 0 without installing, so say so first.
+const [major, minor] = process.versions.node.split('.').map(Number);
+const NODE_OK = major > 22 || (major === 22 && minor >= 19);
+
 async function main() {
+  if (!NODE_OK) {
+    process.stdout.write(`FAIL  dsh needs Node.js 22.19 or newer; this is ${process.versions.node}. Older versions exit without installing.\n`);
+    process.exit(1);
+  }
   const args = process.argv.slice(2);
   const archiveArg = args.find((arg) => !arg.startsWith('--') && args[args.indexOf(arg) - 1] !== '--dsh');
   const dshVersion = args.includes('--dsh') ? args[args.indexOf('--dsh') + 1] : PINNED_DSH;
