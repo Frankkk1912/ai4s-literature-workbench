@@ -83,3 +83,39 @@ test("negative control: the command extractor sees a command that INSTALL.md lac
 	assert.deepEqual(lines, ["claude plugin install nothing-real@nowhere"]);
 	assert.equal(normal(install).includes(lines[0]), false);
 });
+
+// --- DeepSeek Harness ---------------------------------------------------------------------
+
+// The README may offer a route only while it says, in the same section, that it is untested.
+function saysUntested(text, pattern) {
+	return pattern.test(text);
+}
+
+test("both READMEs carry the DeepSeek Harness block, with the release file and an untested warning", () => {
+	const asset = /dsh-ai4s-literature-workbench-<(version|版本号)>\.tgz/;
+	for (const name of READMES) {
+		const text = read(name);
+		assert.match(text, asset, `${name}: no DeepSeek Harness download line`);
+		assert.ok(text.includes("releases/latest/download/dsh-ai4s-literature-workbench.tgz"), `${name}: the fixed-name address is missing`);
+		const start = text.indexOf("**DeepSeek Harness**");
+		assert.notEqual(start, -1, `${name}: no DeepSeek Harness install block`);
+		const block = text.slice(start, text.indexOf("**Claude Code", start));
+		assert.ok(saysUntested(block, /not yet tested|还没有在真实电脑上测试过/), `${name}: the block does not say it is untested`);
+		assert.doesNotMatch(block, /npm |node scripts|\bdsh plugin\b/, `${name}: the block sends a beginner to a command`);
+	}
+	assert.match(install, /dsh-ai4s-literature-workbench-<version>\.tgz/);
+	assert.ok(install.includes("releases/latest/download/dsh-ai4s-literature-workbench.tgz"));
+});
+
+test("the getting-started pages list DeepSeek Harness and keep the untested warning", () => {
+	for (const file of ["docs/getting-started.md", "docs/getting-started_CN.md"]) {
+		const text = read(file);
+		assert.match(text, /dsh-ai4s-literature-workbench-<(version|版本号)>\.tgz/, `${file}: no DeepSeek Harness row`);
+		assert.ok(saysUntested(text, /not yet tested|还没有在真实电脑上测试过/), `${file}: no untested warning`);
+	}
+});
+
+test("negative control: a block without the untested warning is noticed", () => {
+	assert.equal(saysUntested("**DeepSeek Harness** (Desktop)", /not yet tested/), false);
+	assert.equal(saysUntested("**DeepSeek Harness** (not yet tested on a real machine)", /not yet tested/), true);
+});

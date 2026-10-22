@@ -15,6 +15,7 @@ prompt, and the goal of seeing the partition columns.
 | README commands, INSTALL.md and the manifests agree | `tests/readme-sync.test.mjs` |
 | Add-on update feed matches the packaged add-on | `npm run package` in `literature-metrics/`, `scripts/verify-release.mjs` |
 | Release assets build and pass `verify-release` | `Release assets` workflow (also as a dry run in `Workbench CI`) |
+| The DeepSeek Harness package is well formed, its servers start from its patch rows, and a pinned `dsh` installs it into a scratch profile | `scripts/verify-dsh-plugin.mjs` (inside `verify-release`) and `scripts/verify-dsh-install.mjs`, same workflows |
 | Secret scan | `gitleaks`, full history |
 
 ## 2. Manual (record each run on video)

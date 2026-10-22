@@ -20,11 +20,13 @@ them, the journal columns (IF / JCR / CAS) in Zotero.
 | Your app | What to do |
 | --- | --- |
 | **Claude Desktop** | Open the [latest release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest), download `ai4s-literature-zotero-<version>.mcpb`, and double-click it (or drag it onto the Claude Desktop window). Accept the install screen and leave both optional settings alone. This installs the Zotero tools only, not the skills or the full-text tools. |
+| **DeepSeek Harness** (not yet tested on a real machine) | Open the [latest release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest) and download `dsh-ai4s-literature-workbench-<version>.tgz`. In DeepSeek Harness open the **Plugins** page, choose **Add plugin**, and paste the path of the downloaded file. Quit and reopen DeepSeek Harness, then ask: "run the ai4s-setup skill". This installs the Zotero tools, the full-text tools and all the skills. |
 | **Claude Code, Codex, WorkBuddy, CodeBuddy** | Paste the install prompt from the [README](../README.md#1-install-pick-your-app) into the app. The agent follows [INSTALL.md](../INSTALL.md) and tells you what works and what needs you. |
 | **Trae, Qoder** | Follow "Other agents & manual install" in the [README](../README.md). |
 
-WorkBuddy and CodeBuddy have not been tested on a real machine yet; if they fail, the agent says
-which step failed.
+WorkBuddy, CodeBuddy and DeepSeek Harness have not been tested on a real machine yet; if they fail,
+the agent says which step failed. For DeepSeek Harness that also covers the Plugins page, Windows, and
+how the DeepSeek models use the skills.
 
 ## Step 2: See what works
 
@@ -85,6 +87,7 @@ You get a deduplicated reading list, ranking reasons and a saved report you can 
 | It cannot save to Zotero | Add a Zotero key on the setup page, or use Zotero 10 or later and choose Always Allow when Zotero asks. |
 | No journal columns in Zotero | Install the add-on (Step 3), restart Zotero, then ask the agent to sync or refresh a collection. |
 | The add-on installed long ago never updates | Copies older than 0.1.14 cannot update themselves. Install the newest file once by hand. |
+| DeepSeek Harness shows no tools after you add the package | Quit and reopen it (the package loads at start-up), check that the package is listed on the Plugins page, then ask: "run the ai4s-setup skill". |
 | The app asks to reach GitHub or the network | Choose Allow. |
 | A search says the helper is missing | The agent offers to install a small search helper (`uv`). Say yes. |
 

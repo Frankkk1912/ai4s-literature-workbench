@@ -1,10 +1,10 @@
 # AI4S Literature Workbench: Zero-Terminal Onboarding Plan
 
-Oct 18, 2026 · @Frank · updated Oct 20, 2026: DeepSeek Harness Desktop added as a host · Oct 21, 2026: Phase 3 findings (Zotero 10 local writes, update feed)
+Oct 18, 2026 · @Frank · updated Oct 20, 2026: DeepSeek Harness Desktop added as a host · Oct 21, 2026: Phase 3 findings (Zotero 10 local writes, update feed) · Oct 22, 2026: DeepSeek Harness package and route built
 
 ## Goal and success criteria
 
-A biomedical beginner installs the workbench, runs a first literature search, and sees the Zotero journal-partition columns (IF / JCR / CAS), without ever opening a terminal of their own. This holds on WorkBuddy first, then Codex and Claude Desktop, then DeepSeek Harness Desktop, then CodeBuddy, Claude Code, and Trae/Qoder. The DeepSeek position is a proposal; adjust it after the spike below.
+A biomedical beginner installs the workbench, runs a first literature search, and sees the Zotero journal-partition columns (IF / JCR / CAS), without ever opening a terminal of their own. This holds on WorkBuddy first, then Codex and Claude Desktop, then CodeBuddy, Claude Code, and Trae/Qoder. DeepSeek Harness Desktop follows after this plan, with its own plan in [deepseek-harness-support-plan.md](deepseek-harness-support-plan.md).
 
 The targets below are proposals; adjust them before work starts.
 
@@ -53,7 +53,7 @@ Every host installs the same prebuilt runtime, and every key-entry route ends in
 
 &#91;embedded content: architecture · 6 host boxes, 1 runtime, 3 key-entry routes\]
 
-Claude Desktop and Claude Code share one `.mcpb`; WorkBuddy and CodeBuddy use the plugin route; Codex and Trae/Qoder use the plugin archive or the install script; DeepSeek Harness installs a separate plugin package of its own, described below. The runtime reads keys from the private file, whichever route wrote them.
+Claude Desktop and Claude Code share one `.mcpb`; WorkBuddy and CodeBuddy use the plugin route; Codex and Trae/Qoder use the plugin archive or the install script; DeepSeek Harness installs a plugin package of its own and is planned separately. The runtime reads keys from the private file, whichever route wrote them.
 
 ## First target: WorkBuddy and CodeBuddy
 
@@ -85,41 +85,7 @@ WorkBuddy ships first. It is a desktop agent aimed at non-technical users, which
 
 ## DeepSeek Harness Desktop
 
-DeepSeek Harness (`dsh`) is DeepSeek's open-source agent harness (MIT, developer preview). Its Desktop app is an Electron shell around the same web application. I assume this is the "DeepSeek desktop" in question; confirm it. Unlike every other host above, it does not read a `.claude-plugin` folder or a `.mcp.json` file, so it needs its own install route. The facts below come from the official repository's docs and design notes, opened on 2026-10-20 (listed under Sources).
-
-**How it differs**
-
-| | Claude Code, Codex, WorkBuddy | DeepSeek Harness |
-| --- | --- | --- |
-| Plugin unit | A folder with a manifest in `.claude-plugin/`, `.codex-plugin/` or similar | An npm package whose `package.json` has `dsh.bundle.patch`, pointing at a `cordis.patch.yml` |
-| MCP servers | `.mcp.json`, one block per server | One `@deepseek-ai/dsh-mcp-client` row per server in that patch, with `transport: stdio` (`command`, `args`, `env`, `cwd`) or `streamable-http`. Tools appear as `mcp__<serverName>__<tool>` |
-| Skills | `skills/<name>/SKILL.md` | The same shape: `<name>/SKILL.md` with `name` and `description` in the frontmatter. The local provider scans project `.dsh/skills` and `.agents/skills`, extra `customSkillDirs`, then user `~/.dsh/skills` and `~/.agents/skills` |
-| Install by the user | Marketplace commands typed in a terminal or in the host | The **Plugins** page takes a package spec: a registry name, a Git address, a tarball, or a local path. Desktop bundles its own pnpm, so no Node or pnpm on PATH is needed to install. Offline alternative: `dsh plugin --profile desktop add <spec>` while Desktop is closed |
-| Discovery | Host marketplaces | An experimental **Custom plugin markets** switch adds a **Discover** tab fed by a JSON index we could host on GitHub Pages |
-| Keys | Host form, or our wizard | I found no masked settings form for plugin config. Rows can read `process.env`, which this plan does not rely on |
-
-Three consequences:
-
-- The skills should carry over as they are: their frontmatter has only `name` and `description`, which is what DeepSeek Harness requires. One catch: its catalog cuts each description at 500 characters by default, and `literature-manager`'s is 787 characters, so its "Use when" clause would be cut (the other two are 342 and 423). The install route does not carry over: we ship a small DSH plugin package whose patch mounts two MCP client rows that run our prebuilt bundles.
-- Desktop runs its Host on Electron's own Node (the "RunAsNode" mode). If a stdio row can use that Node to run our bundle, DeepSeek users need no Node install at all, which is better than most other hosts. A row can write `command: !!js process.execPath` with `ELECTRON_RUN_AS_NODE=1` in `env`; whether that works in a stdio child is untested.
-- The Python scripts behind `literature-research` and `literature-manager` are not affected by any of this. They still need the `uv` decision in Workstream A.
-
-**Test first** (a short spike on a clean Windows PC and a clean Mac, with the current release candidate of Desktop)
-
-1. Does the **Plugins** page install a package from a Git address or a release tarball, and does the patch mount both servers after a restart?
-2. Can a stdio row start our bundle with Desktop's own Node (`process.execPath`, `ELECTRON_RUN_AS_NODE=1`)? If not, is a system `node` on the child's PATH?
-3. How does a plugin contribute a skill folder? The local provider reads `customSkillDirs`, but I have not found how a bundle sets it. If a bundle cannot, the fallback is copying the skills into `~/.agents/skills`, which the local provider scans.
-4. Does Desktop offer any masked field for plugin secrets? If not, the browser wizard is its key-entry route.
-5. Can the MCP process open a loopback page and the default browser from inside Desktop?
-6. Do the skills trigger and call tools reliably with the DeepSeek models Desktop offers? This is model behaviour, not packaging, and it decides whether the route is worth supporting.
-
-**Tasks**
-
-- [ ] Run the spike above and record the answers here.
-- [ ] Add a `dsh-plugin/` package: `package.json` with `dsh.bundle.patch`, `cordis.patch.yml` with the two MCP rows, the skills, and an `engines.dsh` range. Publish it as a release tarball first (`pnpm add ./x.tgz` is a supported spec) and to npm later.
-- [ ] Add the route to `INSTALL.md` and `install-manifest.json` as `deepseek-harness`, marked unverified until the spike passes.
-- [ ] Add a CI check that the package has `dsh.bundle` and that its bundle paths exist.
-- [ ] Optional: host a plugin market index so users can install from **Discover** without typing a spec.
+DeepSeek Harness has its own plugin model: an npm package that carries a configuration patch, not a `.claude-plugin` folder or a `.mcp.json`. It gets its own plan, [deepseek-harness-support-plan.md](deepseek-harness-support-plan.md), which holds the research, the `dsh web` spike results, the tasks and the risks. Its package (`dsh-plugin/`), the release asset and the install route are built (Oct 22, 2026); what is left there is testing on Desktop, which this plan's release gate does not wait for.
 
 ## Workstream A: Packaging and prebuilt runtimes
 
@@ -127,7 +93,7 @@ After install, the tools must already work: no `npm install`, no TypeScript buil
 
 - [ ] Bundle `runtime` and `fulltext-runtime` into single JavaScript files with dependencies included (esbuild or similar), built in CI on every tag.
 - [ ] Move `database-browser-runtime` out of the default install. Playwright's Chromium is a large download, so fetch it on first use, after the user agrees.
-- [ ] Publish four assets per release tag: a `.mcpb` bundle, a plugin archive with prebuilt `dist/` folders, the Zotero XPI, and a checksums file. A fifth, the DeepSeek Harness plugin tarball, follows the spike above.
+- [ ] Publish four assets per release tag: a `.mcpb` bundle, a plugin archive with prebuilt `dist/` folders, the Zotero XPI, and a checksums file.
 - [ ] Add `scripts/bootstrap.mjs` as the single cross-platform entry. Reduce the `.sh` and `.ps1` scripts to one-line wrappers. Every command then has the shape `node scripts/<name>.mjs`, which removes problem 5.
 - [ ] Provide `uv` from `bootstrap.mjs` (fetch a pinned release with a checksum, or ship it in the archive) and point the research and manager skills at that copy.
 - [ ] Remove "Node.js ≥22.13, uv, Git" from the beginner path in README and README\_CN. Keep it in the developer section only.
@@ -141,7 +107,7 @@ WorkBuddy, CodeBuddy, **Codex, Trae and Qoder need a runtime we provide.** They 
 | Standalone binaries | Build per-OS executables (Node single-executable or `bun build --compile`) and have `.mcp.json` point at the right one | Larger downloads; four platform builds in CI |
 | Portable Node | The setup step downloads a portable Node into the plugin data folder, no admin rights | Needs network access from the agent's shell, which Codex blocked in the transcript |
 
-Standalone binaries avoid the blocked-network problem, so I would start there. DeepSeek Harness Desktop may be the exception: it runs on Electron's bundled Node, so check that before building binaries for it.
+Standalone binaries avoid the blocked-network problem, so I would start there.
 
 **Search needs Python, not just Node.** `literature-research` and `literature-manager` run two Python scripts (about 5,500 lines, standard library only, 141 unit tests). Today `uv` is only the launcher that supplies Python, and the beginner path still asks the user to install it. Phase 0 makes the skills stop and say so; Phase 1 removes the requirement.
 
@@ -166,7 +132,6 @@ Keep the current safety rule (keys never enter chat), but give every host a way 
 | Claude Desktop | Masked settings form generated from `user_config` in the `.mcpb` manifest | Browser wizard |
 | Claude Code | Masked prompt when the plugin is enabled (`userConfig` with `sensitive: true`, kept in secure storage) | Browser wizard |
 | Codex | Browser wizard; I found no plugin-secret form in Codex's plugin docs, so confirm | Double-click launcher |
-| DeepSeek Harness | Browser wizard; I found no masked form for plugin config in its docs, so confirm in the spike | Double-click launcher |
 | Trae / Qoder | Browser wizard | Double-click launcher |
 
 Sources: [MCPB docs](https://claude.com/docs/connectors/building/mcpb), [Claude Code manifest reference](https://code.claude.com/docs/en/plugins/manifest-reference.md), [Codex plugin docs](https://developers.openai.com/codex/plugins/build/). A third-party plugin repo reports that Codex CLI 0.130 does not interpolate `${VAR}` in a plugin's `.mcp.json` ([fusengine/codex](https://github.com/fusengine/codex)), which is why the runtime should read its own config file rather than rely on injected values.
@@ -232,7 +197,7 @@ Today every Zotero feature needs a Web API key. Zotero Desktop 7 also offers a l
 
 The README should give one install route per host, in the order a beginner meets them. Everything about builds, keys and threat models moves out of the beginner path.
 
-- [x] **Install by host, not one generic prompt.** Four short blocks: Claude Desktop (download the `.mcpb`, double-click), Claude Code (the plugin install lines, typed inside Claude Code), Codex (a prompt that names the plugin marketplace route and points to `INSTALL.md`), DeepSeek Harness (paste one package spec into the Plugins page), and Trae/Qoder. *Done for Claude Desktop, the paste-a-prompt hosts and Trae/Qoder; the DeepSeek Harness block waits for its plugin package (PR 17) to merge.*
+- [x] **Install by host, not one generic prompt.** Four short blocks: Claude Desktop (download the `.mcpb`, double-click), Claude Code (the plugin install lines, typed inside Claude Code), Codex (a prompt that names the plugin marketplace route and points to `INSTALL.md`), DeepSeek Harness (paste one package spec into the Plugins page), and Trae/Qoder. *Done for all five blocks. The DeepSeek Harness block is marked as not yet tested on a real machine.*
 - [x] **Reword "What you need".** Host app, a browser, and Zotero Desktop if wanted. Drop Node, uv and Git from this list.
 - [x] **Set expectations before the first run.** Say the agent may ask for permission to reach GitHub or the network, and that the user should choose Allow. In the transcript that approval cost a full round trip.
 - [ ] **Show the finish line.** Add a short GIF or four screenshots: install, the setup page, the first search result, and the partition columns in Zotero. *Not done: needs real runs on the target hosts; the placeholders are still commented out in the READMEs.*
@@ -254,7 +219,7 @@ The Codex transcript is already a failing acceptance test: a clean Windows PC, o
 | `bootstrap.mjs` on a machine with no Node installed | CI container | Yes |
 | The wizard stores a key, masks it, and rejects a bad one | CI with a headless browser against loopback | Yes |
 | README and `INSTALL.md` commands match the manifests | CI | Yes |
-| Install on each host from a clean machine, first search, partition columns visible | Release checklist: Windows 11 and macOS, starting with WorkBuddy, then Codex and Claude Desktop, then DeepSeek Harness, then CodeBuddy and Claude Code | No, recorded on video |
+| Install on each host from a clean machine, first search, partition columns visible | Release checklist: Windows 11 and macOS, starting with WorkBuddy, then Codex and Claude Desktop, then CodeBuddy and Claude Code | No, recorded on video |
 | Three beginners install unaided | Every release candidate | No |
 
 GitHub-hosted CI cannot drive the desktop host apps, so the host-by-OS rows stay manual. Trae and Qoder are tested best-effort.
@@ -263,7 +228,7 @@ GitHub-hosted CI cannot drive the desktop host apps, so the host-by-OS rows stay
 
 ## Roadmap
 
-Five phases ship in order, and a gate after phases 1, 2 and 4 decides whether the next one starts. Phase 0 can ship as a patch this week. Phase 1 is done (Gate 1 passed on Windows, macOS and Linux CI). Phases 2 and 3 are done and release v0.1.0 is published (Oct 22, 2026). Phase 4 has its documents and automatic checks in place; the manual runs (clean machines, three beginners) and the screenshots are still to do, see [release-checklist.md](release-checklist.md). Phase 1b, the DeepSeek Harness spike, is new and can run in parallel with the host tests that Phase 2 needs.
+Five phases ship in order, and a gate after phases 1, 2 and 4 decides whether the next one starts. Phase 0 can ship as a patch this week. Phase 1 is done (Gate 1 passed on Windows, macOS and Linux CI). Phases 2 and 3 are done and release v0.1.0 is published (Oct 22, 2026). Phase 4 has its documents and automatic checks in place; the manual runs (clean machines, three beginners) and the screenshots are still to do, see [release-checklist.md](release-checklist.md). The DeepSeek Harness package, release asset and install route are in place (Oct 22, 2026); testing it on Desktop is the owner's manual run, see [deepseek-harness-support-plan.md](deepseek-harness-support-plan.md).
 
 &#91;embedded content: roadmap · 5 phases, 3 gates\]
 
@@ -273,7 +238,6 @@ Effort figures are my rough estimates for one developer; re-plan them after the 
 | --- | --- | --- | --- |
 | 0 Quick wins | A: `bootstrap.mjs`. E: Codex and WorkBuddy install prompts, CodeBuddy marketplace file, `INSTALL.md`, release-note fix. C: tools check at the start of each skill | 1 to 2 days | None |
 | 1 Package | A: bundles, `.mcpb`, release assets, binary-versus-portable-Node spike, `uv` fetch-versus-ship spike. F: validation jobs in CI | About 1 week | Gate 1: bundles start on Windows and macOS |
-| 1b DeepSeek Harness | The spike and plugin package in the DeepSeek Harness section; `INSTALL.md` route | 2 to 3 days | None; its result sets the host order |
 | 2 Setup flow | B: `setup_status`, `open_setup`, wizard that opens itself, launchers. C: `ai4s-setup` skill and status template | 1 to 2 weeks | Gate 2: no typed commands, first search works |
 | 3 Zotero | D: XPI in every release, local-API reads, add-on update route. Spike: key-free writes through the add-on (replaced by Zotero 10's own local writes; see the finding) | About 1 week, spike open-ended | None |
 | 4 Prove it | F: clean-machine runs, WorkBuddy first, then each other host. E: getting-started pages in both languages, screenshots | About 1 week | Gate 3: first search in 10 minutes or less for three beginners |
@@ -290,9 +254,7 @@ The biggest risk is that a host's sandbox blocks something the plan assumes, and
 | Unsigned executables trigger antivirus, SmartScreen or macOS Gatekeeper warnings | Beginners will stop at a warning | Prefer the `.mcpb` route where possible; evaluate code signing, plus Apple notarization, for binaries |
 | Zotero's local API changes | Write support was undecided in 2024; it shipped in Zotero 10 (Aug 2026) and Zotero said it was still adjusting it | Feature-detect at runtime (a `Zotero-Server-ID` header means Zotero 10+); keep the Web API key path |
 | The agent's shell blocks the `uv` or Python download | Search then cannot run, and it is the first thing a beginner tries | Ship `uv` inside the archive; the skill already stops with a plain message |
-| Seven hosts times two operating systems | Maintenance cost grows quickly | WorkBuddy first, then Codex and Claude Desktop, then DeepSeek Harness, then CodeBuddy and Claude Code; Trae and Qoder best-effort |
-| DeepSeek Harness is a developer preview | Its README warns of compatibility-breaking changes, and releases are release candidates, so a plugin can stop loading after an update | Pin an `engines.dsh` range, recheck on each DSH release, and treat the route as best-effort until it reaches a stable release |
-| A stdio server in DeepSeek Desktop cannot find Node | The Host runs on Electron's Node; the child may not have `node` on its PATH | Run the bundle with Desktop's own Node (`process.execPath` with `ELECTRON_RUN_AS_NODE=1`); if that fails, a standalone binary |
+| Seven hosts times two operating systems | Maintenance cost grows quickly | WorkBuddy first, then Codex and Claude Desktop, then CodeBuddy and Claude Code; Trae and Qoder best-effort |
 
 **Decisions made**
 
@@ -301,7 +263,7 @@ The biggest risk is that a host's sandbox blocks something the plan assumes, and
 3. The wizard opens with a one-time token in the URL fragment (Workstream B).
 4. Per-OS binaries of tens of megabytes are acceptable for releases.
 5. Chinese is the default language of the setup page and status text.
-6. DeepSeek Harness Desktop is added as a host, after Codex and Claude Desktop, pending the spike (proposed Oct 20, 2026; adjust).
+6. DeepSeek Harness Desktop is a host with its own plan; its package and install route were built after this plan's phases 1 to 4 (Oct 22, 2026) and wait for the manual test.
 
 ## Sources
 
@@ -323,6 +285,4 @@ Host and Zotero documentation checked on 2026-10-18. The Codex transcript is the
 
 Also seen in search results only, for WorkBuddy and CodeBuddy: [WorkBuddy plugin reference](https://www.workbuddy.ai/docs/cli/plugins-reference), [WorkBuddy plugin marketplaces](https://www.workbuddy.ai/docs/cli/plugin-marketplaces), [EdgeOne plugin docs](https://pages.edgeone.ai/document/plugin), [ChatCut WorkBuddy guide](https://chatcut.io/zh/workbuddy), [CloudBase WorkBuddy guide](https://docs.cloudbase.net/en/ai/cloudbase-ai-toolkit/ide-setup/workbuddy).
 
-**DeepSeek Harness** (official repository `deepseek-ai/deepseek-harness`, opened on 2026-10-20): [README](https://github.com/deepseek-ai/deepseek-harness), [CLI help](https://github.com/deepseek-ai/deepseek-harness/blob/main/docs/cli-help.md), [plugin markets](https://github.com/deepseek-ai/deepseek-harness/blob/main/docs/user/guide/plugin-market.md), [MCP client guide](https://github.com/deepseek-ai/deepseek-harness/blob/main/docs/user/guide/mcp-memory.md), [plugin manager reference](https://github.com/deepseek-ai/deepseek-harness/blob/main/packages/boot/plugin-manager/README.md), [MCP client reference](https://github.com/deepseek-ai/deepseek-harness/blob/main/packages/mcp/mcp-client/README.md), [Desktop reference](https://github.com/deepseek-ai/deepseek-harness/blob/main/apps/desktop/README.md), and the design notes on the [skill system](https://github.com/deepseek-ai/deepseek-harness/blob/main/.agents/notes/archived/feature/2026-07-05-skill-system.md) and on [bundling the Desktop runtime with external plugins](https://github.com/deepseek-ai/deepseek-harness/blob/main/.agents/notes/implemented/architecture/2026-09-08-desktop-bundled-runtime-and-external-plugins.md). An example third-party plugin that shows the package shape: [sugarforever/dsh-mcp-apps](https://github.com/sugarforever/dsh-mcp-apps).
-
-Not opened, and not relied on: community plugin directories and blog posts about DeepSeek Harness that appeared in search results. I read no source that says DSH does or does not read `.claude-plugin` or `.mcp.json`; the statement above that it does not rests on their absence from the docs and plugin guides.
+DeepSeek Harness sources are listed in [deepseek-harness-support-plan.md](deepseek-harness-support-plan.md#sources).
