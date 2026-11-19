@@ -59,7 +59,7 @@ async function configureProvider(provider, paths, dependencies = {}) {
 		capabilities = await verifyPubmedKey(key, fetchImpl);
 		saveAcademicKey(
 			paths.academicConfig,
-			paths.legacyAcademicConfig,
+			[paths.legacyAcademicConfig, ...(paths.extraLegacyAcademicConfigs ?? [])],
 			"pubmed_api_key",
 			key,
 		);
@@ -67,7 +67,7 @@ async function configureProvider(provider, paths, dependencies = {}) {
 		capabilities = await verifyEasyScholarKey(key, fetchImpl);
 		saveAcademicKey(
 			paths.academicConfig,
-			paths.legacyAcademicConfig,
+			[paths.legacyAcademicConfig, ...(paths.extraLegacyAcademicConfigs ?? [])],
 			"easyscholar_secret_key",
 			key,
 		);

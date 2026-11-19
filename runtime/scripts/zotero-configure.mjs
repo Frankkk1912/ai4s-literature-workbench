@@ -8,10 +8,9 @@ import {
   readFileSync,
   rmSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import {
   defaultAcademicResearchConfigFile,
+  legacyAcademicResearchConfigFiles,
   legacyPrivateEnvFile,
   preferredPrivateEnvFile,
 } from '../dist/lib/env-files.js';
@@ -25,12 +24,7 @@ import {
 
 const command = process.argv[2] ?? 'setup';
 const ACADEMIC_RESEARCH_CONFIG_FILE = defaultAcademicResearchConfigFile();
-const LEGACY_ACADEMIC_RESEARCH_CONFIG_FILE = join(
-  homedir(),
-  '.config',
-  'frank-ai4s',
-  'academic-research.json',
-);
+const LEGACY_ACADEMIC_RESEARCH_CONFIG_FILES = legacyAcademicResearchConfigFiles();
 
 function usage() {
   process.stdout.write(
@@ -47,12 +41,8 @@ function removeEnvKey(text, name) {
 }
 
 function readAcademicResearchConfig() {
-  const source = existsSync(ACADEMIC_RESEARCH_CONFIG_FILE)
-    ? ACADEMIC_RESEARCH_CONFIG_FILE
-    : ACADEMIC_RESEARCH_CONFIG_FILE !== LEGACY_ACADEMIC_RESEARCH_CONFIG_FILE
-        && existsSync(LEGACY_ACADEMIC_RESEARCH_CONFIG_FILE)
-      ? LEGACY_ACADEMIC_RESEARCH_CONFIG_FILE
-      : undefined;
+  const source = [ACADEMIC_RESEARCH_CONFIG_FILE, ...LEGACY_ACADEMIC_RESEARCH_CONFIG_FILES]
+    .find((file) => existsSync(file));
   return source ? readJsonObject(source) : {};
 }
 
@@ -134,10 +124,9 @@ async function setupSemanticScholar() {
 }
 
 function removeSemanticScholar() {
+  const legacyFiles = LEGACY_ACADEMIC_RESEARCH_CONFIG_FILES.filter((file) => existsSync(file));
   const nativeExists = existsSync(ACADEMIC_RESEARCH_CONFIG_FILE);
-  const legacyExists = ACADEMIC_RESEARCH_CONFIG_FILE !== LEGACY_ACADEMIC_RESEARCH_CONFIG_FILE
-    && existsSync(LEGACY_ACADEMIC_RESEARCH_CONFIG_FILE);
-  if (!nativeExists && !legacyExists) {
+  if (!nativeExists && legacyFiles.length === 0) {
     process.stdout.write('No private Semantic Scholar configuration file exists.\n');
     return;
   }
@@ -149,7 +138,7 @@ function removeSemanticScholar() {
   delete config.s2_api_key;
   if (Object.keys(config).length) writeAcademicResearchConfig(config);
   else rmSync(ACADEMIC_RESEARCH_CONFIG_FILE, { force: true });
-  if (legacyExists) rmSync(LEGACY_ACADEMIC_RESEARCH_CONFIG_FILE, { force: true });
+  for (const legacyFile of legacyFiles) rmSync(legacyFile, { force: true });
   process.stdout.write('Stored Semantic Scholar API key removed.\n');
 }
 

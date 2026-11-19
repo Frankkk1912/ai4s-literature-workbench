@@ -1367,26 +1367,58 @@ class TestPlatformPrivatePaths(unittest.TestCase):
         env = {"LOCALAPPDATA": "C:/Users/Alice/AppData/Local"}
         self.assertEqual(
             ls.default_config_path("win32", env, home),
-            Path("C:/Users/Alice/AppData/Local/frank-ai4s/academic-research.json"),
+            Path("C:/Users/Alice/AppData/Local/ai4s-literature-workbench/academic-research.json"),
         )
         self.assertEqual(
             ls.default_easyscholar_cache_path("win32", env, home),
-            Path("C:/Users/Alice/AppData/Local/frank-ai4s/cache/easyscholar_journal_ranks.json"),
+            Path("C:/Users/Alice/AppData/Local/ai4s-literature-workbench/cache/easyscholar_journal_ranks.json"),
+        )
+        self.assertIn(
+            Path("C:/Users/Alice/AppData/Local/frank-ai4s/academic-research.json"),
+            ls.legacy_config_paths("win32", env, home),
         )
 
     def test_windows_paths_fall_back_to_home(self) -> None:
         home = Path("C:/Users/Alice")
         self.assertEqual(
             ls.default_config_path("win32", {}, home),
-            home / "AppData" / "Local" / "frank-ai4s" / "academic-research.json",
+            home / "AppData" / "Local" / "ai4s-literature-workbench" / "academic-research.json",
         )
 
-    def test_posix_paths_remain_backward_compatible(self) -> None:
+    def test_posix_paths_live_under_the_workbench_directory(self) -> None:
         home = Path("/home/alice")
         self.assertEqual(
             ls.default_config_path("linux", {}, home),
-            home / ".config" / "frank-ai4s" / "academic-research.json",
+            home / ".config" / "ai4s-literature-workbench" / "academic-research.json",
         )
+        self.assertEqual(
+            ls.legacy_config_paths("linux", {}, home),
+            [home / ".config" / "frank-ai4s" / "academic-research.json"],
+        )
+        self.assertEqual(
+            ls.default_config_path("darwin", {}, home),
+            home / "Library" / "Application Support" / "ai4s-literature-workbench" / "academic-research.json",
+        )
+        self.assertEqual(
+            ls.default_config_path("linux", {"XDG_CONFIG_HOME": "/srv/config"}, home),
+            Path("/srv/config/ai4s-literature-workbench/academic-research.json"),
+        )
+
+    def test_legacy_config_and_env_var_still_resolve_the_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            home = Path(tmpdir)
+            legacy = home / ".config" / "frank-ai4s" / "academic-research.json"
+            legacy.parent.mkdir(parents=True)
+            legacy.write_text(json.dumps({"easyscholar_secret_key": "legacy-key", "pubmed_api_key": "pubmed-legacy"}), encoding="utf-8")
+            current = home / ".config" / "ai4s-literature-workbench" / "academic-research.json"
+            with patch.object(ls, "CONFIG_PATH", current), patch.object(ls, "legacy_config_paths", return_value=[legacy]):
+                self.assertEqual(ls.load_config()["easyscholar_secret_key"], "legacy-key")
+                current.parent.mkdir(parents=True)
+                current.write_text(json.dumps({"easyscholar_secret_key": "new-key"}), encoding="utf-8")
+                self.assertEqual(ls.load_config()["easyscholar_secret_key"], "new-key")
+            args = type("Args", (), {"easyscholar_api_key": None})()
+            with patch.dict(os.environ, {"EASYSCHOLAR_SECRET_KEY": "env-key"}):
+                self.assertEqual(ls.get_easyscholar_api_key(args), "env-key")
 
 
 class TestEnrichEasyscholarEndToEnd(unittest.TestCase):

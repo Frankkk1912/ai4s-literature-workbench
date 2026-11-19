@@ -197,6 +197,11 @@ The legacy `~/.config/ai4s-literature-workbench/zotero.env` path remains
 readable during migration; the setup command copies its settings to the native
 location when it creates or updates a key.
 
+PubMed and EasyScholar keys use `academic-research.json` in that same
+directory. `PUBMED_API_KEY` and `EASYSCHOLAR_SECRET_KEY` override the file.
+An older `frank-ai4s/academic-research.json` (under `~/.config`, or
+`%LOCALAPPDATA%` on Windows) is still read when the workbench file is absent.
+
 The preferred data-directory override for this derivative is:
 
 ```text

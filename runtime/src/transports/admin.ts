@@ -414,7 +414,7 @@ export async function createAdminOnboardingRouter(
       } else {
         core.saveAcademicKey(
           paths.academicConfig,
-          paths.legacyAcademicConfig,
+          [paths.legacyAcademicConfig, ...(paths.extraLegacyAcademicConfigs ?? [])],
           provider === 'pubmed' ? 'pubmed_api_key' : 'easyscholar_secret_key',
           key,
         );

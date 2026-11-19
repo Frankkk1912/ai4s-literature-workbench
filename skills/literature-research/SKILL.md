@@ -143,10 +143,14 @@ explicit user request.
 
 The standalone `review --easyscholar` option remains available for an
 explicit all-ranked enrichment, but is not the efficient Zotero import path.
-On Windows, the private academic-research configuration and default
-EasyScholar cache live below `%LOCALAPPDATA%\frank-ai4s`; an existing
-`~\.config\frank-ai4s` configuration remains readable and is migrated on the
-next config write.
+PubMed and EasyScholar keys are read from `academic-research.json` in the
+same private directory as the Zotero env file (`ai4s-literature-workbench`).
+`PUBMED_API_KEY` and `EASYSCHOLAR_SECRET_KEY` override that file. An older
+file under `frank-ai4s` (`%LOCALAPPDATA%\frank-ai4s` on Windows, or
+`~/.config/frank-ai4s`) is still read when the workbench file is absent, and
+`config` copies it into the workbench directory on the next write. The
+EasyScholar cache uses the workbench cache directory and falls back to the
+old `frank-ai4s` cache.
 
 ## Hard Safety Rules
 
