@@ -1,15 +1,12 @@
 ---
 name: literature-manager
 description: >-
-  Synchronize recurring literature reports and selected evidence into one Zotero
-  collection with low-friction exact-ID updates; prepare compact, reviewable Zotero import plans for high-risk or standalone work; match
-  records by DOI/PMID/title-year; provide optional RIS fallback; deduplicate
-  candidate records; route explicitly approved plans to a receipt-producing
-  Zotero MCP apply step; and generate compact reusable Agent Tags with safe
-  automatic cleanup of source tags; and generate explicitly requested one-sentence
-  AI Summary metadata from each item's title and abstract. Use when the user asks to connect literature
-  evidence to Zotero, safely import a selected evidence batch, organize or
-  semantically tag or summarize a project collection, clean automatic tags, or audit duplicates.
+  Sync literature evidence into one Zotero collection: exact DOI/PMID/title-year
+  updates, optional RIS, reviewable import plans, and dedupe. Apply an approved
+  plan through Zotero and keep a receipt. Add compact Agent Tags with source-tag
+  cleanup, or an explicitly requested one-sentence AI Summary from the title and
+  abstract. Use for Zotero import, collection organization, semantic tags,
+  summaries, or duplicate audits.
 ---
 
 # Zotero Literature Manager

@@ -48,7 +48,7 @@ Things the spike found that the docs did not say:
 
 - `!!js` expressions in a patch are plain code with no `require`. The package folder is not given to them, but `ctx.get('profileContext').dir` is the profile folder, and `process.getBuiltinModule('node:path')` gives them `path`. The patch uses those to find the bundles inside `node_modules`.
 - The skill list reads the user's real home folder (`~/.agents/skills`), and an MCP child inherits the real home folder. Our Zotero server read the user's existing private key file at start-up. That matches every other host, but a clean-machine test must use a clean home folder.
-- DeepSeek Harness's catalog cuts each skill description at 500 characters by default. `literature-manager`'s is 787 characters (the other two are 342 and 423), so its "Use when" clause may be cut in the model's prompt. The `/` list showed the full text; the prompt itself was not checked.
+- DeepSeek Harness's catalog cuts each skill description at 500 characters by default. `literature-manager` was 787 characters, which could cut its "Use when" clause; descriptions are now kept under 500 (`tests/skill-descriptions.test.mjs`). The `/` list showed the full text; the prompt itself was not checked.
 - The skills' frontmatter has only `name` and `description`, which is what DeepSeek Harness requires.
 
 ## What already exists in the repository
@@ -108,7 +108,7 @@ Stages run in order, and each gate should pass before the next stage. Stages 2 a
 | DeepSeek Harness is a developer preview | Its README warns of compatibility-breaking changes and releases are release candidates, so a plugin can stop loading after an update | Pin an `engines.dsh` range, recheck on each DeepSeek Harness release, and treat the route as best-effort until a stable release |
 | A stdio server on Desktop cannot run our bundle | The Host runs on Electron's Node; the child may not behave like Node or find `node` on its PATH | Run the bundle with Desktop's own Node (`process.execPath` with `ELECTRON_RUN_AS_NODE=1`); if that fails, a standalone binary |
 | `!!js` evaluation changes | The patch relies on `ctx.get('profileContext').dir` and `process.getBuiltinModule`, which are not documented as stable | The Stage 2 install check catches a break; fall back to a small plugin module that locates its own files |
-| Skill descriptions are cut in the prompt | `literature-manager`'s description is 787 characters against a 500-character default | Shorten the description so the "Use when" clause comes first, or raise `catalogDescriptionMaxLength`, which belongs to the `@deepseek-ai/dsh-tool-skill` plugin and so needs a patch entry that targets that plugin's row (not done; see Stage 2 findings) |
+| Skill descriptions are cut in the prompt | `literature-manager` was 787 characters against a 500-character default; the description is now under 500 | Kept the trigger clause inside the limit (`tests/skill-descriptions.test.mjs`). Raising `catalogDescriptionMaxLength` belongs to the `@deepseek-ai/dsh-tool-skill` plugin and was not patched. |
 | A real home folder leaks into tests | The skill list and the MCP child both see it | Run every test with a clean home folder |
 | The Desktop installer is hard to obtain | None of the 30 latest GitHub releases carries an installer, so a clean-machine run depends on a download page I have not found | Ask where DeepSeek publishes it before Stage 1 |
 
