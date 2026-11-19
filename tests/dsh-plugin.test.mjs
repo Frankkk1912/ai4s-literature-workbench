@@ -119,9 +119,9 @@ test("negative control: a package.json whose patch file is missing cannot be rea
 	assert.equal(existsSync(join(pkg.dir, "package.json")), true);
 });
 
-test("the expected tool lists are the 19 workbench tools and the 6 full-text tools", () => {
+test("the expected tool lists are the 20 workbench tools and the 6 full-text tools", () => {
 	const { runtime, fulltext } = expectedTools();
-	assert.equal(runtime.length, 19);
+	assert.equal(runtime.length, 20);
 	assert.equal(fulltext.length, 6);
 	assert.deepEqual(sameTools(runtime, runtime), []);
 });

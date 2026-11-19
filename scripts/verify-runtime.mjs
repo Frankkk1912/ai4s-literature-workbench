@@ -44,6 +44,7 @@ const expected = [
   'zotero_fulltext_context',
   'zotero_get_fulltext',
   'zotero_get_item',
+  'zotero_list_collections',
   'zotero_search_items',
   'zotero_semantic_tag_context',
   'zotero_semantic_tag_vocabulary',

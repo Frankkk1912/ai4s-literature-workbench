@@ -9,6 +9,8 @@ export interface OnboardingPaths {
   academicConfig: string;
   legacyZoteroEnv: string;
   legacyAcademicConfig: string;
+  /** Older frank-ai4s files besides legacyAcademicConfig, such as the Windows LocalAppData path. */
+  extraLegacyAcademicConfigs?: readonly string[];
   state: string;
 }
 
@@ -68,7 +70,7 @@ export declare function verifyEasyScholarKey(
 export declare function saveZoteroKey(path: string, legacyPath: string, key: string): void;
 export declare function saveAcademicKey(
   path: string,
-  legacyPath: string,
+  legacyPath: string | readonly string[],
   name: string,
   key: string,
 ): void;

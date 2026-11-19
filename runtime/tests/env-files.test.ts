@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   defaultAcademicResearchConfigFile,
+  legacyAcademicResearchConfigFiles,
   defaultPrivateEnvFile,
   dropUnresolvedTemplates,
   legacyPrivateEnvFile,
@@ -85,10 +86,21 @@ describe('startup env files', () => {
       { LOCALAPPDATA: 'C:\\Users\\Alice\\AppData\\Local' },
       'win32',
       'C:\\Users\\Alice',
-    )).toBe('C:\\Users\\Alice\\AppData\\Local\\frank-ai4s\\academic-research.json');
+    )).toBe('C:\\Users\\Alice\\AppData\\Local\\ai4s-literature-workbench\\academic-research.json');
     expect(defaultAcademicResearchConfigFile({}, 'linux', '/home/alice')).toBe(
-      '/home/alice/.config/frank-ai4s/academic-research.json',
+      '/home/alice/.config/ai4s-literature-workbench/academic-research.json',
     );
+    expect(defaultAcademicResearchConfigFile({}, 'darwin', '/Users/alice')).toBe(
+      '/Users/alice/Library/Application Support/ai4s-literature-workbench/academic-research.json',
+    );
+    expect(legacyAcademicResearchConfigFiles(
+      { LOCALAPPDATA: 'C:\\Users\\Alice\\AppData\\Local' },
+      'win32',
+      'C:\\Users\\Alice',
+    )).toContain('C:\\Users\\Alice\\AppData\\Local\\frank-ai4s\\academic-research.json');
+    expect(legacyAcademicResearchConfigFiles({}, 'linux', '/home/alice')).toEqual([
+      '/home/alice/.config/frank-ai4s/academic-research.json',
+    ]);
   });
 });
 

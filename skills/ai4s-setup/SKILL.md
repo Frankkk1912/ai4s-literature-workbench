@@ -1,13 +1,11 @@
 ---
 name: ai4s-setup
 description: >-
-  First-run setup for the AI4S Literature Workbench: get the search tools
-  connected, show what works now and what needs the user, add optional Zotero,
-  PubMed or EasyScholar keys through a masked page (never in chat), and finish
-  with a real search. Use on a first run, when the user says set up, install,
-  configure, or add a key, when another AI4S skill says "My search tools are not
-  connected yet", or when the user wants to save to Zotero, speed up PubMed, or
-  show journal ratings and has no key yet.
+  First-run setup for the AI4S Literature Workbench: connect search tools, show
+  what works and what needs the user, add optional Zotero, PubMed, or EasyScholar
+  keys on a masked page (never in chat), then run a real search. Use for set up,
+  install, configure, or add a key; when a skill says "My search tools are not
+  connected yet"; or to save to Zotero, speed up PubMed, or show journal ratings.
 ---
 
 # AI4S Setup

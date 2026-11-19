@@ -11,6 +11,8 @@ Provide a `doi` and an `action`:
 
 With `include_in_library` (default `true`), each result is flagged `inLibrary` by matching DOIs against your library, so you can immediately spot **citation gaps** — e.g. "papers this work cites that I haven't saved yet." `limit` caps results (default 20).
 
+Library matching reads top-level items only (DOIs live on the parent, not on notes or PDF attachments) and reuses that DOI set until the library version changes. It does not page through every child item on each call. Pass `include_in_library: false` to skip the library read entirely.
+
 ## Providers
 - **OpenAlex** (primary) — open, no API key; uses the polite pool via `ZOTEUS_CONTACT_EMAIL`. Provides references, citations, related works, and metadata.
 - **Crossref** (fallback) — DOI metadata when OpenAlex has no record.

@@ -31,7 +31,7 @@ test("Windows onboarding paths use LOCALAPPDATA", () => {
 		paths.academicConfig,
 		win32.join(
 			"C:\\Users\\Frank\\AppData\\Local",
-			"frank-ai4s",
+			"ai4s-literature-workbench",
 			"academic-research.json",
 		),
 	);

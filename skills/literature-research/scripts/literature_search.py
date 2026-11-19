@@ -37,17 +37,59 @@ def is_windows_platform(platform: str | None = None) -> bool:
     return (platform or sys.platform).lower().startswith("win")
 
 
+def is_darwin_platform(platform: str | None = None) -> bool:
+    return (platform or sys.platform).lower().startswith("darwin")
+
+
+def _path_env(
+    env: dict[str, str] | os._Environ[str] | None,
+    home: Path | None,
+) -> tuple[dict[str, str] | os._Environ[str], Path]:
+    return (env if env is not None else os.environ), (home or Path.home())
+
+
+def _dedupe_paths(paths: list[Path]) -> list[Path]:
+    unique: list[Path] = []
+    seen: set[Path] = set()
+    for path in paths:
+        if path in seen:
+            continue
+        seen.add(path)
+        unique.append(path)
+    return unique
+
+
 def default_config_path(
     platform: str | None = None,
     env: dict[str, str] | os._Environ[str] | None = None,
     home: Path | None = None,
 ) -> Path:
-    environment = env if env is not None else os.environ
-    user_home = home or Path.home()
+    """Private academic-research.json next to the Zotero env file."""
+    environment, user_home = _path_env(env, home)
     if is_windows_platform(platform):
         local_app_data = Path(environment.get("LOCALAPPDATA") or user_home / "AppData" / "Local")
-        return local_app_data / "frank-ai4s" / "academic-research.json"
-    return user_home / ".config" / "frank-ai4s" / "academic-research.json"
+        return local_app_data / "ai4s-literature-workbench" / "academic-research.json"
+    if is_darwin_platform(platform):
+        return user_home / "Library" / "Application Support" / "ai4s-literature-workbench" / "academic-research.json"
+    config_home = Path(environment.get("XDG_CONFIG_HOME") or user_home / ".config")
+    return config_home / "ai4s-literature-workbench" / "academic-research.json"
+
+
+def legacy_config_paths(
+    platform: str | None = None,
+    env: dict[str, str] | os._Environ[str] | None = None,
+    home: Path | None = None,
+) -> list[Path]:
+    """Older frank-ai4s locations, still read when the workbench file is absent."""
+    environment, user_home = _path_env(env, home)
+    paths = [user_home / ".config" / "frank-ai4s" / "academic-research.json"]
+    if is_windows_platform(platform):
+        local_app_data = Path(environment.get("LOCALAPPDATA") or user_home / "AppData" / "Local")
+        paths.append(local_app_data / "frank-ai4s" / "academic-research.json")
+    xdg = environment.get("XDG_CONFIG_HOME")
+    if xdg and not is_windows_platform(platform):
+        paths.append(Path(xdg) / "frank-ai4s" / "academic-research.json")
+    return _dedupe_paths(paths)
 
 
 def default_easyscholar_cache_path(
@@ -55,16 +97,32 @@ def default_easyscholar_cache_path(
     env: dict[str, str] | os._Environ[str] | None = None,
     home: Path | None = None,
 ) -> Path:
-    environment = env if env is not None else os.environ
-    user_home = home or Path.home()
+    environment, user_home = _path_env(env, home)
     if is_windows_platform(platform):
         local_app_data = Path(environment.get("LOCALAPPDATA") or user_home / "AppData" / "Local")
-        return local_app_data / "frank-ai4s" / "cache" / "easyscholar_journal_ranks.json"
-    return user_home / ".cache" / "frank-ai4s" / "easyscholar_journal_ranks.json"
+        return local_app_data / "ai4s-literature-workbench" / "cache" / "easyscholar_journal_ranks.json"
+    if is_darwin_platform(platform):
+        return user_home / "Library" / "Caches" / "ai4s-literature-workbench" / "easyscholar_journal_ranks.json"
+    cache_home = Path(environment.get("XDG_CACHE_HOME") or user_home / ".cache")
+    return cache_home / "ai4s-literature-workbench" / "easyscholar_journal_ranks.json"
 
 
-LEGACY_CONFIG_PATH = Path.home() / ".config" / "frank-ai4s" / "academic-research.json"
-LEGACY_EASYSCHOLAR_CACHE = Path.home() / ".cache" / "frank-ai4s" / "easyscholar_journal_ranks.json"
+def legacy_easyscholar_cache_paths(
+    platform: str | None = None,
+    env: dict[str, str] | os._Environ[str] | None = None,
+    home: Path | None = None,
+) -> list[Path]:
+    environment, user_home = _path_env(env, home)
+    paths = [user_home / ".cache" / "frank-ai4s" / "easyscholar_journal_ranks.json"]
+    if is_windows_platform(platform):
+        local_app_data = Path(environment.get("LOCALAPPDATA") or user_home / "AppData" / "Local")
+        paths.append(local_app_data / "frank-ai4s" / "cache" / "easyscholar_journal_ranks.json")
+    xdg = environment.get("XDG_CACHE_HOME")
+    if xdg and not is_windows_platform(platform):
+        paths.append(Path(xdg) / "frank-ai4s" / "easyscholar_journal_ranks.json")
+    return _dedupe_paths(paths)
+
+
 CONFIG_PATH = default_config_path()
 USER_AGENT = "FrankAI4S/literature-research (literature_search.py)"
 NCBI_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
@@ -297,16 +355,11 @@ def load_json(path: str | Path) -> Any:
 
 
 def load_config(path: Path | None = None) -> dict[str, Any]:
-    target = path or CONFIG_PATH
-    if (
-        path is None
-        and is_windows_platform()
-        and target == default_config_path()
-        and not target.exists()
-        and LEGACY_CONFIG_PATH.exists()
-    ):
-        target = LEGACY_CONFIG_PATH
-    if not target.exists():
+    if path is not None:
+        target: Path | None = path
+    else:
+        target = next((candidate for candidate in [CONFIG_PATH, *legacy_config_paths()] if candidate.exists()), None)
+    if target is None or not target.exists():
         return {}
     with target.open("r", encoding="utf-8") as handle:
         return json.load(handle)
@@ -385,13 +438,13 @@ def extract_candidate_terms(query: str) -> list[str]:
 
 
 def command_config(args: argparse.Namespace) -> None:
-    if (
-        is_windows_platform()
-        and CONFIG_PATH == default_config_path()
-        and not CONFIG_PATH.exists()
-        and LEGACY_CONFIG_PATH.exists()
-    ):
-        write_json(CONFIG_PATH, load_config(LEGACY_CONFIG_PATH))
+    # Copy an older frank-ai4s file into the workbench directory on an explicit
+    # config command. Reads elsewhere fall back without writing.
+    if CONFIG_PATH == default_config_path() and not CONFIG_PATH.exists():
+        for legacy in legacy_config_paths():
+            if legacy != CONFIG_PATH and legacy.exists():
+                write_json(CONFIG_PATH, load_config(legacy))
+                break
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     set_keys = [
@@ -715,15 +768,13 @@ def normalize_journal_name(value: str) -> str:
 
 
 def load_easyscholar_cache(path: str | Path | None) -> dict[str, Any]:
-    target = Path(path) if path else DEFAULT_EASYSCHOLAR_CACHE
-    if (
-        path is None
-        and is_windows_platform()
-        and target == default_easyscholar_cache_path()
-        and not target.exists()
-        and LEGACY_EASYSCHOLAR_CACHE.exists()
-    ):
-        target = LEGACY_EASYSCHOLAR_CACHE
+    if path is not None:
+        target = Path(path)
+    else:
+        target = next(
+            (candidate for candidate in [DEFAULT_EASYSCHOLAR_CACHE, *legacy_easyscholar_cache_paths()] if candidate.exists()),
+            DEFAULT_EASYSCHOLAR_CACHE,
+        )
     if not target.exists():
         return {"version": 1, "created_at": current_date(), "entries": {}}
     try:
@@ -3461,7 +3512,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     enrich_easyscholar.add_argument(
         "--cache",
-        help="path to easyscholar cache JSON (default: the platform-private frank-ai4s cache directory)",
+        help="path to easyscholar cache JSON (default: the ai4s-literature-workbench cache directory)",
     )
     enrich_easyscholar.add_argument(
         "--min-interval",

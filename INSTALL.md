@@ -130,15 +130,15 @@ Not yet tested in DeepSeek Harness Desktop. This route installs one plugin packa
 
 This is the one install an agent cannot do for the user, because it happens on DeepSeek Harness's Plugins page. Ask the user to do these steps and tell them they type nothing:
 
-1. Open https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest and download `dsh-ai4s-literature-workbench-<version>.tgz`.
-2. In DeepSeek Harness, open the **Plugins** page, choose **Add plugin**, and paste the path of the downloaded file. Pasting the address `https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/dsh-ai4s-literature-workbench.tgz` instead is also untested.
+1. The published v0.1.0 release does not include `dsh-ai4s-literature-workbench-<version>.tgz`. Do not open `https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/dsh-ai4s-literature-workbench.tgz`: that address 404s on v0.1.0. `scripts/package-release.mjs` writes the versioned tarball and a fixed-name copy, and `.github/workflows/release.yml` uploads both when the next tag is published. Until the releases page lists the file, use the source route in this file and say so.
+2. After a release lists the file, download `dsh-ai4s-literature-workbench-<version>.tgz` from that release. In DeepSeek Harness, open the **Plugins** page, choose **Add plugin**, and paste the path of the downloaded file.
 3. Quit and reopen DeepSeek Harness. The package loads at start-up.
 
-The package then provides the tools `mcp__ai4s-literature-zotero__*` and `mcp__ai4s-literature-fulltext__*` (the same 19 and 6 tools as the other routes, under those prefixes) and the skills in the `/` list. Continue with "Keys" and "Check at the end" below. The skills name the setup tools without that prefix; use the prefixed ones. If the release page does not list the `.tgz` yet, say so plainly rather than improvising: this route needs a release newer than 0.1.0.
+The package then provides the tools `mcp__ai4s-literature-zotero__*` and `mcp__ai4s-literature-fulltext__*` (the same 20 and 6 tools as the other routes, under those prefixes) and the skills in the `/` list. Continue with "Keys" and "Check at the end" below. The skills name the setup tools without that prefix; use the prefixed ones.
 
 If the user already uses the command line, `dsh plugin --profile desktop add <path to the .tgz>` with Desktop closed does the same (`dsh` needs Node.js 22.19 or newer and `pnpm` on the PATH). That was tried with the browser build (`dsh web`, profile `web`, version 0.2.1-rc.2) on macOS, and the release check repeats it on Linux. The Desktop profile name `desktop` comes from DeepSeek Harness's documentation and has not been tried.
 
-Not yet tested, and not to be claimed: the Plugins page and the address route, Desktop's own Node, Windows, whether `open_setup` can open the user's browser from inside DeepSeek Harness (if it reports `opened: false`, give the user `url` and `fallback_code`), and how the DeepSeek models use the skills. The long description of `literature-manager` may be cut in the model's skill list, so name the skill explicitly if the model does not pick it. Report any step that fails and stop.
+Not yet tested, and not to be claimed: the Plugins page and installing from an address, Desktop's own Node, Windows, whether `open_setup` can open the user's browser from inside DeepSeek Harness (if it reports `opened: false`, give the user `url` and `fallback_code`), and how the DeepSeek models use the skills. Skill descriptions are kept under 500 characters; if the model still does not pick a skill, name it. Report any step that fails and stop.
 
 ## Not in any install route
 

@@ -92,15 +92,13 @@ export function onboardingPaths(
 ) {
 	const platformPath = platform === "win32" ? win32 : posix;
 	let workbenchDir;
-	let academicConfig;
+	const extraLegacyAcademicConfigs = [];
 	if (platform === "win32") {
 		const local =
 			env.LOCALAPPDATA?.trim() || platformPath.join(home, "AppData", "Local");
 		workbenchDir = platformPath.join(local, "ai4s-literature-workbench");
-		academicConfig = platformPath.join(
-			local,
-			"frank-ai4s",
-			"academic-research.json",
+		extraLegacyAcademicConfigs.push(
+			platformPath.join(local, "frank-ai4s", "academic-research.json"),
 		);
 	} else if (platform === "darwin") {
 		workbenchDir = platformPath.join(
@@ -109,22 +107,21 @@ export function onboardingPaths(
 			"Application Support",
 			"ai4s-literature-workbench",
 		);
-		academicConfig = platformPath.join(
-			home,
-			".config",
-			"frank-ai4s",
-			"academic-research.json",
-		);
 	} else {
 		const configHome =
 			env.XDG_CONFIG_HOME?.trim() || platformPath.join(home, ".config");
 		workbenchDir = platformPath.join(configHome, "ai4s-literature-workbench");
-		academicConfig = platformPath.join(
-			configHome,
-			"frank-ai4s",
-			"academic-research.json",
-		);
+		if (env.XDG_CONFIG_HOME?.trim()) {
+			extraLegacyAcademicConfigs.push(
+				platformPath.join(
+					env.XDG_CONFIG_HOME.trim(),
+					"frank-ai4s",
+					"academic-research.json",
+				),
+			);
+		}
 	}
+	const academicConfig = platformPath.join(workbenchDir, "academic-research.json");
 	return {
 		zoteroEnv:
 			env.LITERATURE_ZOTERO_MCP_ENV_FILE?.trim() ||
@@ -142,6 +139,7 @@ export function onboardingPaths(
 			"frank-ai4s",
 			"academic-research.json",
 		),
+		extraLegacyAcademicConfigs,
 		state:
 			env.AI4S_ONBOARDING_STATE_FILE?.trim() ||
 			platformPath.join(workbenchDir, "onboarding.json"),
@@ -166,6 +164,11 @@ function readEnvFileKey(path, name) {
 	return match ? String(match[1] ?? "").trim() : "";
 }
 
+function academicConfigCandidates(path, legacyPath) {
+	const legacyPaths = Array.isArray(legacyPath) ? legacyPath : [legacyPath];
+	return [path, ...legacyPaths].filter(Boolean);
+}
+
 export function academicKeyConfigured(
 	path,
 	legacyPath,
@@ -181,7 +184,9 @@ export function academicKeyConfigured(
 			masked_key: maskKey(envValue),
 		};
 	}
-	const sourcePath = existsSync(path) ? path : legacyPath;
+	const sourcePath = academicConfigCandidates(path, legacyPath).find((candidate) =>
+		existsSync(candidate),
+	);
 	const config = readJsonObject(sourcePath);
 	const configValue = String(config[configName] ?? "").trim();
 	return {
@@ -265,16 +270,20 @@ export function redactedStatus(
 		Boolean(zoteroEnvValue) ||
 		envKeyExists(paths.zoteroEnv, "ZOTERO_API_KEY") ||
 		envKeyExists(paths.legacyZoteroEnv, "ZOTERO_API_KEY");
+	const academicLegacy = [
+		paths.legacyAcademicConfig,
+		...(paths.extraLegacyAcademicConfigs ?? []),
+	];
 	const pubmed = academicKeyConfigured(
 		paths.academicConfig,
-		paths.legacyAcademicConfig,
+		academicLegacy,
 		"pubmed_api_key",
 		"PUBMED_API_KEY",
 		env,
 	);
 	const easyscholar = academicKeyConfigured(
 		paths.academicConfig,
-		paths.legacyAcademicConfig,
+		academicLegacy,
 		"easyscholar_secret_key",
 		"EASYSCHOLAR_SECRET_KEY",
 		env,
@@ -352,7 +361,9 @@ export function redactedStatus(
 }
 
 export function saveAcademicKey(path, legacyPath, name, key) {
-	const sourcePath = existsSync(path) ? path : legacyPath;
+	const sourcePath = academicConfigCandidates(path, legacyPath).find((candidate) =>
+		existsSync(candidate),
+	);
 	const config = readJsonObject(sourcePath);
 	config[name] = key;
 	writeJsonPrivate(path, config);

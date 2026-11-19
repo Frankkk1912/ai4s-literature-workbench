@@ -58,8 +58,19 @@ test("onboardingPaths covers win32, darwin, linux, and explicit overrides", () =
 			"C:\\Users\\Frank",
 			"AppData",
 			"Local",
-			"frank-ai4s",
+			"ai4s-literature-workbench",
 			"academic-research.json",
+		),
+	);
+	assert.ok(
+		windows.extraLegacyAcademicConfigs.includes(
+			win32.join(
+				"C:\\Users\\Frank",
+				"AppData",
+				"Local",
+				"frank-ai4s",
+				"academic-research.json",
+			),
 		),
 	);
 
@@ -70,7 +81,7 @@ test("onboardingPaths covers win32, darwin, linux, and explicit overrides", () =
 	);
 	assert.equal(
 		darwin.academicConfig,
-		"/Users/example/.config/frank-ai4s/academic-research.json",
+		"/Users/example/Library/Application Support/ai4s-literature-workbench/academic-research.json",
 	);
 
 	const linux = onboardingPaths(
@@ -84,7 +95,12 @@ test("onboardingPaths covers win32, darwin, linux, and explicit overrides", () =
 	);
 	assert.equal(
 		linux.academicConfig,
-		"/srv/config/frank-ai4s/academic-research.json",
+		"/srv/config/ai4s-literature-workbench/academic-research.json",
+	);
+	assert.ok(
+		linux.extraLegacyAcademicConfigs.includes(
+			"/srv/config/frank-ai4s/academic-research.json",
+		),
 	);
 
 	const overridden = onboardingPaths(

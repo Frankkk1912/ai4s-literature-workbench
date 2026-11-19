@@ -48,6 +48,7 @@ export function preferredPrivateEnvFile(
   return env.LITERATURE_ZOTERO_MCP_ENV_FILE?.trim() || defaultPrivateEnvFile(env, platform, home);
 }
 
+/** academic-research.json beside the Zotero env file for this platform. */
 export function defaultAcademicResearchConfigFile(
   env: NodeJS.ProcessEnv = process.env,
   platform = process.platform,
@@ -56,9 +57,33 @@ export function defaultAcademicResearchConfigFile(
   const platformPath = platform === 'win32' ? win32 : posix;
   if (platform === 'win32') {
     const localAppData = env.LOCALAPPDATA?.trim() || platformPath.join(home, 'AppData', 'Local');
-    return platformPath.join(localAppData, 'frank-ai4s', 'academic-research.json');
+    return platformPath.join(localAppData, 'ai4s-literature-workbench', 'academic-research.json');
   }
-  return platformPath.join(home, '.config', 'frank-ai4s', 'academic-research.json');
+  if (platform === 'darwin') {
+    return platformPath.join(home, 'Library', 'Application Support', 'ai4s-literature-workbench', 'academic-research.json');
+  }
+  const configHome = env.XDG_CONFIG_HOME?.trim() || platformPath.join(home, '.config');
+  return platformPath.join(configHome, 'ai4s-literature-workbench', 'academic-research.json');
+}
+
+/**
+ * Older EasyScholar/PubMed config files. Read these when the workbench file
+ * is absent. EASYSCHOLAR_SECRET_KEY and PUBMED_API_KEY still override the file.
+ */
+export function legacyAcademicResearchConfigFiles(
+  env: NodeJS.ProcessEnv = process.env,
+  platform = process.platform,
+  home = homedir(),
+): string[] {
+  const platformPath = platform === 'win32' ? win32 : posix;
+  const paths = [platformPath.join(home, '.config', 'frank-ai4s', 'academic-research.json')];
+  if (platform === 'win32') {
+    const localAppData = env.LOCALAPPDATA?.trim() || platformPath.join(home, 'AppData', 'Local');
+    paths.push(platformPath.join(localAppData, 'frank-ai4s', 'academic-research.json'));
+  }
+  const xdg = env.XDG_CONFIG_HOME?.trim();
+  if (xdg && platform !== 'win32') paths.push(platformPath.join(xdg, 'frank-ai4s', 'academic-research.json'));
+  return [...new Set(paths)];
 }
 
 export function startupEnvFiles(env: NodeJS.ProcessEnv = process.env): string[] {

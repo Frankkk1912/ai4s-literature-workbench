@@ -151,17 +151,20 @@ LITERATURE_ZOTERO_MCP_TOOL_PROFILE=workbench
 ```
 
 This exposes only `zotero_whoami`, `zotero_search_items`, `zotero_get_item`,
-`zotero_get_fulltext`, `zotero_fulltext_context`, `zotero_apply_fulltext_handoff`, `zotero_apply_import_plan`,
+`zotero_list_collections`, `zotero_get_fulltext`, `zotero_fulltext_context`,
+`zotero_apply_fulltext_handoff`, `zotero_apply_import_plan`,
 `zotero_apply_metrics_plan`, `zotero_apply_citation_plan`, `zotero_find_duplicates`,
 `zotero_semantic_tag_context`, `zotero_apply_semantic_tags`,
 `zotero_cleanup_auto_tags`, `zotero_semantic_tag_vocabulary`,
 `zotero_sync_literature_project`, `zotero_ai_summary_context`, and
 `zotero_apply_ai_summaries`. Schema validation, collection creation, batch item
 creation, and tag/membership updates remain internal to the import-plan tool.
-Use `full` only when developing or explicitly using inherited low-level tools.
-Combining `workbench` with `ZOTEUS_READ_ONLY=true` removes write-capable tools
-and leaves eight read-only tools, including fulltext, semantic-tag, and AI
-Summary context preparation.
+`zotero_list_collections` is read-only and is how an agent finds a collection
+key before scoping a search. Use `full` only when developing or explicitly
+using inherited low-level tools. Combining `workbench` with
+`ZOTEUS_READ_ONLY=true` removes write-capable tools and leaves eleven tools:
+the two setup tools plus the read-only workflow tools, including collection
+listing, fulltext, semantic-tag, and AI Summary context preparation.
 
 For an explicitly requested fulltext workflow, first use
 `zotero_fulltext_context` to preflight exact parents and local file PDFs. Send
@@ -193,6 +196,11 @@ if required. Existing process environment variables still win over file values.
 The legacy `~/.config/ai4s-literature-workbench/zotero.env` path remains
 readable during migration; the setup command copies its settings to the native
 location when it creates or updates a key.
+
+PubMed and EasyScholar keys use `academic-research.json` in that same
+directory. `PUBMED_API_KEY` and `EASYSCHOLAR_SECRET_KEY` override the file.
+An older `frank-ai4s/academic-research.json` (under `~/.config`, or
+`%LOCALAPPDATA%` on Windows) is still read when the workbench file is absent.
 
 The preferred data-directory override for this derivative is:
 

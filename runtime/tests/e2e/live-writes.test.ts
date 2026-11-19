@@ -8,11 +8,13 @@ import createItems from '../../src/tools/create-items.js';
 import updateItem from '../../src/tools/update-item.js';
 import trashItems from '../../src/tools/trash-items.js';
 import { uploadFile, downloadFile } from '../../src/api/attachments.js';
+import { liveTestsEnabled } from './live-gate.js';
 
-// Double-gated: only runs with BOTH a real key AND an explicit opt-in, so normal
+// Triple-gated: AI4S_LIVE_TESTS=1, a real key, and ZOTEUS_E2E_WRITE=true.
 // `npm test` and CI never mutate the real library. Self-cleaning (permanently
 // deletes the item it creates).
-const enabled = Boolean(process.env.ZOTERO_API_KEY) && process.env.ZOTEUS_E2E_WRITE === 'true';
+
+const enabled = liveTestsEnabled() && process.env.ZOTEUS_E2E_WRITE === 'true';
 const d = enabled ? describe : describe.skip;
 
 d('Zoteus e2e writes (live, self-cleaning)', () => {

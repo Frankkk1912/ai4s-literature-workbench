@@ -17,7 +17,7 @@
 | 你用的应用 | 怎么做 |
 | --- | --- |
 | **Claude Desktop** | 打开[最新发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest)，下载 `ai4s-literature-zotero-<版本号>.mcpb`，双击它（或拖进 Claude Desktop 窗口）。在安装界面点确认，两个可选设置保持默认。这样装上的只有 Zotero 工具，不含技能和全文工具。 |
-| **DeepSeek Harness**（还没有在真实电脑上测试过） | 打开[最新发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest)，下载 `dsh-ai4s-literature-workbench-<版本号>.tgz`。在 DeepSeek Harness 里打开**插件（Plugins）**页面，点**添加插件（Add plugin）**，把下载好的文件路径贴进去。完全退出并重新打开 DeepSeek Harness，然后对它说：“运行 ai4s-setup 技能”。这样装上的有 Zotero 工具、全文工具和全部技能。 |
+| **DeepSeek Harness**（还没有在真实电脑上测试过） | 已发布的 v0.1.0 里没有 `dsh-ai4s-literature-workbench-<版本号>.tgz`。在[发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases)列出该文件之前，请按 INSTALL.md 从源码安装。列出之后，下载它，打开**插件（Plugins）**页面，点**添加插件（Add plugin）**，把文件路径贴进去。完全退出并重新打开 DeepSeek Harness，然后对它说：“运行 ai4s-setup 技能”。这样装上的有 Zotero 工具、全文工具和全部技能。 |
 | **Claude Code、Codex、WorkBuddy、CodeBuddy** | 把 [README_CN](../README_CN.md#1-安装选你用的应用) 里的安装指令发给应用。agent 会按 [INSTALL.md](../INSTALL.md) 操作，并告诉你哪些已经能用、哪些需要你处理。 |
 | **Trae、Qoder** | 按 [README_CN](../README_CN.md) 里“其他 agent 与手动安装”操作。 |
 

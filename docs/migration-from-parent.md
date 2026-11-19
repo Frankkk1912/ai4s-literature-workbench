@@ -39,7 +39,7 @@ Native and legacy private files keep working. New-repository code still reads th
 - native Zotero env (platform Application Support / LocalAppData / XDG)
 - legacy `~/.config/ai4s-literature-workbench/zotero.env`
 - `LITERATURE_ZOTERO_MCP_ENV_FILE` override
-- academic config (`academic-research.json` under `frank-ai4s`)
+- academic config (`academic-research.json` under `frank-ai4s`; current builds write this file under `ai4s-literature-workbench` and still read a `frank-ai4s` file when the new one is absent)
 
 ## Exclusion list (must not enter this repository)
 

@@ -43,6 +43,7 @@ export const WORKBENCH_TOOL_NAMES = new Set([
   'zotero_get_item',
   'zotero_get_fulltext',
   'zotero_fulltext_context',
+  'zotero_list_collections',
   'zotero_apply_fulltext_handoff',
   'zotero_apply_import_plan',
   'zotero_apply_metrics_plan',
@@ -136,7 +137,7 @@ export function createServer(ctx: ToolContext): McpServer {
         prompts: { listChanged: true },
       },
       instructions:
-        'Literature Zotero MCP exposes your Zotero library for auditable evidence workflows. Call setup_status first in a new session to learn what works now and what needs the user; when a key is wanted, call open_setup so the user pastes it into a local page, never into chat. Then call zotero_whoami to resolve identity. Prefer zotero_search_items for discovery, zotero_get_item for full records, and zotero_find_duplicates for read-only batch duplicate detection. Apply standalone import and existing-collection metrics plans only after their explicit review gates. The low-risk project-sync path may automatically apply available EasyScholar metrics for new create/reuse actions while preserving user Extra and unrelated tags. For Agent tags, call zotero_semantic_tag_context before zotero_apply_semantic_tags; the latter is an explicitly user-enabled automatic workflow that writes only AI4S:Semantic tags and optionally removes Zotero automatic tags while saving a plan and receipt. Generate AI Summary metadata only after an explicit user request: call zotero_ai_summary_context, write one Chinese sentence by default using only each returned title and abstract, then call zotero_apply_ai_summaries; never run this during import, project sync, metrics, tags, or report updates. Call tools sequentially rather than in large parallel batches — Zotero rate-limits, and parallel or very long calls can time out.',
+        'Literature Zotero MCP exposes your Zotero library for auditable evidence workflows. Call setup_status first in a new session to learn what works now and what needs the user; when a key is wanted, call open_setup so the user pastes it into a local page, never into chat. Then call zotero_whoami to resolve identity. Prefer zotero_search_items for discovery, zotero_list_collections to find a collection key, zotero_get_item for full records, and zotero_find_duplicates for read-only batch duplicate detection. Apply standalone import and existing-collection metrics plans only after their explicit review gates. The low-risk project-sync path may automatically apply available EasyScholar metrics for new create/reuse actions while preserving user Extra and unrelated tags. For Agent tags, call zotero_semantic_tag_context before zotero_apply_semantic_tags; the latter is an explicitly user-enabled automatic workflow that writes only AI4S:Semantic tags and optionally removes Zotero automatic tags while saving a plan and receipt. Generate AI Summary metadata only after an explicit user request: call zotero_ai_summary_context, write one Chinese sentence by default using only each returned title and abstract, then call zotero_apply_ai_summaries; never run this during import, project sync, metrics, tags, or report updates. Call tools sequentially rather than in large parallel batches — Zotero rate-limits, and parallel or very long calls can time out.',
     },
   );
   registerAllTools(server, selectActiveTools(ctx.config), ctx);

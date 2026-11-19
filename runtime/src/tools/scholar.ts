@@ -1,24 +1,8 @@
 import { z } from 'zod';
-import type { ToolDefinition, ToolContext } from '../registry/registry.js';
+import type { ToolDefinition } from '../registry/registry.js';
 import { ok } from '../registry/registry.js';
 import { markInLibrary, type ScholarWork } from '../features/scholar/graph.js';
-
-const MAX_LIB_ITEMS = 5000;
-
-async function libraryDoiSet(ctx: ToolContext): Promise<Set<string>> {
-  const set = new Set<string>();
-  let start = 0;
-  for (;;) {
-    const page = await ctx.router.searchItems({ limit: 100, start });
-    for (const it of page.data) {
-      const doi = (it as any).data?.DOI ?? (it as any).DOI;
-      if (doi) set.add(String(doi).toLowerCase());
-    }
-    start += page.data.length;
-    if (!page.data.length || start >= page.totalResults || start >= MAX_LIB_ITEMS) break;
-  }
-  return set;
-}
+import { libraryDoiSet } from '../features/scholar/library-dois.js';
 
 const scholar: ToolDefinition = {
   name: 'zotero_scholar',

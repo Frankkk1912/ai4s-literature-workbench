@@ -14,6 +14,20 @@ Values already present in the process environment keep precedence.
 The previous `~/.config/ai4s-literature-workbench/zotero.env` location remains
 readable for migration compatibility.
 
+PubMed and EasyScholar keys are stored in `academic-research.json` in that
+same directory (`pubmed_api_key`, `easyscholar_secret_key`). `PUBMED_API_KEY`
+and `EASYSCHOLAR_SECRET_KEY` override the file. When the workbench file is
+absent, these older files are still read:
+
+- `~/.config/frank-ai4s/academic-research.json`
+- Windows: `%LOCALAPPDATA%\frank-ai4s\academic-research.json`
+
+The EasyScholar rank cache defaults to the workbench cache directory
+(`%LOCALAPPDATA%\ai4s-literature-workbench\cache` on Windows,
+`~/Library/Caches/ai4s-literature-workbench` on macOS,
+`${XDG_CACHE_HOME:-~/.cache}/ai4s-literature-workbench` on Linux) and falls
+back to the previous `frank-ai4s` cache.
+
 | Variable | Default | Purpose |
 |---|---|---|
 | `ZOTERO_API_KEY` | — | Cloud auth (writes/sync/groups; optional for local-only reads). Create one at https://www.zotero.org/settings/keys |
