@@ -48,7 +48,7 @@ If the tool is not in your tool list, go to Step 2. Otherwise go to Step 3.
 2. Open `INSTALL.md` in the plugin root (the folder with `INSTALL.md` and
    `install-manifest.json`; search for it, do not guess). If this install has
    only the skills and no `INSTALL.md`, say so and read
-   https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md.
+   https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md
 3. Follow the route for that app, in order. Prefer the release archive when
    the latest release version is the same or newer than `version` in
    `.codex-plugin/plugin.json` on main, and the zip is listed. If the release
