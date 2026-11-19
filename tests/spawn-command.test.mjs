@@ -5,7 +5,7 @@
 // .cmd shim as well.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cmdCommandLine, quoteCmdArg, spawnCommand } from "../scripts/spawn-command.mjs";
@@ -42,7 +42,9 @@ test("node keeps a script path that contains a space and non-ASCII characters", 
     const body = JSON.parse(result.stdout);
     assert.equal(body.argv, script);
     assert.equal(body.extra, marker);
-    assert.equal(body.cwd, dir);
+    // macOS tmpdir is /var/folders, a symlink to /private/var. process.cwd()
+    // returns the resolved path; the argument above stays the path we passed.
+    assert.equal(realpathSync(body.cwd), realpathSync(dir));
   } finally {
     rmSync(parent, { recursive: true, force: true });
   }
