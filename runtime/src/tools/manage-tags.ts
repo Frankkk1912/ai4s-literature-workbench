@@ -10,7 +10,7 @@ const manageTags: ToolDefinition = {
   name: 'zotero_manage_tags',
   title: 'Manage Zotero tags',
   description:
-    'List tags, or add/remove tags on items. Set `action` to "list" (returns library tags; supports `q` substring filter), "add" (add `tags` to each of `item_keys`), or "remove" (remove `tags` from each of `item_keys`). Tags are stored on the parent item\'s tag array, so add/remove edits the items (cloud Web API). Tag names are case-sensitive.',
+    'List tags, or add/remove tags on specific items. Set `action` to "list" (returns library tags; supports `q` substring filter), "add" (add `tags` to each of `item_keys`), or "remove" (remove `tags` from each of `item_keys`). Tags are stored on the parent item\'s tag array, so add/remove edits the items (cloud Web API). Tag names are case-sensitive. Library-wide merge, rename, and unused-tag deletion belong to zotero_tag_manager so the semantic vocabulary is updated in the same plan.',
   inputSchema: {
     action: z.enum(['list', 'add', 'remove']),
     tags: z.array(z.string()).optional().describe('Tag names to add or remove.'),

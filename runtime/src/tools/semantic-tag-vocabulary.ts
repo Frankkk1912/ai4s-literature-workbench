@@ -16,7 +16,7 @@ const semanticTagVocabulary: ToolDefinition = {
   name: 'zotero_semantic_tag_vocabulary',
   title: 'Manage semantic-tag vocabulary JSON',
   description:
-    'Inspect, export, or merge-import the library-scoped English semantic-tag vocabulary. Import requires the current expected revision, validates all canonical/alias collisions, and never silently replaces incompatible entries.',
+    'Inspect, export, or merge-import the library-scoped English semantic-tag vocabulary. Import requires the current expected revision, validates all canonical/alias collisions, and never silently replaces incompatible entries. It does not edit Zotero item tags; merging live tags into vocabulary aliases is zotero_tag_manager.',
   inputSchema: {
     action: z.enum(['inspect', 'export', 'import']),
     path: z.string().optional().describe('Export destination or required import source JSON path.'),

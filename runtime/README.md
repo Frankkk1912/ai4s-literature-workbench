@@ -105,6 +105,18 @@ exports the JSON vocabulary or merge-imports a compatible snapshot using an
 expected revision. Runtime vocabulary and receipts are user data and must not
 be committed.
 
+`zotero_tag_manager` is the library-wide tag hygiene tool. `scan` clusters
+case, punctuation, singular/plural, and vocabulary-alias duplicates with usage
+counts, and can add token-overlap suggestions for the agent to judge. `unused`
+lists zero-item tags and unused vocabulary entries. `plan` writes a hashed plan
+without changing Zotero. `apply` with `dry_run` rechecks item versions and the
+vocabulary revision; `apply` requires `confirm_plan_hash`, retags only the
+named tags, folds a merged vocabulary loser into the winner's aliases, and
+writes a receipt. Untargeted user tags stay. `AI4S:Priority:1-3`,
+`AI4S:ArticleType:*`, `JCR:*`, and `CAS:*` change only when the plan names them
+and `allow_protected` is set. Item add/remove, tier audits, automatic-tag
+cleanup, and vocabulary import/export stay on their existing tools.
+
 ## Explicit AI Summary workflow
 
 AI Summary never runs as part of import, project sync, metrics, Agent Tags, or
@@ -156,8 +168,8 @@ This exposes only `zotero_whoami`, `zotero_search_items`, `zotero_get_item`,
 `zotero_apply_metrics_plan`, `zotero_apply_citation_plan`, `zotero_find_duplicates`,
 `zotero_semantic_tag_context`, `zotero_apply_semantic_tags`,
 `zotero_cleanup_auto_tags`, `zotero_semantic_tag_vocabulary`,
-`zotero_sync_literature_project`, `zotero_ai_summary_context`, and
-`zotero_apply_ai_summaries`. Schema validation, collection creation, batch item
+`zotero_tag_manager`, `zotero_sync_literature_project`,
+`zotero_ai_summary_context`, and `zotero_apply_ai_summaries`. Schema validation, collection creation, batch item
 creation, and tag/membership updates remain internal to the import-plan tool.
 `zotero_list_collections` is read-only and is how an agent finds a collection
 key before scoping a search. Use `full` only when developing or explicitly

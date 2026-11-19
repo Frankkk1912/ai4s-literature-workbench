@@ -4,9 +4,10 @@ description: >-
   Sync literature evidence into one Zotero collection: exact DOI/PMID/title-year
   updates, optional RIS, reviewable import plans, and dedupe. Apply an approved
   plan through Zotero and keep a receipt. Add compact Agent Tags with source-tag
-  cleanup, or an explicitly requested one-sentence AI Summary from the title and
-  abstract. Use for Zotero import, collection organization, semantic tags,
-  summaries, or duplicate audits.
+  cleanup, clean duplicate or unused tags, or an explicitly requested
+  one-sentence AI Summary from the title and abstract. Use for Zotero import,
+  collection organization, semantic tags, tag cleanup, summaries, or duplicate
+  audits.
 ---
 
 # Zotero Literature Manager
@@ -151,6 +152,11 @@ restricted workflow: it replaces only `AI4S:Semantic:*`, removes `type: 1`
 automatic tags on the same items, preserves every other tag, and saves an
 internal hashed plan plus receipt without a separate approval round.
 
+When Frank asks to find, merge, rename, or delete duplicate or unused tags,
+use `zotero_tag_manager` in that same reference. Scan, plan, dry-run, then
+apply only with the confirmed plan hash. Do not perform that cleanup with
+`zotero_manage_tags`: item add/remove does not update the semantic vocabulary.
+
 For AI Summary metadata, read [ai-summaries.md](references/ai-summaries.md).
 Run it only after the user explicitly asks for per-paper summaries. Call
 `zotero_ai_summary_context`, write exactly one Chinese sentence by default from
@@ -246,7 +252,7 @@ sync. Read `references/sync-schema.md` when interpreting lower-level match/sync 
 `references/zotero-api-notes.md` before live API writes, local API work, MCP
 integration, or rate-limit troubleshooting. Read `references/import-contract.md`
 for import-plan and receipt decisions. Read `references/semantic-tags.md` for
-Agent vocabulary, cleanup, and automatic-apply boundaries. Read
+Agent vocabulary, the tag manager, and automatic-apply boundaries. Read
 `references/ai-summaries.md` for explicit triggering, sentence evidence, and
 the `AI4S-Summary` Extra contract.
 
@@ -277,10 +283,15 @@ the `AI4S-Summary` Extra contract.
 11. When Agent Tags are requested, run the semantic-tag workflow after import or
    directly on existing items/collection. Re-read context on any vocabulary or
    item version conflict.
-12. Only when the user explicitly requests AI Summary metadata, run context then
+12. When Frank asks to clean duplicate or unused tags, call `zotero_tag_manager`:
+    `scan` (and `unused` when looking for zero-use tags), then `plan` with the
+    vocabulary revision, `apply` with `mode: dry_run`, and `apply` only after
+    Frank confirms that exact `plan_hash`. A merge folds the loser into the
+    winner's vocabulary aliases and retags items in the same receipt.
+13. Only when the user explicitly requests AI Summary metadata, run context then
    apply for named items or a collection. Default to Chinese and `missing` mode;
    skip records without abstracts and never infer from the title alone.
-13. Hand `zotero_match.json` or `zotero_sync_plan.json` to `literature-writing`
+14. Hand `zotero_match.json` or `zotero_sync_plan.json` to `literature-writing`
    when drafting prose.
 
 For new imports, use `plan-import`, inspect the plan/hash, run MCP dry-run,
@@ -346,5 +357,10 @@ repeated 429 responses. Local API mode disables the artificial delay.
   imports. Priority is reading/use priority, not evidence quality.
 - Do not create a new canonical Agent Tag when an accurate vocabulary alias
   exists, copy source-database keyword lists, or remove manual user tags.
+- Do not merge, rename, or delete tags with `zotero_manage_tags`. Use
+  `zotero_tag_manager` so the plan, the items, and the semantic vocabulary
+  move together. Never drop a user tag, `AI4S:Priority:1|2|3`,
+  `AI4S:ArticleType:*`, `JCR:*`, or `CAS:*` tag that the confirmed plan does
+  not name.
 - Do not overwrite Abstract, create a child Note, or turn an AI Summary sentence
   into a native Zotero tag. Without an abstract, skip instead of guessing.

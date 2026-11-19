@@ -6,7 +6,7 @@ const listTags: ToolDefinition = {
   name: 'zotero_list_tags',
   title: 'List Zotero tags (read-only)',
   description:
-    'List tags in a Zotero library with their usage count and whether each was auto-applied by Zotero. Optional `q` substring filter and `limit`. Read-only — available even when the connector runs in read-only mode (unlike zotero_manage_tags, which also writes). For taxonomy hygiene use zotero_tag_audit.',
+    'List tags in a Zotero library with their usage count and whether each was auto-applied by Zotero. Optional `q` substring filter and `limit`. Read-only — available even when the connector runs in read-only mode (unlike zotero_manage_tags, which also writes). For duplicate and unused-tag cleanup use zotero_tag_manager; for tier coverage use zotero_tag_audit.',
   inputSchema: {
     q: z.string().optional().describe('Substring filter.'),
     limit: z.number().int().min(1).max(100).optional().describe('Max tags (default 100).'),

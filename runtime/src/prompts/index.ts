@@ -121,7 +121,8 @@ export function registerPrompts(server: McpServer): void {
         `Generate Agent Tags for ${collection ? `collection ${collection}` : `items ${item_keys ?? '(ask me for the target)'}`}. ` +
           `Call zotero_semantic_tag_context, reuse its English canonical vocabulary wherever accurate, and assign zero to four tags per paper. ` +
           `Only tag principal topics/entities/methods/mechanisms; do not fill missing dimensions. Metadata-only records get at most two tags and no mechanism. ` +
-          `Then call zotero_apply_semantic_tags with the returned item versions and vocabulary revision. Automatic tagging and cleanup of Zotero automatic tags are enabled; preserve all user and non-semantic AI4S tags.`,
+          `Then call zotero_apply_semantic_tags with the returned item versions and vocabulary revision. Automatic tagging and cleanup of Zotero automatic tags are enabled; preserve all user and non-semantic AI4S tags. ` +
+          `When tags are duplicated or unused, call zotero_tag_manager (scan, plan, dry-run, then apply with the confirmed plan hash) instead of renaming tags by hand.`,
       ),
   );
 

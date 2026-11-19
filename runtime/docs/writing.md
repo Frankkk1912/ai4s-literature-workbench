@@ -12,6 +12,7 @@ Zoteus writes go through the cloud Web API v3 (the desktop local API is read-onl
 | `zotero_delete_items` | **Permanent** purge. Disabled unless `ZOTEUS_ALLOW_DELETE=true`, and requires `confirm:true` on every call. | ⚠️ irreversible |
 | `zotero_manage_collections` | `list` / `create` / `rename` / `reparent` / `delete`, plus `add_items` / `remove_items` (membership lives on the item). | mixed |
 | `zotero_manage_tags` | `list`, or `add` / `remove` tags on items (edits each item's tag array). | non-destructive |
+| `zotero_tag_manager` | Scan duplicate tags, then plan and apply a confirmed merge, rename, or unused-tag deletion across items and the semantic vocabulary. | plan, then confirm hash |
 | `zotero_saved_searches` | `list` / `create` / `delete` saved-search definitions. The cloud API does not *execute* them. | mixed |
 
 ## How safety is enforced

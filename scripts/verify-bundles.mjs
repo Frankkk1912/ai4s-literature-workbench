@@ -9,7 +9,7 @@
 // instead of copying them from this repository (scripts/verify-release.mjs does this).
 //
 // Checks, in order (each prints PASS or FAIL, and the child process's stderr on FAIL):
-//   1. runtime bundle over stdio lists exactly the 20 workbench tools (18 plus the two
+//   1. runtime bundle over stdio lists exactly the 21 workbench tools (19 plus the two
 //      setup tools, setup_status and open_setup)
 //   2. runtime bundle with --http serves the onboarding page (GET /admin/onboarding)
 //   3. setup_status answers in plain words and returns no key; open_setup starts a page that
@@ -53,6 +53,7 @@ const EXPECTED_RUNTIME_TOOLS = [
   'zotero_semantic_tag_context',
   'zotero_semantic_tag_vocabulary',
   'zotero_sync_literature_project',
+  'zotero_tag_manager',
   'zotero_whoami',
 ];
 const EXPECTED_FULLTEXT_TOOLS = [
@@ -376,7 +377,7 @@ try {
   const runtimeEntry = join(pluginDir, 'runtime', 'bundle', 'index.mjs');
   const fulltextEntry = join(pluginDir, 'fulltext-runtime', 'bundle', 'index.mjs');
 
-  await check('runtime bundle starts over stdio and lists its 20 workbench tools', () =>
+  await check('runtime bundle starts over stdio and lists its 21 workbench tools', () =>
     withStdioClient(driver, 'runtime bundle', runtimeEntry,
       cleanEnv({ LITERATURE_ZOTERO_MCP_TOOL_PROFILE: 'workbench', ZOTEUS_LOCAL: 'off', ZOTEUS_EMBEDDINGS: 'off' }),
       async (client) => {
