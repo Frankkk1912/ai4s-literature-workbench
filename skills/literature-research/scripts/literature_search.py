@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PubMed/arXiv/WoS literature search helper for literature-research."""
+"""PubMed/OpenAlex/arXiv/WoS literature search helper for literature-research."""
 
 from __future__ import annotations
 
@@ -127,6 +127,25 @@ CONFIG_PATH = default_config_path()
 USER_AGENT = "FrankAI4S/literature-research (literature_search.py)"
 NCBI_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 ARXIV_BASE = "https://export.arxiv.org/api/query"
+OPENALEX_BASE = "https://api.openalex.org/works"
+OPENALEX_PAGE_SIZE = 100
+LIMITATIONS_LINE = "Capped search, abstract-level."
+SOURCE_DISPLAY = {
+    "pubmed": "PubMed",
+    "openalex": "OpenAlex",
+    "arxiv": "arXiv",
+    "wos": "Web of Science",
+    "web-of-science": "Web of Science",
+    "web-of-science-official-export": "Web of Science",
+}
+_SOURCE_RANK = {
+    "pubmed": 0,
+    "wos": 1,
+    "web-of-science": 1,
+    "web-of-science-official-export": 1,
+    "openalex": 2,
+    "arxiv": 3,
+}
 DEFAULT_JOURNAL_METRICS = Path(__file__).resolve().parent.parent / "references" / "jcr_journals_2025.csv"
 EASYSCHOLAR_BASE = "https://www.easyscholar.cc/open/getPublicationRank"
 DEFAULT_EASYSCHOLAR_CACHE = default_easyscholar_cache_path()
@@ -170,7 +189,26 @@ DATABASE_ROUTES: dict[str, dict[str, Any]] = {
         ],
         "warnings": [
             "Always pass --limit and report that capped retrieval is not exhaustive.",
-            "Use browser verification only for page-level checks that the API cannot answer.",
+            "Do not browse PubMed. The E-utilities record is the evidence.",
+        ],
+    },
+    "openalex": {
+        "display_name": "OpenAlex",
+        "aliases": ["openalex", "openalex.org"],
+        "access_mode": "api-first",
+        "primary_tool": "search-openalex",
+        "requires_web_access": False,
+        "pattern_reference": "references/database-patterns/openalex.md",
+        "start_url": "https://openalex.org/",
+        "expected_evidence": [
+            "query plan JSON with the exact openalex_query",
+            "OpenAlex records JSON from search-openalex",
+            "ranked JSON/CSV after merge-rank with PubMed",
+        ],
+        "warnings": [
+            "Free public API. No key. mailto is added only when a contact email is already configured.",
+            "Always pass --limit. Capped retrieval is not exhaustive.",
+            "Deduplicate against PubMed by DOI and PMID before ranking.",
         ],
     },
     "arxiv": {
@@ -194,23 +232,20 @@ DATABASE_ROUTES: dict[str, dict[str, Any]] = {
     "web-of-science": {
         "display_name": "Web of Science",
         "aliases": ["web of science", "wos", "clarivate", "webofscience.com"],
-        "access_mode": "campus-browser-official-export",
+        "access_mode": "user-supplied-official-export",
         "primary_tool": "import-wos-export",
-        "requires_web_access": True,
-        "web_access_entrypoint": "web-access/scripts/check-deps.mjs",
+        "requires_web_access": False,
         "pattern_reference": "references/database-patterns/webofscience.md",
-        "start_url": "https://www.webofscience.com/wos/alldb/basic-search",
         "expected_evidence": [
             "query plan JSON with wos_query",
-            "optional screenshot of WoS query/result context",
-            "official WoS CSV/TSV export kept outside the repository",
+            "official WoS CSV/TSV export the user downloaded, kept outside the repository",
             "normalized WoS records JSON from import-wos-export",
             "ranked JSON/CSV after merge-rank",
         ],
         "warnings": [
-            "Use web-access for browser readiness and navigation; do not copy CDP code here.",
-            "Prefer official exports over DOM scraping.",
-            "Do not bypass CAPTCHA, institutional login, license limits, or export controls.",
+            "The agent cannot browse Web of Science. Ask the user for an official CSV/TSV export they downloaded.",
+            "Do not scrape WoS, drive a browser, or work around login, CAPTCHA, or export limits.",
+            "Keep the export file outside the repository.",
         ],
     },
 }
@@ -302,7 +337,7 @@ def sanitize_url(url: str) -> str:
     query = [
         (key, value)
         for key, value in urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
-        if key.lower() not in {"api_key", "secretkey"}
+        if key.lower() not in {"api_key", "secretkey", "mailto"}
     ]
     return urllib.parse.urlunsplit(
         (parsed.scheme, parsed.netloc, parsed.path, urllib.parse.urlencode(query), parsed.fragment)
@@ -494,6 +529,7 @@ def command_config(args: argparse.Namespace) -> None:
         print(f"Config path: {CONFIG_PATH}")
         print(f"PubMed API key configured: {'yes' if has_pubmed else 'no'}")
         print(f"easyscholar API key configured: {'yes' if has_easyscholar else 'no'}")
+        print(f"Contact email configured: {'yes' if get_contact_email() else 'no'}")
 
 
 def command_plan(args: argparse.Namespace) -> None:
@@ -502,9 +538,54 @@ def command_plan(args: argparse.Namespace) -> None:
     print(f"Success! Query plan written to: {args.output}")
 
 
+def openalex_query_from_pubmed(query: str) -> str:
+    """Drop PubMed field tags so the remaining Boolean text is the OpenAlex search."""
+    text = query or ""
+    text = re.sub(r'"?(?:19|20)\d{2}:(?:19|20)\d{2}"?\s*\[[^\]]*\]', " ", text)
+    text = re.sub(r"\[[^\[\]]*\]", " ", text)
+    text = re.sub(r"\(\s*\)", " ", text)
+    text = re.sub(r"\s+\)", ")", text)
+    text = re.sub(r"\(\s+", "(", text)
+    text = compact_space(text)
+    text = re.sub(r"^(?:AND|OR|NOT)\b\s*", "", text, flags=re.I)
+    text = re.sub(r"\s+\b(?:AND|OR|NOT)$", "", text, flags=re.I)
+    text = re.sub(r"\bAND\b(?:\s+\bAND\b)+", "AND", text, flags=re.I)
+    return compact_space(text)
+
+
+def publication_year_filter(pubmed_query: str) -> str | None:
+    """OpenAlex publication_year filter when the PubMed query already limits dates."""
+    match = re.search(
+        r'"((?:19|20)\d{2}):((?:19|20)\d{2})"\s*\[dp\]',
+        pubmed_query or "",
+        flags=re.I,
+    )
+    if not match:
+        return None
+    return f"{match.group(1)}-{match.group(2)}"
+
+
+def get_contact_email(args: argparse.Namespace | None = None) -> str | None:
+    """Contact address for polite-pool requests. Never written into search artifacts."""
+    if args is not None:
+        explicit = compact_space(str(getattr(args, "mailto", None) or ""))
+        if explicit:
+            return explicit
+    env_mailto = compact_space(os.environ.get("OPENALEX_MAILTO") or "")
+    if env_mailto:
+        return env_mailto
+    configured = compact_space(str(load_config().get("email") or ""))
+    if configured:
+        return configured
+    fallback = compact_space(os.environ.get("CROSSREF_MAILTO") or "")
+    return fallback or None
+
+
 def build_query_plan(query: str) -> dict[str, Any]:
     terms = extract_candidate_terms(query)
     year_range = detect_year_range(query)
+    pubmed_query = " AND ".join(f"({term})" for term in terms) if terms else query
+    year_filter = publication_year_filter(pubmed_query)
     return {
         "created_at": current_date(),
         "question": query,
@@ -513,7 +594,9 @@ def build_query_plan(query: str) -> dict[str, Any]:
         "expanded_terms": [],
         "exclude_terms": [],
         "mesh_terms": [],
-        "pubmed_query": " AND ".join(f"({term})" for term in terms) if terms else query,
+        "pubmed_query": pubmed_query,
+        "openalex_query": openalex_query_from_pubmed(pubmed_query) or compact_space(query),
+        "openalex_filters": {"publication_year": year_filter} if year_filter else {},
         "arxiv_query": " ".join(terms) if terms else query,
         "wos_query": f"TS=(({' AND '.join(terms)}))" if terms else query,
         "screening_notes": [
@@ -579,7 +662,13 @@ def command_search_pubmed(args: argparse.Namespace) -> None:
     if api_key:
         params["api_key"] = api_key
     search_data = json.loads(request_text(pubmed_url("esearch.fcgi", params), "pubmed", interval))
-    ids = search_data.get("esearchresult", {}).get("idlist", [])
+    esearch = search_data.get("esearchresult", {})
+    ids = esearch.get("idlist", [])
+    hit_count: int | None
+    try:
+        hit_count = int(esearch["count"]) if esearch.get("count") is not None else None
+    except (TypeError, ValueError):
+        hit_count = None
     records: list[dict[str, Any]] = []
     for start in range(0, len(ids), 100):
         batch = ids[start : start + 100]
@@ -601,6 +690,7 @@ def command_search_pubmed(args: argparse.Namespace) -> None:
         "retrieved_at": current_date(),
         "limit": args.limit,
         "count": len(records),
+        "hit_count": hit_count,
         "records": records,
     }
     write_json(args.output, output)
@@ -636,6 +726,7 @@ def parse_pubmed_xml(xml_text: str) -> list[dict[str, Any]]:
             {
                 "source": "pubmed",
                 "id": pmid,
+                "pmid": pmid,
                 "title": title,
                 "abstract": abstract,
                 "authors": authors,
@@ -734,6 +825,160 @@ def parse_arxiv_xml(xml_text: str) -> list[dict[str, Any]]:
             }
         )
     return records
+
+
+def canonical_doi(value: Any) -> str:
+    text = compact_space(str(value or ""))
+    text = re.sub(r"^https?://(?:dx\.)?doi\.org/", "", text, flags=re.I)
+    text = re.sub(r"^doi:\s*", "", text, flags=re.I)
+    return text.strip(" .")
+
+
+def record_doi(record: dict[str, Any]) -> str:
+    return canonical_doi(record.get("doi") or record.get("DOI") or "").lower()
+
+
+def record_pmid(record: dict[str, Any]) -> str:
+    raw = record.get("pmid") or record.get("PMID") or record.get("pubmed_id") or ""
+    if not raw and str(record.get("source") or "") == "pubmed":
+        raw = record.get("id") or ""
+    match = re.search(r"\d+", str(raw))
+    return match.group(0) if match else ""
+
+
+def title_dedup_key(title: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", (title or "").lower())
+
+
+def reconstruct_abstract(inverted: Any) -> str:
+    if not isinstance(inverted, dict):
+        return ""
+    positions: list[tuple[int, str]] = []
+    for word, locs in inverted.items():
+        if isinstance(locs, int):
+            locs = [locs]
+        if not isinstance(locs, list):
+            continue
+        for loc in locs:
+            if isinstance(loc, int):
+                positions.append((loc, str(word)))
+    positions.sort(key=lambda item: item[0])
+    return compact_space(" ".join(word for _, word in positions))
+
+
+def parse_openalex_work(work: dict[str, Any]) -> dict[str, Any]:
+    ids = work.get("ids") if isinstance(work.get("ids"), dict) else {}
+    doi = canonical_doi(work.get("doi") or ids.get("doi") or "")
+    pmid = record_pmid({"pmid": ids.get("pmid") or ""})
+    openalex_url = str(work.get("id") or ids.get("openalex") or "")
+    openalex_id = openalex_url.rstrip("/").split("/")[-1] if openalex_url else ""
+    location = work.get("primary_location") if isinstance(work.get("primary_location"), dict) else {}
+    source = location.get("source") if isinstance(location.get("source"), dict) else {}
+    issns: list[str] = []
+    raw_issns = source.get("issn") or []
+    if isinstance(raw_issns, str):
+        raw_issns = [raw_issns]
+    for value in [*raw_issns, source.get("issn_l") or ""]:
+        issn = normalize_issn(str(value or ""))
+        if issn and issn not in issns:
+            issns.append(issn)
+    authors: list[str] = []
+    for authorship in work.get("authorships") or []:
+        if not isinstance(authorship, dict):
+            continue
+        author = authorship.get("author") if isinstance(authorship.get("author"), dict) else {}
+        name = compact_space(str(author.get("display_name") or ""))
+        if name:
+            authors.append(name)
+    year = work.get("publication_year") if isinstance(work.get("publication_year"), int) else None
+    work_type = compact_space(str(work.get("type") or ""))
+    landing = compact_space(str(location.get("landing_page_url") or ""))
+    if doi:
+        url = f"https://doi.org/{doi}"
+    elif pmid:
+        url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+    else:
+        url = landing or openalex_url
+    record: dict[str, Any] = {
+        "source": "openalex",
+        "id": openalex_id,
+        "title": compact_space(str(work.get("display_name") or work.get("title") or "")),
+        "abstract": reconstruct_abstract(work.get("abstract_inverted_index")),
+        "authors": authors,
+        "journal": compact_space(str(source.get("display_name") or "")),
+        "year": year,
+        "published": str(work.get("publication_date") or (year or "")),
+        "doi": doi,
+        "url": url,
+        "issns": issns,
+        "mesh_terms": [],
+        "article_types": [work_type] if work_type else [],
+        "openalex_id": openalex_id,
+    }
+    if pmid:
+        record["pmid"] = pmid
+    return record
+
+
+def openalex_interval(mailto: str | None) -> float:
+    return 0.15 if mailto else 1.1
+
+
+def command_search_openalex(args: argparse.Namespace) -> None:
+    query = compact_space(getattr(args, "query", "") or "")
+    if not query:
+        raise ValueError("OpenAlex search requires a non-empty query")
+    mailto = get_contact_email(args)
+    year = compact_space(str(getattr(args, "publication_year", "") or ""))
+    per_page = min(int(args.limit), OPENALEX_PAGE_SIZE)
+    records: list[dict[str, Any]] = []
+    cursor = "*"
+    hit_count: int | None = None
+    while len(records) < args.limit:
+        params: dict[str, Any] = {
+            "search": query,
+            "per-page": min(per_page, args.limit - len(records)),
+            "sort": "relevance_score:desc",
+            "cursor": cursor,
+        }
+        if year:
+            params["filter"] = f"publication_year:{year}"
+        if mailto:
+            params["mailto"] = mailto
+        url = f"{OPENALEX_BASE}?{urllib.parse.urlencode(params)}"
+        payload = json.loads(request_text(url, "openalex", openalex_interval(mailto)))
+        if not isinstance(payload, dict):
+            break
+        meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+        if hit_count is None and meta.get("count") is not None:
+            try:
+                hit_count = int(meta["count"])
+            except (TypeError, ValueError):
+                hit_count = None
+        batch = payload.get("results") or []
+        if not isinstance(batch, list) or not batch:
+            break
+        for work in batch:
+            if isinstance(work, dict):
+                records.append(parse_openalex_work(work))
+            if len(records) >= args.limit:
+                break
+        cursor = str(meta.get("next_cursor") or "")
+        if not cursor:
+            break
+    output = {
+        "source": "openalex",
+        "query": query,
+        "filters": {"publication_year": year} if year else {},
+        "retrieved_at": current_date(),
+        "limit": args.limit,
+        "count": len(records),
+        "hit_count": hit_count,
+        "mailto": bool(mailto),
+        "records": records,
+    }
+    write_json(args.output, output)
+    print(f"Success! OpenAlex records written to: {args.output}")
 
 
 def normalize_issn(value: str) -> str:
@@ -924,9 +1169,10 @@ def command_import_wos_export(args: argparse.Namespace) -> None:
         "count": len(records),
         "records": records,
         "notes": [
-            "Imported from official Web of Science export file batches.",
+            "Imported from an official Web of Science CSV/TSV export supplied by the user.",
+            "The agent does not browse Web of Science.",
             "Records are de-duplicated by WoS UT, then DOI, before applying the explicit limit.",
-            "Verify that the export was generated through authorized campus or institutional access.",
+            "Keep the export file outside the repository.",
         ],
         "duplicate_records_skipped": duplicate_count,
     }
@@ -1965,6 +2211,9 @@ def command_expand_query(args: argparse.Namespace) -> None:
 
         # Regenerate Boolean queries from expanded terms
         plan["pubmed_query"] = _build_pubmed_query(expanded_terms, exclude_terms, mesh_terms, organism, plan.get("constraints"))
+        plan["openalex_query"] = openalex_query_from_pubmed(plan["pubmed_query"]) or compact_space(plan.get("question", ""))
+        year_filter = publication_year_filter(plan["pubmed_query"])
+        plan["openalex_filters"] = {"publication_year": year_filter} if year_filter else {}
         plan["arxiv_query"] = " ".join(expanded_terms)
         plan["wos_query"] = f"TS=(({' AND '.join(expanded_terms)}))"
 
@@ -2043,22 +2292,90 @@ def add_term(terms: list[str], term: str) -> None:
         terms.append(cleaned)
 
 
+def _union_list(base: dict[str, Any], extra: dict[str, Any], key: str) -> None:
+    merged = list(base.get(key) or [])
+    for item in extra.get(key) or []:
+        if item and item not in merged:
+            merged.append(item)
+    if merged:
+        base[key] = merged
+
+
+def merge_duplicate_records(group: list[dict[str, Any]]) -> dict[str, Any]:
+    """Keep one record per paper. PubMed wins field conflicts; empty fields are filled."""
+    ordered = sorted(group, key=lambda record: _SOURCE_RANK.get(str(record.get("source") or ""), 9))
+    base = dict(ordered[0])
+    sources: list[str] = []
+    for record in ordered:
+        source = str(record.get("source") or "")
+        if source and source not in sources:
+            sources.append(source)
+        for key in ("abstract", "journal", "year", "published", "url"):
+            if not base.get(key) and record.get(key):
+                base[key] = record[key]
+        if not record_doi(base) and record_doi(record):
+            base["doi"] = canonical_doi(record.get("doi") or "")
+        if not base.get("authors") and record.get("authors"):
+            base["authors"] = list(record["authors"])
+        for key in ("issns", "mesh_terms", "article_types"):
+            _union_list(base, record, key)
+    pmid = ""
+    for record in ordered:
+        pmid = record_pmid(record)
+        if pmid:
+            break
+    if pmid:
+        base["pmid"] = pmid
+    if record_doi(base):
+        base["doi"] = canonical_doi(base.get("doi") or "")
+    if len(sources) > 1:
+        base["sources"] = sources
+    base["source"] = str(ordered[0].get("source") or base.get("source") or "")
+    return base
+
+
 def deduplicate(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    seen: set[str] = set()
-    deduped: list[dict[str, Any]] = []
-    for record in records:
-        key = ""
-        doi = compact_space(record.get("doi", ""))
-        if doi:
-            key = f"doi:{doi.lower()}"
+    """Merge records that share a DOI or PMID. Title is the fallback when both are absent."""
+    parent = list(range(len(records)))
+
+    def find(index: int) -> int:
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    def union(left: int, right: int) -> None:
+        root_left, root_right = find(left), find(right)
+        if root_left != root_right:
+            parent[root_right] = root_left
+
+    indexes: dict[str, dict[str, int]] = {"doi": {}, "pmid": {}, "title": {}}
+
+    def link(kind: str, value: str, index: int) -> None:
+        if not value:
+            return
+        owner = indexes[kind].get(value)
+        if owner is None:
+            indexes[kind][value] = index
         else:
-            title = re.sub(r"[^a-z0-9]+", "", record.get("title", "").lower())
-            key = f"title:{title}"
-        if not key or key in seen:
-            continue
-        seen.add(key)
-        deduped.append(record)
-    return deduped
+            union(index, owner)
+
+    for index, record in enumerate(records):
+        doi = record_doi(record)
+        pmid = record_pmid(record)
+        link("doi", doi, index)
+        link("pmid", pmid, index)
+        if not doi and not pmid:
+            link("title", title_dedup_key(record.get("title", "")), index)
+    groups: dict[int, list[dict[str, Any]]] = {}
+    order: list[int] = []
+    for index, record in enumerate(records):
+        root = find(index)
+        if root not in groups:
+            groups[root] = []
+            order.append(root)
+        groups[root].append(record)
+    return [merge_duplicate_records(groups[root]) for root in order]
 
 
 def score_record(record: dict[str, Any], terms: list[str], citation_weight: str = "none") -> dict[str, Any]:
@@ -2198,7 +2515,15 @@ def command_merge_rank(args: argparse.Namespace) -> None:
         data = load_json(path)
         records = data.get("records", [])
         all_records.extend(records)
-        source_summaries.append({"path": path, "source": data.get("source"), "count": len(records)})
+        source_summaries.append(
+            {
+                "path": path,
+                "source": data.get("source"),
+                "count": len(records),
+                "hit_count": data.get("hit_count"),
+                "query": data.get("query") or "",
+            }
+        )
     terms = ranking_terms(args)
     citation_weight = getattr(args, "citation_weight", "none") or "none"
     deduped = deduplicate(all_records)
@@ -2230,96 +2555,135 @@ def command_merge_rank(args: argparse.Namespace) -> None:
     print(f"Success! Ranked records written to: {args.output}")
 
 
+def format_search_filters(plan: dict[str, Any] | None) -> str:
+    if not isinstance(plan, dict):
+        return "none"
+    parts: list[str] = []
+    openalex_filters = plan.get("openalex_filters") if isinstance(plan.get("openalex_filters"), dict) else {}
+    if openalex_filters.get("publication_year"):
+        parts.append(f"OpenAlex publication_year:{openalex_filters['publication_year']}")
+    journal = plan.get("journal_filters") if isinstance(plan.get("journal_filters"), dict) else {}
+    if journal.get("cas_zones"):
+        parts.append("CAS zones: " + ", ".join(str(zone) for zone in journal["cas_zones"]))
+    if journal.get("jcr_zones"):
+        parts.append("JCR zones: " + ", ".join(str(zone) for zone in journal["jcr_zones"]))
+    if journal.get("if_min") is not None:
+        parts.append(f"IF >= {journal['if_min']}")
+    if journal.get("if_max") is not None:
+        parts.append(f"IF <= {journal['if_max']}")
+    if journal.get("filter_to_matches"):
+        parts.append("keep journal-metric matches only")
+    return "; ".join(parts) if parts else "none"
+
+
+def load_priority_levels(path: str | Path | None) -> dict[str, int]:
+    if not path or not Path(path).exists():
+        return {}
+    data = load_json(path)
+    recommendations = data.get("recommendations") if isinstance(data, dict) else None
+    if not isinstance(recommendations, dict):
+        return {}
+    levels: dict[str, int] = {}
+    for evidence_id, value in recommendations.items():
+        if isinstance(value, dict) and value.get("priority") in (2, 3):
+            levels[str(evidence_id)] = int(value["priority"])
+    return levels
+
+
+def priority_level(record: dict[str, Any], levels: dict[str, int]) -> int:
+    try:
+        evidence_id = easyscholar_stable_evidence_id(record)
+    except ValueError:
+        return 1
+    return levels.get(evidence_id, 1)
+
+
+def inline_code(value: str) -> str:
+    return "`" + str(value).replace("`", "'") + "`"
+
+
 def command_render_report(args: argparse.Namespace) -> None:
+    """Write the deterministic search record. No synthesis prose."""
     data = load_json(args.ranked_json)
     records = data.get("records", [])[: args.top_n]
-    lines: list[str] = []
-    lines.append(f"# Integrated Literature Research Report / 综合文献调研报告: {args.question}")
-    lines.append("")
-    lines.append("## 1. Search Question / 检索问题")
-    lines.append(args.question)
-    lines.append("")
-    lines.append("## 2. Search Strategy / 检索策略")
-    lines.append(f"- Date searched / 检索日期: {data.get('created_at', current_date())}")
-    sources = data.get("sources", [])
-    source_text = ", ".join(f"{item.get('source')} ({item.get('count')})" for item in sources)
-    lines.append(f"- Databases / 数据库: {source_text or 'Not recorded'}")
-    lines.append(f"- Ranking terms / 排序关键词: {', '.join(data.get('ranking_terms', []))}")
-    lines.append(f"- Input records / 原始记录数: {data.get('input_count', 'NA')}")
-    lines.append(f"- Deduplicated records / 去重后记录数: {data.get('deduplicated_count', 'NA')}")
-    if data.get("citation_weight") and data["citation_weight"] != "none":
-        lines.append(f"- Citation weighting / 引用权重: {data['citation_weight']}")
-    # Check if records have citation data
-    sample_records = data.get("records", [])
-    citation_providers = set()
-    for r in sample_records:
-        cite = r.get("citation")
-        if cite and isinstance(cite, dict) and cite.get("provider"):
-            citation_providers.add(cite["provider"])
-    if citation_providers:
-        lines.append(f"- Citation data source / 引用数据来源: {', '.join(sorted(citation_providers))} (point-in-time snapshot)")
-    lines.append("")
-    lines.append("## 3. Evidence Map / 证据概览")
-    lines.append(
-        "This draft is based on retrieved metadata and abstracts. Revise the synthesis only after reviewing the saved JSON evidence."
-    )
-    lines.append("本草稿基于检索到的元数据和摘要。请在阅读已保存 JSON 证据后再修改科学结论。")
-    lines.append("")
-    lines.append("## 4. Ranked Literature / 排序文献表")
-    # Determine optional columns
-    has_citations = any(r.get("citation") for r in records)
-    has_conclusions = any(r.get("core_conclusion") for r in records)
-
-    # Build header
-    header_parts = ["Rank", "Citation", "Source", "Year"]
-    if has_conclusions:
-        header_parts.append("Core conclusion / 核心结论")
-    if has_citations:
-        header_parts.append("Citations / 引用数")
-    header_parts.extend(["Why included", "Link"])
-    lines.append("| " + " | ".join(header_parts) + " |")
-    lines.append("|" + "|".join(["---"] * len(header_parts)) + "|")
-
-    for record in records:
-        citation = citation_label(record)
-        why = "; ".join(record.get("score_reasons", [])[:4])
-        link = record.get("url") or doi_url(record.get("doi", ""))
-        row_parts = [
-            str(record.get("rank", "")),
-            escape_md(citation),
-            record.get("source", ""),
-            str(record.get("year", "") or ""),
+    plan = data.get("query_plan") if isinstance(data.get("query_plan"), dict) else None
+    searched = data.get("created_at") or (plan or {}).get("created_at") or current_date()
+    sources = data.get("sources") or []
+    database_names: list[str] = []
+    for item in sources:
+        label = SOURCE_DISPLAY.get(str(item.get("source") or ""), str(item.get("source") or "unknown"))
+        if label not in database_names:
+            database_names.append(label)
+    pubmed_query = str(plan.get("pubmed_query") or "") if plan else ""
+    openalex_query = str(plan.get("openalex_query") or "") if plan else ""
+    for item in sources:
+        if item.get("source") == "pubmed" and not pubmed_query:
+            pubmed_query = str(item.get("query") or "")
+        if item.get("source") == "openalex" and not openalex_query:
+            openalex_query = str(item.get("query") or "")
+    limits = plan.get("limits") if plan and isinstance(plan.get("limits"), dict) else {}
+    per_source = limits.get("per_source_retrieval")
+    selected_cap = limits.get("ranked_top_n", args.top_n)
+    if per_source:
+        limits_text = f"{per_source} records per database; {selected_cap} selected after ranking"
+    else:
+        limits_text = f"{selected_cap} selected after ranking"
+    priority_path = getattr(args, "priority_recommendations", None)
+    if not priority_path:
+        sibling = Path(args.ranked_json).parent / "priority_recommendations.json"
+        if sibling.exists():
+            priority_path = sibling
+    levels = load_priority_levels(priority_path)
+    lines = [
+        "# Literature search record",
+        "",
+        "## Question",
+        args.question,
+        "",
+        "## Search",
+        f"- Date: {searched}",
+        f"- Databases: {', '.join(database_names) if database_names else 'Not recorded'}",
+        f"- PubMed query: {inline_code(pubmed_query)}" if pubmed_query else "- PubMed query: not recorded",
+        f"- OpenAlex query: {inline_code(openalex_query)}" if openalex_query else "- OpenAlex query: not used",
+        f"- Limits: {limits_text}",
+        f"- Filters: {format_search_filters(plan)}",
+        "",
+        "## Counts",
+    ]
+    for item in sources:
+        label = SOURCE_DISPLAY.get(str(item.get("source") or ""), str(item.get("source") or "unknown"))
+        retrieved = item.get("count")
+        retrieved_text = "NA" if retrieved is None else str(retrieved)
+        hits = item.get("hit_count")
+        if hits is None:
+            lines.append(f"- {label}: {retrieved_text} retrieved")
+        else:
+            lines.append(f"- {label}: {hits} hits, {retrieved_text} retrieved")
+    lines.extend(
+        [
+            f"- Combined before deduplication: {data.get('input_count', 'NA')}",
+            f"- After DOI/PMID deduplication: {data.get('deduplicated_count', 'NA')}",
+            f"- Selected: {len(records)}",
+            "",
+            "## Selected papers",
+            "| Rank | Title | Journal | Year | PMID | DOI | Priority |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
         ]
-        if has_conclusions:
-            conc = record.get("core_conclusion")
-            row_parts.append(escape_md(conc) if conc else "abstract-level only / 仅摘要层面")
-        if has_citations:
-            cite_data = record.get("citation")
-            row_parts.append(str(cite_data.get("citation_count", "—")) if cite_data and isinstance(cite_data, dict) else "—")
-        row_parts.extend([escape_md(why), link])
-        lines.append("| " + " | ".join(row_parts) + " |")
-    lines.append("")
-    lines.append("## 5. Integrated Research Synthesis / 综合调研结论（科学问题回答）")
-    lines.append(
-        "This section is the evidence-backed synthesis draft generated from saved metadata and abstracts. The agent must revise it in place before delivery, adding domain-level grouping, inclusion/exclusion decisions, and claims supported by citations such as [^1]."
     )
-    lines.append("本节为基于已保存元数据和摘要生成的证据综合初稿。交付前，agent 必须在本文件中原位完善领域分组、纳入/排除判断和带引用的科学结论，不得另建第二份主题报告。")
-    lines.append("")
-    for index, record in enumerate(records[:5], start=1):
-        note = abstract_note(record)
-        lines.append(f"- [^{index}] {note}")
-    lines.append("")
-    lines.append("## 6. Limitations / 局限性")
-    lines.append("- Abstract-level screening only unless full text was separately retrieved.")
-    lines.append("- Result limits and database coverage can cause missed literature.")
-    lines.append("- arXiv records are preprints and require peer-review status checks.")
-    lines.append("- 未单独获取全文时，本报告仅代表摘要层面的筛选。")
-    lines.append("")
-    lines.append("## References / 参考文献")
-    for index, record in enumerate(records, start=1):
-        lines.append(f"[^{index}]: {reference_text(record)}")
-    Path(args.output).write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"Success! Markdown report written to: {args.output}")
+    for record in records:
+        row = [
+            str(record.get("rank", "")),
+            escape_md(record.get("title") or ""),
+            escape_md(record.get("journal") or ""),
+            str(record.get("year") or ""),
+            record_pmid(record),
+            escape_md(canonical_doi(record.get("doi") or "")),
+            str(priority_level(record, levels)),
+        ]
+        lines.append("| " + " | ".join(row) + " |")
+    lines.extend(["", "## Limitations", LIMITATIONS_LINE, ""])
+    Path(args.output).write_text("\n".join(lines), encoding="utf-8")
+    print(f"Success! Search record written to: {args.output}")
 
 
 def command_review(args: argparse.Namespace) -> None:
@@ -2348,15 +2712,33 @@ def command_review(args: argparse.Namespace) -> None:
     if args.pubmed_query:
         plan["pubmed_query"] = compact_space(args.pubmed_query)
         plan["screening_notes"].append("PubMed query was supplied explicitly to the review command.")
+    use_openalex = not getattr(args, "no_openalex", False)
+    openalex_query = ""
+    year_filter = ""
+    if use_openalex:
+        openalex_query = compact_space(getattr(args, "openalex_query", "") or "")
+        if not openalex_query:
+            openalex_query = openalex_query_from_pubmed(plan["pubmed_query"]) or compact_space(args.question)
+        year_filter = publication_year_filter(plan["pubmed_query"]) or ""
+        plan["openalex_query"] = openalex_query
+        plan["openalex_filters"] = {"publication_year": year_filter} if year_filter else {}
+        plan["openalex_mailto"] = bool(get_contact_email(args))
+    else:
+        plan["openalex_query"] = ""
+        plan["openalex_filters"] = {}
+        plan["openalex_mailto"] = False
     enabled_sources = ["pubmed"]
+    if use_openalex:
+        enabled_sources.append("openalex")
     if args.arxiv:
         enabled_sources.append("arxiv")
     if args.wos_export:
         enabled_sources.append("web-of-science-official-export")
-    plan["workflow"] = "common-pubmed-first-review"
+    plan["workflow"] = "default-retrieval-review" if use_openalex else "common-pubmed-first-review"
     plan["source_routing"] = {
         "enabled": enabled_sources,
         "pubmed_first": True,
+        "openalex_default": use_openalex,
         "arxiv_conditional": bool(args.arxiv),
         "web_of_science_export_conditional": bool(args.wos_export),
     }
@@ -2393,6 +2775,18 @@ def command_review(args: argparse.Namespace) -> None:
             )
         )
         source_files.append(str(pubmed_path))
+
+        if use_openalex:
+            openalex_path = temporary_dir / "openalex.json"
+            command_search_openalex(
+                argparse.Namespace(
+                    query=openalex_query,
+                    limit=args.limit,
+                    output=str(openalex_path),
+                    publication_year=year_filter or None,
+                )
+            )
+            source_files.append(str(openalex_path))
 
         if args.arxiv:
             arxiv_path = temporary_dir / "arxiv.json"
@@ -2491,46 +2885,6 @@ def command_review(args: argparse.Namespace) -> None:
         )
     )
     print(f"Success! Review outputs written to: {output_dir}")
-
-
-def citation_label(record: dict[str, Any]) -> str:
-    authors = record.get("authors", [])
-    author_text = ""
-    if authors:
-        author_text = authors[0] + (" et al." if len(authors) > 1 else "")
-    year = record.get("year") or "n.d."
-    title = record.get("title", "Untitled")
-    return f"{author_text} ({year}). {title}" if author_text else f"({year}). {title}"
-
-
-def doi_url(doi: str) -> str:
-    return f"https://doi.org/{doi}" if doi else ""
-
-
-def reference_text(record: dict[str, Any]) -> str:
-    parts = [citation_label(record)]
-    journal = record.get("journal")
-    if journal:
-        parts.append(str(journal))
-    doi = record.get("doi")
-    if doi:
-        parts.append(f"doi:{doi}")
-    if record.get("url"):
-        parts.append(record["url"])
-    return " ".join(parts)
-
-
-def abstract_note(record: dict[str, Any]) -> str:
-    title = record.get("title", "Untitled")
-    # Prefer extracted core conclusion over first-sentence heuristic
-    conclusion = record.get("core_conclusion")
-    if conclusion:
-        return f"{title}: {conclusion}"
-    abstract = record.get("abstract", "")
-    first_sentence = re.split(r"(?<=[.!?])\s+", abstract.strip())[0] if abstract else ""
-    if first_sentence:
-        return f"{title}: {first_sentence}"
-    return f"{title}: no abstract available in retrieved metadata."
 
 
 def escape_md(value: str) -> str:
@@ -2716,7 +3070,7 @@ def append_merge_and_report_steps(
     steps.append(
         command_step(
             "render_report",
-            "Render the canonical integrated report scaffold. This file must become the final report after agent synthesis.",
+            "Write the deterministic search record. Do not add synthesis prose.",
             [
                 "uv",
                 "run",
@@ -2734,16 +3088,16 @@ def append_merge_and_report_steps(
             reads=[ranked_json],
             writes=[report_md],
             notes=[
-                "report.md is the only default Markdown report.",
-                "The agent must revise report.md in place to combine search strategy, evidence screening, and scientific synthesis.",
-                "Do not create a second topical report such as <target>.md or <target>_research_progress.md unless the user explicitly asks.",
+                "report.md is the search record. The script writes it; do not add synthesis prose.",
+                "After priority_recommendations.json exists, re-run render-report so the Priority column matches.",
+                "Do not create a second topical report unless the user explicitly asks for a summary.",
             ],
         )
     )
     steps.append(
         agent_checkpoint(
-            "finalize_report_in_place",
-            "Revise report.md in place into the final integrated report: search strategy, inclusion/exclusion decisions, ranked evidence, limitations, and scientific research-progress synthesis. Do not create a separate topical Markdown report.",
+            "relevance_review",
+            "Judge relevance to the search question. Write priority_recommendations.json for Priority 2 and 3 only, then re-run render-report. Do not edit report.md by hand. Synthesis belongs in literature-writing, or in a separate summary only when the user asks.",
             [report_md, ranked_json],
         )
     )
@@ -2853,6 +3207,34 @@ def command_workflow_plan(args: argparse.Namespace) -> None:
                 )
             )
 
+    if any(key == "openalex" for key, _ in matches):
+        openalex_json = planned_output_path(args.output, "openalex_raw.json")
+        source_outputs.append(openalex_json)
+        openalex_argv = [
+            "uv",
+            "run",
+            SCRIPT,
+            "search-openalex",
+            "--query",
+            draft_plan["openalex_query"],
+            "--limit",
+            str(args.limit),
+            "--output",
+            openalex_json,
+        ]
+        year_filter = (draft_plan.get("openalex_filters") or {}).get("publication_year")
+        if year_filter:
+            openalex_argv.extend(["--publication-year", str(year_filter)])
+        steps.append(
+            command_step(
+                "search_openalex",
+                "Retrieve OpenAlex works through the public API. mailto is attached at execution time when a contact email is configured and is not written into the plan.",
+                openalex_argv,
+                reads=[query_plan],
+                writes=[openalex_json],
+            )
+        )
+
     if any(key == "arxiv" for key, _ in matches):
         arxiv_json = planned_output_path(args.output, "arxiv_raw.json")
         source_outputs.append(arxiv_json)
@@ -2882,8 +3264,8 @@ def command_workflow_plan(args: argparse.Namespace) -> None:
         source_outputs.append(wos_json)
         steps.append(
             agent_checkpoint(
-                "wos_browser_export",
-                "Use web-access with authorized campus/library access to run the WoS Topic query and export official CSV/TSV records.",
+                "wos_user_export",
+                "Ask the user for an official Web of Science CSV/TSV export they downloaded. Do not browse Web of Science or use a campus browser.",
                 [query_plan],
             )
         )
@@ -2907,7 +3289,7 @@ def command_workflow_plan(args: argparse.Namespace) -> None:
                 ],
                 reads=["WOS_EXPORT.tsv"],
                 writes=[wos_json],
-                notes=["Replace WOS_EXPORT.tsv with the authorized official export path."],
+                notes=["Replace WOS_EXPORT.tsv with the official export path the user supplied. Keep that file outside the repository."],
             )
         )
 
@@ -2934,6 +3316,7 @@ def command_workflow_plan(args: argparse.Namespace) -> None:
         "top_n": args.top_n,
         "draft_queries": {
             "pubmed_query": draft_plan["pubmed_query"],
+            "openalex_query": draft_plan["openalex_query"],
             "arxiv_query": draft_plan["arxiv_query"],
             "wos_query": draft_plan["wos_query"],
         },
@@ -2942,7 +3325,7 @@ def command_workflow_plan(args: argparse.Namespace) -> None:
         "subagent_policy": (
             "Use subagents only for independent source/topic evidence packages. "
             "Do not create subagents for XML parsing, ISSN filtering, ranking, file writes, or citation formatting. "
-            "The canonical Markdown deliverable is report.md; revise it in place and do not create duplicate topical report files by default."
+            "The canonical Markdown deliverable is report.md, the script-written search record. Do not revise it into a review."
         ),
     }
     write_json(args.output, output)
@@ -3090,7 +3473,7 @@ def command_pubmed_review_workflow(args: argparse.Namespace) -> None:
     steps.append(
         command_step(
             "render_report",
-            "Render the canonical integrated report scaffold. This file must become the final report after agent synthesis.",
+            "Write the deterministic search record. Do not add synthesis prose.",
             [
                 "uv",
                 "run",
@@ -3108,16 +3491,16 @@ def command_pubmed_review_workflow(args: argparse.Namespace) -> None:
             reads=[render_input_json],
             writes=[report_md],
             notes=[
-                "report.md is the only default Markdown report.",
-                "The agent must revise report.md in place to combine search strategy, evidence screening, and scientific synthesis.",
-                "Do not create a second topical report such as <target>.md or <target>_research_progress.md unless the user explicitly asks.",
+                "report.md is the search record. The script writes it; do not add synthesis prose.",
+                "After priority_recommendations.json exists, re-run render-report so the Priority column matches.",
+                "Do not create a second topical report unless the user explicitly asks for a summary.",
             ],
         )
     )
     steps.append(
         agent_checkpoint(
-            "finalize_report_in_place",
-            "Revise report.md in place into the final integrated report: search strategy, inclusion/exclusion decisions, ranked evidence, limitations, and scientific research-progress synthesis. Do not create a separate topical Markdown report.",
+            "relevance_review",
+            "Judge relevance to the search question. Write priority_recommendations.json for Priority 2 and 3 only, then re-run render-report. Do not edit report.md by hand. Synthesis belongs in literature-writing, or in a separate summary only when the user asks.",
             [report_md, render_input_json],
         )
     )
@@ -3132,10 +3515,10 @@ def command_pubmed_review_workflow(args: argparse.Namespace) -> None:
         "steps": steps,
         "file_policy": output_file_policy([args.output, *[path for step in steps if step.get("owner") == "script" for path in step.get("writes", [])]]),
         "agent_policy": (
-            "Agent reviews query semantics, journal-filter intent, ranked evidence, and final synthesis. "
-            "Scripts own retrieval, parsing, local ISSN/journal metric filtering, ranking, and report rendering. "
+            "Agent reviews query semantics, journal-filter intent, and relevance to the search question. "
+            "Scripts own retrieval, parsing, local ISSN/journal metric filtering, ranking, and the search record. "
             "Use PubMed ISSN second-pass filtering only as an explicit fallback when result volume requires it and the ISSN query is short enough. "
-            "The canonical Markdown deliverable is report.md; revise it in place and do not create duplicate topical report files by default. "
+            "The canonical Markdown deliverable is report.md, the script-written search record. Do not revise it into a review. "
             "Do not create ad hoc helper scripts or renamed duplicate JSON/CSV outputs."
         ),
     }
@@ -3177,8 +3560,9 @@ def command_database_route(args: argparse.Namespace) -> None:
         "matches": matches,
         "available_databases": [route["display_name"] for route in DATABASE_ROUTES.values()],
         "default_policy": (
-            "Use API-first routes when available. Use web-access only for logged-in, "
-            "campus-network, dynamic-page, full-text, or source-verification tasks."
+            "Use the PubMed and OpenAlex APIs for default retrieval. "
+            "Web of Science is a CSV/TSV export the user downloaded. "
+            "Do not browse campus or subscription databases."
         ),
     }
     write_json(args.output, output)
@@ -3188,10 +3572,12 @@ def command_database_route(args: argparse.Namespace) -> None:
 def subagent_prompt(question: str, route_key: str, route: dict[str, Any], query_plan: str | None) -> str:
     plan_text = f"Use this query-plan file as the source of truth: {query_plan}." if query_plan else "Create or review an auditable query plan before retrieval."
     web_access_text = (
-        "You must load the web-access skill and follow its guidance for browser readiness, "
-        "site behavior, CDP tab isolation, and anti-bypass rules."
-        if route.get("requires_web_access")
-        else "Do not use browser access unless API results need source-level verification."
+        "Do not browse this database. "
+        + (
+            "Ask the user for the official export file they downloaded."
+            if route.get("access_mode") == "user-supplied-official-export"
+            else "Use the API or import command in the database pattern."
+        )
     )
     expected = "; ".join(route.get("expected_evidence", []))
     return (
@@ -3243,12 +3629,12 @@ def command_subagent_plan(args: argparse.Namespace) -> None:
             "Wait for every subagent handoff or record an explicit source failure.",
             "Verify each handoff includes saved evidence file paths before using its claims.",
             "Run merge-rank on all produced source JSON files with the shared query plan or keywords.",
-            "Inspect score_reasons and source limitations before writing the final synthesis.",
-            "Run render-report, then revise conclusions only from saved evidence and citations.",
+            "Inspect score_reasons and source limitations before judging relevance.",
+            "Run render-report to write the search record. Do not add synthesis to report.md.",
         ],
         "parallel_policy": (
             "Split only independent database/source tasks. Shared API rate limits remain enforced "
-            "by the helper script; browser tasks must use separate web-access/CDP tabs and close them."
+            "by the helper script. Do not browse campus or subscription databases."
         ),
     }
     write_json(args.output, output)
@@ -3284,7 +3670,19 @@ def build_parser() -> argparse.ArgumentParser:
     review.add_argument("--output", required=True, help="output directory for the four canonical artifacts")
     review.add_argument("--api-key", help=argparse.SUPPRESS)
     review.add_argument("--arxiv", action="store_true", help="also retrieve arXiv records")
-    review.add_argument("--wos-export", help="also import an authorized official Web of Science CSV/TSV export")
+    review.add_argument(
+        "--no-openalex",
+        action="store_true",
+        help="skip the default OpenAlex search and retrieve PubMed only",
+    )
+    review.add_argument(
+        "--openalex-query",
+        help="exact OpenAlex search string; default is the PubMed query with field tags removed",
+    )
+    review.add_argument(
+        "--wos-export",
+        help="also import an official Web of Science CSV/TSV export the user downloaded",
+    )
     review.add_argument(
         "--citation-provider",
         choices=["auto", "semantic-scholar", "crossref"],
@@ -3416,6 +3814,13 @@ def build_parser() -> argparse.ArgumentParser:
     pubmed.add_argument("--api-key", help=argparse.SUPPRESS)
     pubmed.set_defaults(func=command_search_pubmed)
 
+    openalex = sub.add_parser("search-openalex", help="search OpenAlex works; no API key")
+    openalex.add_argument("--query", required=True, help="exact OpenAlex search string")
+    openalex.add_argument("--limit", required=True, type=positive_int)
+    openalex.add_argument("--publication-year", help="OpenAlex publication_year filter, such as 2022-2026")
+    openalex.add_argument("--output", required=True)
+    openalex.set_defaults(func=command_search_openalex)
+
     arxiv = sub.add_parser("search-arxiv", help="search arXiv public API")
     arxiv.add_argument("--query", required=True)
     arxiv.add_argument("--limit", required=True, type=positive_int)
@@ -3425,7 +3830,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     wos_import = sub.add_parser(
         "import-wos-export",
-        help="normalize an official Web of Science CSV/TSV export",
+        help="normalize an official Web of Science CSV/TSV export the user downloaded",
     )
     wos_import.add_argument("--input", required=True, nargs="+", help="one or more official WoS CSV/TSV export batches")
     wos_import.add_argument("--query")
@@ -3562,11 +3967,15 @@ def build_parser() -> argparse.ArgumentParser:
     expand_q.add_argument("--output", required=True)
     expand_q.set_defaults(func=command_expand_query)
 
-    report = sub.add_parser("render-report", help="render a Markdown evidence report")
+    report = sub.add_parser("render-report", help="write the deterministic search record")
     report.add_argument("--ranked-json", required=True)
     report.add_argument("--question", required=True)
     report.add_argument("--top-n", required=True, type=positive_int)
     report.add_argument("--output", required=True)
+    report.add_argument(
+        "--priority-recommendations",
+        help="optional priority_recommendations.json; otherwise a sibling file is used when present",
+    )
     report.set_defaults(func=command_render_report)
     return parser
 

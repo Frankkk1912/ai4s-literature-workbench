@@ -1,9 +1,9 @@
 # Report-Stage Semantic Tag Candidates
 
 When Agent Tags are enabled for a retrieved batch, create
-`semantic_tag_candidates.json` during the same evidence-synthesis pass that
-finalizes `report.md` and Priority recommendations. Do not launch a second
-paper-by-paper model pass merely for tagging.
+`semantic_tag_candidates.json` during the same relevance review that writes
+Priority recommendations. Do not launch a second paper-by-paper model pass
+merely for tagging, and do not put the tags into `report.md`.
 
 These are English semantic candidates, not final Zotero tags. The
 `literature-manager` workflow must compare them with the current library

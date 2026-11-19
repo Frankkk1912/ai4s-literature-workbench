@@ -23,10 +23,12 @@ follow the route for their app in `INSTALL.md` in the plugin root). Continue
 only once `setup_status` answers.
 
 This skill needs no keys. It needs saved evidence: `ranked_all.json` (or
-`.csv`) and `report.md` from `literature-research`. Confirm those files exist.
-If they do not, stop and say plainly: "I don't have saved evidence to write
-from yet." Then offer to run `literature-research` first. Never draft from
-memory. Never ask for a key in chat.
+`.csv`) from `literature-research`. `report.md` is the search record
+(question, queries, counts, and the selected-paper table). It is provenance,
+not a draft answer. Confirm the ranked evidence exists. If it does not, stop
+and say plainly: "I don't have saved evidence to write from yet." Then offer
+to run `literature-research` first. Never draft from memory. Never ask for a
+key in chat.
 
 ## Overview
 Use this skill to write scientific prose from saved evidence artifacts. It does
@@ -37,8 +39,8 @@ The hard rule is **No Evidence, No Conclusion**. Every claim must trace to saved
 evidence, not memory, plausible mechanisms, or library metadata alone.
 
 ## Dependencies
-- `literature-research`: required for search strategy, ranked evidence, abstracts,
-  source links, and `report.md`.
+- `literature-research`: required for the search record, ranked evidence,
+  abstracts, and source links. The search record does not contain the answer.
 - `literature-manager`: optional for Zotero keys, collection metadata,
   duplicate status, tags, and note handoffs.
 - `documents:documents`: use only after Markdown prose is stable and the user
@@ -66,7 +68,7 @@ If the user asks for writing before evidence exists, route to
 `literature-manager` only for citation/library metadata.
 
 ## Workflow
-1. Inventory inputs: ranked evidence JSON/CSV, report scaffold, Zotero match,
+1. Inventory inputs: ranked evidence JSON/CSV, the search record, Zotero match,
    sync, or import-receipt metadata, full-text notes, and user target format.
 2. Build a claim outline. Each paragraph must list supporting evidence IDs
    before prose is drafted.

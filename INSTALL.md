@@ -127,7 +127,7 @@ Not yet tested in Claude Desktop. The release page lists `ai4s-literature-zotero
 ## Check at the end
 
 1. The tool list includes `setup_status` (and the `fulltext_*` tools, which are optional). If `setup_status` is missing, say "My search tools are not connected yet", name the step that failed, and give one next action. Then call it and use its `rendered` text.
-2. Run one tiny real search, so the user sees a result rather than a file-exists check. In a private temporary folder, from the folder that holds `literature-research/`: `uv run literature-research/scripts/literature_search.py review --question "setup check" --pubmed-query "CRISPR base editing[Title]" --limit 3 --top-n 3 --output <private-temp>/ai4s-setup-check`. Show the first titles from `report.md`. If it fails, say the search did not run and give the one reason in plain words.
+2. Run one tiny real search, so the user sees a result rather than a file-exists check. In a private temporary folder, from the folder that holds `literature-research/`: `uv run literature-research/scripts/literature_search.py review --question "setup check" --pubmed-query "CRISPR base editing[Title]" --limit 3 --top-n 3 --output <private-temp>/ai4s-setup-check`. Show the first titles from the selected-paper table in `report.md`. If it fails, say the search did not run and give the one reason in plain words.
 3. Report in this shape:
 
 ```text

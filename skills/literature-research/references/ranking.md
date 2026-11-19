@@ -47,7 +47,7 @@ When `--citation-weight none` (default), citation counts are still recorded in `
 |---|---|---|---|
 | Crossref | is-referenced-by-count, references-count | Polite pool with mailto | DOI-based point-in-time snapshot |
 
-Citation counts are point-in-time snapshots from the enrichment date. Different providers may report different counts for the same paper. The report always labels which provider contributed each count.
+Citation counts are point-in-time snapshots from the enrichment date. Different providers may report different counts for the same paper. The provider stays on the ranked JSON citation object. The search record does not repeat citation counts.
 
 ## Journal Metrics Bonus
 

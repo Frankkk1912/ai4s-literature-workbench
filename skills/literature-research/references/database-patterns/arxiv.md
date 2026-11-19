@@ -2,7 +2,7 @@
 
 ## Access Mode
 - Use `literature_search.py search-arxiv` through the public arXiv API first.
-- Use browser access only when verifying a specific arXiv page, PDF availability, author version, or cross-link.
+- Do not browse arXiv for the result set. The API record is the evidence.
 
 ## Effective Pattern
 1. Keep arXiv queries compact; avoid PubMed-style synonym-heavy Boolean strings.
@@ -13,7 +13,7 @@
 ## Evidence Files
 - Query plan JSON.
 - arXiv records JSON.
-- Ranked JSON/CSV and final Markdown report.
+- Ranked JSON/CSV and the search record `report.md`.
 
 ## Known Traps
 - arXiv metadata is not a peer-review signal.

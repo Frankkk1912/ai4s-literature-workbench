@@ -1,16 +1,17 @@
 # Lightweight Zotero Project Sync
 
-Use this route after `literature-research` finalizes `report.md` and ranked
-evidence. It keeps one project collection, selected papers, and one current
-AI4S report Note together without turning audit mechanics into user work.
+Use this route after `literature-research` writes the search-record `report.md`
+and ranked evidence. It keeps one project collection, selected papers, and one
+current AI4S search-record Note together without turning audit mechanics into
+user work. The Note is provenance for the search, not a literature review.
 
 ## User Contract
 
 The ordinary result is one compact summary: collection name, created count,
 reused count, and whether the report was created, updated, or unchanged. Do not
 show internal plan paths, hashes, receipts, or per-paper JSON unless diagnosing
-a failure. `report.md` remains the auditable source; the Zotero Note is its
-synced reading copy. Keep human annotations in a separate Note.
+a failure. `report.md` remains the auditable search record; the Zotero Note is
+its synced reading copy. Keep human annotations in a separate Note.
 
 ## Low-Risk Automatic Path
 
@@ -36,7 +37,7 @@ must be resolved first.
 
 ## Inputs and Recovery
 
-Required inputs are the project slug, search date, finalized `report.md`, and
+Required inputs are the project slug, search date, search-record `report.md`, and
 ranked evidence JSON. The evidence should already contain selected-only
 EasyScholar enrichment for a new import. The collection name is required only on first sync; later
 runs recover it from the private binding. An optional compact selection JSON

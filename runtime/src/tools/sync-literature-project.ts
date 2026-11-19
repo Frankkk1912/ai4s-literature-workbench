@@ -11,7 +11,7 @@ const syncLiteratureProjectTool: ToolDefinition = {
     project_slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
     collection_name: z.string().min(1).optional().describe('Required on first sync; later runs reuse the private project binding.'),
     search_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    report_path: z.string().min(1).describe('Absolute path to the finalized report.md.'),
+    report_path: z.string().min(1).describe('Absolute path to the search-record report.md.'),
     evidence_path: z.string().min(1).describe('Absolute path to ranked_all.json.'),
     selection_path: z.string().min(1).optional().describe('Optional compact selection JSON; otherwise all ranked records are selected.'),
     priority_recommendations_path: z.string().min(1).optional().describe('Optional report-stage priority_recommendations.json sidecar.'),

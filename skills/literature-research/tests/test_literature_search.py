@@ -350,13 +350,16 @@ class TestRenderReport(unittest.TestCase):
             })()
             ls.command_render_report(args)
             text = Path(tmp_path).read_text(encoding="utf-8")
-            self.assertIn("检索问题", text)
-            self.assertIn("检索策略", text)
-            self.assertIn("证据概览", text)
-            self.assertIn("排序文献表", text)
-            self.assertIn("科学问题回答", text)
-            self.assertIn("局限性", text)
-            self.assertIn("参考文献", text)
+            self.assertIn("# Literature search record", text)
+            self.assertIn("## Question\nEXAMPLE-GENE in cardiovascular disease", text)
+            self.assertIn("- Date: 2024-06-15", text)
+            self.assertIn("| Rank | Title | Journal | Year | PMID | DOI | Priority |", text)
+            self.assertIn("12345678", text)
+            self.assertIn("10.1234/jcr.2023.001", text)
+            self.assertIn("| 1 |", text)
+            self.assertTrue(text.rstrip().endswith(ls.LIMITATIONS_LINE))
+            self.assertNotIn("科学问题回答", text)
+            self.assertNotIn("证据概览", text)
         finally:
             Path(tmp_path).unlink(missing_ok=True)
 
@@ -618,6 +621,9 @@ class TestExpandQuery(unittest.TestCase):
             self.assertIn("phosphatidylinositol-glycan-specific phospholipase D", result["pubmed_query"])
             self.assertIn("mouse", result["pubmed_query"])  # should appear as NOT
             self.assertIn("human", result["pubmed_query"])  # organism constraint
+            self.assertNotIn("[MeSH", result["openalex_query"])
+            self.assertNotIn("[dp]", result["openalex_query"])
+            self.assertEqual(result["openalex_filters"]["publication_year"], "2022-2026")
         finally:
             Path(plan_path).unlink(missing_ok=True)
             Path(output_path).unlink(missing_ok=True)
@@ -647,11 +653,10 @@ class TestBuildPubMedQuery(unittest.TestCase):
 
 
 class TestReportWithConclusions(unittest.TestCase):
-    """Test that report includes conclusion column when available."""
+    """The search record stays a table even when abstracts were previously summarized."""
 
-    def test_report_with_conclusions(self) -> None:
+    def test_report_omits_agent_conclusions(self) -> None:
         ranked_data = ls.load_json(FIXTURES / "ranked_sample.json")
-        # Add conclusions to records
         for rec in ranked_data["records"]:
             rec["core_conclusion"] = "Test conclusion"
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as tmp:
@@ -667,8 +672,9 @@ class TestReportWithConclusions(unittest.TestCase):
             })()
             ls.command_render_report(args)
             text = Path(output_path).read_text(encoding="utf-8")
-            self.assertIn("核心结论", text)
-            self.assertIn("Test conclusion", text)
+            self.assertNotIn("核心结论", text)
+            self.assertNotIn("Test conclusion", text)
+            self.assertIn(ls.LIMITATIONS_LINE, text)
         finally:
             Path(input_path).unlink(missing_ok=True)
             Path(output_path).unlink(missing_ok=True)
@@ -693,9 +699,21 @@ class TestWorkflowPlanning(unittest.TestCase):
         def fake_pubmed(args: object) -> None:
             ls.write_json(args.output, {"source": "pubmed", "count": 1, "records": [record]})
 
+        def fake_openalex(args: object) -> None:
+            ls.write_json(args.output, {
+                "source": "openalex",
+                "query": args.query,
+                "count": 0,
+                "hit_count": 3,
+                "mailto": False,
+                "records": [],
+            })
+
         with tempfile.TemporaryDirectory() as output_dir, patch.object(
             ls, "command_search_pubmed", side_effect=fake_pubmed
-        ), patch.object(ls, "command_search_arxiv") as arxiv, patch.object(
+        ), patch.object(
+            ls, "command_search_openalex", side_effect=fake_openalex
+        ) as openalex, patch.object(ls, "command_search_arxiv") as arxiv, patch.object(
             ls, "command_enrich_citations"
         ) as citations, patch.object(ls, "command_enrich_journal_metrics") as metrics:
             args = type("Args", (), {
@@ -720,6 +738,8 @@ class TestWorkflowPlanning(unittest.TestCase):
                 "easyscholar_api_key": None,
                 "easyscholar_cache": None,
                 "easyscholar_min_interval": 1.0,
+                "no_openalex": False,
+                "openalex_query": None,
             })()
             ls.command_review(args)
             self.assertEqual(
@@ -728,7 +748,10 @@ class TestWorkflowPlanning(unittest.TestCase):
             )
             plan = ls.load_json(Path(output_dir) / "search_plan.json")
             self.assertEqual(plan["pubmed_query"], "EXAMPLE-GENE AND cardiovascular")
-            self.assertEqual(plan["source_routing"]["enabled"], ["pubmed"])
+            self.assertEqual(plan["openalex_query"], "EXAMPLE-GENE AND cardiovascular")
+            self.assertEqual(plan["source_routing"]["enabled"], ["pubmed", "openalex"])
+            openalex.assert_called_once()
+            self.assertEqual(openalex.call_args.args[0].query, plan["openalex_query"])
             self.assertEqual(plan["limits"], {"per_source_retrieval": 20, "ranked_top_n": 10})
             source_summary = ls.load_json(Path(output_dir) / "ranked_all.json")["sources"][0]
             self.assertNotIn("path", source_summary)
@@ -753,6 +776,8 @@ class TestWorkflowPlanning(unittest.TestCase):
             suffix=".csv"
         ) as wos, tempfile.NamedTemporaryFile(suffix=".csv") as metrics_file, patch.object(
             ls, "command_search_pubmed", side_effect=fake_source("pubmed")
+        ), patch.object(
+            ls, "command_search_openalex", side_effect=fake_source("openalex")
         ), patch.object(ls, "command_search_arxiv", side_effect=fake_source("arxiv")) as arxiv, patch.object(
             ls, "command_import_wos_export", side_effect=fake_source("wos")
         ) as wos_import, patch.object(
@@ -782,6 +807,8 @@ class TestWorkflowPlanning(unittest.TestCase):
                 "easyscholar_api_key": None,
                 "easyscholar_cache": None,
                 "easyscholar_min_interval": 1.0,
+                "no_openalex": False,
+                "openalex_query": None,
             })()
             ls.command_review(args)
             arxiv.assert_called_once()
@@ -791,8 +818,9 @@ class TestWorkflowPlanning(unittest.TestCase):
             plan = ls.load_json(Path(output_dir) / "search_plan.json")
             self.assertEqual(
                 plan["source_routing"]["enabled"],
-                ["pubmed", "arxiv", "web-of-science-official-export"],
+                ["pubmed", "openalex", "arxiv", "web-of-science-official-export"],
             )
+            self.assertTrue(plan["openalex_query"])
             self.assertEqual(plan["conditional_enrichment"]["citation_provider"], "crossref")
             self.assertTrue(plan["journal_filters"]["filter_to_matches"])
 
@@ -847,7 +875,9 @@ class TestWorkflowPlanning(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as output_dir, patch.object(
             ls, "command_search_pubmed", side_effect=fake_pubmed
-        ), patch.object(ls, "command_enrich_journal_metrics") as metrics, patch.object(
+        ), patch.object(ls, "command_search_openalex") as openalex, patch.object(
+            ls, "command_enrich_journal_metrics"
+        ) as metrics, patch.object(
             ls, "command_enrich_easyscholar"
         ) as easyscholar:
             args = type("Args", (), {
@@ -872,8 +902,11 @@ class TestWorkflowPlanning(unittest.TestCase):
                 "easyscholar_api_key": "test-key",
                 "easyscholar_cache": None,
                 "easyscholar_min_interval": 1.0,
+                "no_openalex": True,
+                "openalex_query": None,
             })()
             ls.command_review(args)
+            openalex.assert_not_called()
             metrics.assert_called_once()
             easyscholar.assert_called_once()
             plan = ls.load_json(Path(output_dir) / "search_plan.json")
@@ -887,6 +920,8 @@ class TestWorkflowPlanning(unittest.TestCase):
         ])
         self.assertIsNone(args.journal_metrics)
         self.assertFalse(args.no_journal_metrics)
+        self.assertFalse(args.no_openalex)
+        self.assertIsNone(args.openalex_query)
         self.assertFalse(args.easyscholar)
         self.assertIsNone(args.easyscholar_api_key)
         self.assertIsNone(args.easyscholar_cache)
@@ -1089,7 +1124,7 @@ class TestWorkflowPlanning(unittest.TestCase):
             self.assertNotIn("journal_filter_audit", step_ids)
             self.assertNotIn("review_journal_filter", step_ids)
             self.assertIn("local_journal_quality_filter", step_ids)
-            self.assertIn("finalize_report_in_place", step_ids)
+            self.assertIn("relevance_review", step_ids)
             self.assertNotIn("compose_second_pass_query", step_ids)
             self.assertNotIn("pubmed_second_pass_search", step_ids)
             create_plan = next(step for step in result["steps"] if step["id"] == "create_query_plan")
@@ -1106,11 +1141,12 @@ class TestWorkflowPlanning(unittest.TestCase):
             self.assertIn("--if-min", local_filter["argv"])
             self.assertTrue(result["journal_quality_filter_enabled"])
             render_report = next(step for step in result["steps"] if step["id"] == "render_report")
-            finalize_report = next(step for step in result["steps"] if step["id"] == "finalize_report_in_place")
+            relevance_review = next(step for step in result["steps"] if step["id"] == "relevance_review")
             self.assertEqual(render_report["writes"], [str(output_dir / "report.md")])
-            self.assertIn("report.md is the only default Markdown report", " ".join(render_report["notes"]))
-            self.assertIn(str(output_dir / "report.md"), finalize_report["requires"])
+            self.assertIn("report.md is the search record", " ".join(render_report["notes"]))
+            self.assertIn(str(output_dir / "report.md"), relevance_review["requires"])
             self.assertIn("canonical Markdown deliverable is report.md", result["agent_policy"])
+            self.assertNotIn("web-access", result["agent_policy"])
             self.assertIn(str(output_dir / "filtered_q1_if_gt5.json"), result["file_policy"]["allowed_default_outputs"])
             forbidden = " ".join(result["file_policy"]["forbidden_default_outputs"])
             self.assertIn("filter_q1_if.py", forbidden)
@@ -1603,6 +1639,12 @@ class TestSecretRedaction(unittest.TestCase):
         self.assertNotIn("secretKey", sanitized)
         self.assertNotIn("api_key", sanitized)
 
+    def test_sanitize_url_removes_mailto(self) -> None:
+        sanitized = ls.sanitize_url("https://api.openalex.org/works?search=gene&mailto=polite@example.org")
+        self.assertIn("search=gene", sanitized)
+        self.assertNotIn("polite@example.org", sanitized)
+        self.assertNotIn("mailto", sanitized)
+
     def test_default_help_hides_credential_arguments_and_hidden_provider(self) -> None:
         parser = ls.build_parser()
         subparsers = next(
@@ -1617,6 +1659,323 @@ class TestSecretRedaction(unittest.TestCase):
             self.assertNotIn("--s2-api-key", help_text)
             self.assertNotIn("--api-key", help_text)
             self.assertNotIn("--easyscholar-api-key", help_text)
+
+
+class TestOpenAlexRetrieval(unittest.TestCase):
+    """Recorded OpenAlex fixtures. These tests do not open a network connection."""
+
+    def test_query_strips_pubmed_field_tags_and_keeps_boolean_text(self) -> None:
+        pubmed = '(EXAMPLE-GENE[Title]) AND ("heart failure"[MeSH Terms]) AND "2020:2024"[dp]'
+        self.assertEqual(
+            ls.openalex_query_from_pubmed(pubmed),
+            '(EXAMPLE-GENE) AND ("heart failure")',
+        )
+        self.assertEqual(ls.publication_year_filter(pubmed), "2020-2024")
+
+    def test_search_uses_fixture_and_mailto_without_storing_the_address(self) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_request(url: str, rate_name: str, min_interval: float, retries: int = 3) -> str:
+            captured["url"] = url
+            captured["rate"] = rate_name
+            captured["interval"] = min_interval
+            return (FIXTURES / "openalex_sample.json").read_text(encoding="utf-8")
+
+        with tempfile.TemporaryDirectory() as tmpdir, patch.object(
+            ls.urllib.request, "urlopen", side_effect=AssertionError("live network")
+        ), patch.object(ls, "request_text", side_effect=fake_request), patch.object(
+            ls, "get_contact_email", return_value="polite@example.org"
+        ):
+            output_path = Path(tmpdir) / "openalex.json"
+            ls.command_search_openalex(type("Args", (), {
+                "query": '(EXAMPLE-GENE) AND ("heart failure")',
+                "limit": 25,
+                "publication_year": "2020-2024",
+                "output": str(output_path),
+            })())
+            payload = ls.load_json(output_path)
+        query = ls.urllib.parse.parse_qs(ls.urllib.parse.urlsplit(str(captured["url"])).query)
+        self.assertEqual(query["search"], ['(EXAMPLE-GENE) AND ("heart failure")'])
+        self.assertEqual(query["filter"], ["publication_year:2020-2024"])
+        self.assertEqual(query["mailto"], ["polite@example.org"])
+        self.assertEqual(captured["rate"], "openalex")
+        self.assertLess(float(captured["interval"]), 1)
+        self.assertEqual(payload["query"], '(EXAMPLE-GENE) AND ("heart failure")')
+        self.assertEqual(payload["hit_count"], 2)
+        self.assertTrue(payload["mailto"])
+        self.assertNotIn("polite@example.org", json.dumps(payload))
+        first = payload["records"][0]
+        self.assertEqual(first["source"], "openalex")
+        self.assertEqual(first["id"], "W1001")
+        self.assertEqual(first["doi"], "10.1234/jcr.2023.001")
+        self.assertEqual(first["pmid"], "12345678")
+        self.assertEqual(first["abstract"], "EXAMPLE-GENE regulates cardiac function")
+        self.assertEqual(first["issns"], ["1234-5678"])
+        self.assertEqual(first["journal"], "Journal of Cardiovascular Research")
+
+    def test_search_works_without_a_contact_email(self) -> None:
+        captured: dict[str, str] = {}
+
+        def fake_request(url: str, rate_name: str, min_interval: float, retries: int = 3) -> str:
+            captured["url"] = url
+            captured["interval"] = str(min_interval)
+            return (FIXTURES / "openalex_sample.json").read_text(encoding="utf-8")
+
+        with tempfile.TemporaryDirectory() as tmpdir, patch.object(
+            ls, "request_text", side_effect=fake_request
+        ), patch.object(ls, "get_contact_email", return_value=None):
+            output_path = Path(tmpdir) / "openalex.json"
+            ls.command_search_openalex(type("Args", (), {
+                "query": "EXAMPLE-GENE",
+                "limit": 5,
+                "publication_year": None,
+                "output": str(output_path),
+            })())
+            payload = ls.load_json(output_path)
+        self.assertNotIn("mailto", captured["url"])
+        self.assertGreaterEqual(float(captured["interval"]), 1)
+        self.assertFalse(payload["mailto"])
+        self.assertEqual(payload["filters"], {})
+
+    def test_merge_dedupes_doi_and_pmid_and_keeps_journal_match(self) -> None:
+        works = [ls.parse_openalex_work(work) for work in ls.load_json(FIXTURES / "openalex_sample.json")["results"]]
+        pubmed_same_doi = {
+            "source": "pubmed",
+            "id": "12345678",
+            "pmid": "12345678",
+            "title": "EXAMPLE-GENE regulates cardiac function in heart failure",
+            "abstract": "PubMed abstract stays.",
+            "doi": "https://doi.org/10.1234/JCR.2023.001",
+            "issns": [],
+            "journal": "",
+            "authors": ["Smith J"],
+            "year": 2023,
+            "mesh_terms": ["Heart Failure"],
+            "article_types": ["Journal Article"],
+        }
+        pubmed_pmid_only = {
+            "source": "pubmed",
+            "id": "55500001",
+            "title": "PubMed title for the methods note",
+            "abstract": "From PubMed.",
+            "doi": "",
+            "issns": [],
+            "journal": "",
+            "year": 2021,
+            "mesh_terms": [],
+            "article_types": ["Journal Article"],
+        }
+        merged = ls.deduplicate([works[0], pubmed_same_doi, works[1], pubmed_pmid_only])
+        self.assertEqual(len(merged), 2)
+        doi_record = next(record for record in merged if record.get("pmid") == "12345678")
+        self.assertEqual(doi_record["source"], "pubmed")
+        self.assertEqual(doi_record["abstract"], "PubMed abstract stays.")
+        self.assertEqual(doi_record["doi"], "10.1234/JCR.2023.001")
+        self.assertIn("1234-5678", doi_record["issns"])
+        self.assertEqual(doi_record["journal"], "Journal of Cardiovascular Research")
+        self.assertIn("Heart Failure", doi_record["mesh_terms"])
+        self.assertEqual(doi_record["sources"], ["pubmed", "openalex"])
+        self.assertEqual(ls.easyscholar_stable_evidence_id(doi_record), "doi:10.1234/jcr.2023.001")
+        pmid_record = next(record for record in merged if record.get("pmid") == "55500001")
+        self.assertEqual(pmid_record["title"], "PubMed title for the methods note")
+        self.assertIn("2222-3333", pmid_record["issns"])
+        self.assertEqual(ls.easyscholar_stable_evidence_id(pmid_record), "pmid:55500001")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ranked_path = Path(tmpdir) / "ranked.json"
+            metrics_path = Path(tmpdir) / "metrics.csv"
+            enriched_path = Path(tmpdir) / "enriched.json"
+            ls.write_json(ranked_path, {"records": merged})
+            metrics_path.write_text(
+                "Journal,Impact Factor,JCR-zone,ISSN\n"
+                "Journal of Cardiovascular Research,8.5,Q1,1234-5678\n",
+                encoding="utf-8",
+            )
+            ls.command_enrich_journal_metrics(type("Args", (), {
+                "ranked_json": str(ranked_path),
+                "journal_metrics": str(metrics_path),
+                "cas_zones": None,
+                "jcr_zones": None,
+                "if_min": None,
+                "if_max": None,
+                "filter_to_matches": False,
+                "output": str(enriched_path),
+                "csv": None,
+            })())
+            enriched = ls.load_json(enriched_path)
+            matched = next(record for record in enriched["records"] if "1234-5678" in record["issns"])
+            self.assertEqual(matched["journal_metrics"]["impact_factor"], "8.5")
+            self.assertEqual(matched["journal_metrics"]["jcr_zone"], "Q1")
+            self.assertEqual(ls.easyscholar_stable_evidence_id(matched), "doi:10.1234/jcr.2023.001")
+
+    def test_review_records_the_exact_openalex_query_and_not_the_email(self) -> None:
+        def fake_source(source: str):
+            def write(args: object) -> None:
+                ls.write_json(args.output, {
+                    "source": source,
+                    "query": getattr(args, "query", ""),
+                    "count": 1,
+                    "hit_count": 4,
+                    "records": [{
+                        "source": source,
+                        "id": "12345678" if source == "pubmed" else "W1001",
+                        "pmid": "12345678",
+                        "title": "EXAMPLE-GENE in heart failure",
+                        "abstract": "Abstract.",
+                        "authors": ["Smith J"],
+                        "journal": "Journal of Cardiovascular Research",
+                        "year": 2023,
+                        "doi": "10.1234/jcr.2023.001",
+                        "url": "https://doi.org/10.1234/jcr.2023.001",
+                        "issns": ["1234-5678"],
+                        "mesh_terms": [],
+                        "article_types": ["Journal Article"],
+                    }],
+                })
+            return write
+
+        question = "EXAMPLE-GENE 在心血管疾病中的作用"
+        pubmed_query = '(EXAMPLE-GENE[Title]) AND ("heart failure"[MeSH Terms]) AND "2020:2024"[dp]'
+        with tempfile.TemporaryDirectory() as output_dir, patch.object(
+            ls, "command_search_pubmed", side_effect=fake_source("pubmed")
+        ), patch.object(
+            ls, "command_search_openalex", side_effect=fake_source("openalex")
+        ) as openalex, patch.object(
+            ls, "command_enrich_journal_metrics",
+            side_effect=lambda args: ls.write_json(args.output, ls.load_json(args.ranked_json)),
+        ), patch.object(ls, "get_contact_email", return_value="polite@example.org"):
+            ls.command_review(type("Args", (), {
+                "question": question,
+                "pubmed_query": pubmed_query,
+                "limit": 20,
+                "top_n": 5,
+                "output": output_dir,
+                "api_key": None,
+                "arxiv": False,
+                "wos_export": None,
+                "citation_provider": None,
+                "s2_api_key": None,
+                "citation_cache": None,
+                "journal_metrics": None,
+                "no_journal_metrics": True,
+                "cas_zones": None,
+                "jcr_zones": None,
+                "if_min": None,
+                "if_max": None,
+                "filter_journals": False,
+                "easyscholar": False,
+                "easyscholar_api_key": None,
+                "easyscholar_cache": None,
+                "easyscholar_min_interval": 1.0,
+                "no_openalex": False,
+                "openalex_query": None,
+            })())
+            plan = ls.load_json(Path(output_dir) / "search_plan.json")
+            report = Path(output_dir, "report.md").read_text(encoding="utf-8")
+        self.assertEqual(plan["openalex_query"], '(EXAMPLE-GENE) AND ("heart failure")')
+        self.assertEqual(plan["openalex_filters"], {"publication_year": "2020-2024"})
+        self.assertTrue(plan["openalex_mailto"])
+        self.assertNotIn("polite@example.org", json.dumps(plan))
+        self.assertEqual(openalex.call_args.args[0].query, plan["openalex_query"])
+        self.assertEqual(openalex.call_args.args[0].publication_year, "2020-2024")
+        self.assertIn(question, report)
+        self.assertIn(plan["openalex_query"], report)
+        self.assertIn(pubmed_query, report)
+        self.assertIn("OpenAlex publication_year:2020-2024", report)
+        self.assertIn("4 hits, 1 retrieved", report)
+        self.assertIn("After DOI/PMID deduplication: 1", report)
+        self.assertIn(ls.LIMITATIONS_LINE, report)
+        self.assertNotIn("科学问题回答", report)
+        self.assertNotIn("polite@example.org", report)
+
+    def test_priority_column_uses_relevance_sidecar(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ranked_path = Path(tmpdir) / "ranked_all.json"
+            priority_path = Path(tmpdir) / "priority_recommendations.json"
+            report_path = Path(tmpdir) / "report.md"
+            ls.write_json(ranked_path, {
+                "created_at": "2026-11-19",
+                "input_count": 2,
+                "deduplicated_count": 2,
+                "ranking_terms": ["EXAMPLE-GENE"],
+                "query_plan": {
+                    "pubmed_query": "(EXAMPLE-GENE)",
+                    "openalex_query": "(EXAMPLE-GENE)",
+                    "openalex_filters": {},
+                    "limits": {"per_source_retrieval": 20, "ranked_top_n": 2},
+                    "journal_filters": {},
+                },
+                "sources": [
+                    {"source": "pubmed", "count": 1, "hit_count": 8, "query": "(EXAMPLE-GENE)"},
+                    {"source": "openalex", "count": 1, "hit_count": 6, "query": "(EXAMPLE-GENE)"},
+                ],
+                "records": [
+                    {
+                        "rank": 1, "source": "pubmed", "id": "12345678", "pmid": "12345678",
+                        "title": "EXAMPLE-GENE directly answers the question",
+                        "journal": "Journal of Cardiovascular Research", "year": 2024,
+                        "doi": "10.1000/core", "issns": [], "authors": ["Smith J"],
+                        "abstract": "Direct evidence.", "article_types": ["Journal Article"],
+                        "mesh_terms": [],
+                    },
+                    {
+                        "rank": 2, "source": "pubmed", "id": "222", "pmid": "222",
+                        "title": "Background paper", "journal": "Notes", "year": 2020,
+                        "doi": "10.1000/background", "issns": [], "authors": ["Doe A"],
+                        "abstract": "Context.", "article_types": ["Journal Article"],
+                        "mesh_terms": [],
+                    },
+                ],
+            })
+            ls.write_json(priority_path, {
+                "schema_version": "1.0",
+                "artifact_type": "literature-priority-recommendations",
+                "scope": "example-gene",
+                "review_depth": "abstract",
+                "default_for_selected": 1,
+                "recommendations": {
+                    "doi:10.1000/core": {
+                        "priority": 3,
+                        "reason_codes": ["direct-question-match"],
+                    }
+                },
+            })
+            ls.command_render_report(type("Args", (), {
+                "ranked_json": str(ranked_path),
+                "question": "What does EXAMPLE-GENE do in heart failure?",
+                "top_n": 5,
+                "output": str(report_path),
+                "priority_recommendations": None,
+            })())
+            text = report_path.read_text(encoding="utf-8")
+        self.assertIn("| 1 | EXAMPLE-GENE directly answers the question | Journal of Cardiovascular Research | 2024 | 12345678 | 10.1000/core | 3 |", text)
+        self.assertIn("| 2 | Background paper | Notes | 2020 | 222 | 10.1000/background | 1 |", text)
+        self.assertTrue(text.rstrip().endswith(ls.LIMITATIONS_LINE))
+
+    def test_workflow_plan_for_openalex_does_not_browse(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "workflow.json"
+            ls.command_workflow_plan(type("Args", (), {
+                "question": "EXAMPLE-GENE",
+                "targets": "OpenAlex",
+                "limit": 10,
+                "top_n": 5,
+                "journal_metrics": None,
+                "cas_zones": None,
+                "jcr_zones": None,
+                "if_min": None,
+                "if_max": None,
+                "citation_weight": "none",
+                "output": str(output_path),
+            })())
+            result = ls.load_json(output_path)
+        step_ids = [step["id"] for step in result["steps"]]
+        self.assertIn("search_openalex", step_ids)
+        self.assertNotIn("search_pubmed", step_ids)
+        self.assertIn("openalex_query", result["draft_queries"])
+        serialized = json.dumps(result)
+        self.assertNotIn("web-access", serialized)
+        self.assertNotIn("campus", serialized.lower())
 
 
 if __name__ == "__main__":

@@ -1,17 +1,22 @@
-# Report-Stage Priority Recommendations
+# Relevance Priority Recommendations
 
-Create `priority_recommendations.json` during the same reasoning pass that
-finalizes `report.md`. Do not launch a separate paper-by-paper audit.
+During the relevance review of the selected records, write
+`priority_recommendations.json`. Do not launch a separate paper-by-paper audit,
+and do not write this judgment into `report.md`. After the file exists, re-run
+`render-report` so the search record's Priority column matches.
 
-Priority is a personal reading/use priority for one project:
+Priority is a personal reading/use priority for one project, judged by
+relevance to the search question:
 
-- `1`: background or supporting paper. This is the default for selected papers.
-- `2`: important mechanism, method, evidence, review, or contrasting result.
-- `3`: core/must-read paper directly supporting a core report conclusion.
+- `1`: selected, but not a primary match for the question. This is the default.
+- `2`: clearly relevant support: an important mechanism, method, dataset,
+  review, or contrasting result for this question.
+- `3`: directly addresses the search question. A must-read for this question.
 
-Priority is not evidence quality, risk of bias, journal prestige, or a reusable
-absolute ranking across research questions. `rank` and `score_reasons` may inform
-the decision but must not be converted mechanically into stars.
+Priority is not evidence quality, risk of bias, journal prestige, citation
+count, or a reusable ranking across research questions. `rank` and
+`score_reasons` may inform the decision but must not be converted mechanically
+into stars.
 
 ## Compact Contract
 
@@ -25,7 +30,7 @@ the decision but must not be converted mechanically into stars.
   "recommendations": {
     "doi:10.1000/core": {
       "priority": 3,
-      "reason_codes": ["core-conclusion", "direct-question-match"]
+      "reason_codes": ["direct-question-match"]
     },
     "pmid:12345678": {
       "priority": 2,
@@ -41,17 +46,19 @@ project slug. `review_depth` is one of `metadata`, `abstract`, `mixed`, or
 
 Only Priority 2 and 3 overrides belong in `recommendations`; omitting Priority
 1 papers keeps the artifact compact. Reason codes must be lower-kebab-case and
-should normally come from this small vocabulary:
+should normally come from this vocabulary:
 
-- `core-conclusion`
 - `direct-question-match`
+- `essential-for-question`
 - `important-mechanism`
 - `important-method`
-- `important-background`
+- `important-evidence`
 - `high-value-review`
 - `contrasting-evidence`
-- `landmark-or-field-defining`
 - `user-selected`
 
-Do not add natural-language mini-reviews. The report and ranked evidence already
-contain the scientific context.
+`direct-question-match` and `essential-for-question` are for Priority 3. The
+others are for Priority 2, except `user-selected`, which records an explicit
+user promotion. Do not add natural-language mini-reviews. The Zotero tag
+contract is unchanged: `AI4S:Priority:1`, `AI4S:Priority:2`, and
+`AI4S:Priority:3`.

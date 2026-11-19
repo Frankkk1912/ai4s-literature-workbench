@@ -36,8 +36,9 @@ restart. Never say "not configured". Do not write to Zotero until
 ## Overview
 Use this skill to connect saved literature evidence with Frank's Zotero library
 without letting Zotero replace source-database retrieval. Zotero is the
-management and reuse layer; PubMed, Web of Science, arXiv, and campus sources
-remain the evidence discovery layer.
+management and reuse layer; PubMed, OpenAlex, and a user-supplied Web of
+Science export remain the evidence discovery layer. This skill does not browse
+campus databases.
 
 Default to a **low-friction user experience**. Engineering artifacts are safety
 mechanisms, not user tasks: do not expose plan files, hashes, receipt paths, or
@@ -60,16 +61,17 @@ for it explicitly.
 
 ## Dependencies
 - `literature-research`: use first for search plans, raw retrieval, ranked
-  evidence JSON/CSV, and evidence-first reports.
+  evidence JSON/CSV, and the search-record `report.md`.
 - `literature-writing`: use after Zotero matching when the user wants review,
   proposal, or manuscript prose with traceable citations.
-- `web-access`: use only for live Zotero web pages, login-required sources, or
-  campus-network database access.
+- Do not browse campus-network or subscription databases. Web of Science
+  arrives as a CSV/TSV export the user downloaded, imported by
+  `literature-research`.
 
 ## Quick Start
 For a recurring deep-search project, prefer the high-level MCP tool
 `zotero_sync_literature_project`. It keeps selected ranked evidence and one
-AI4S-owned Current Report Note in the same collection. The first sync binds the
+AI4S-owned search-record Note in the same collection. The first sync binds the
 project and requires a collection name; later runs need only the project slug
 and reuse the binding to update the same Note. Omit a selection artifact only
 when all ranked records are intended for the collection. Read
@@ -252,7 +254,7 @@ the `AI4S-Summary` Extra contract.
 1. Confirm the evidence source. If there is no ranked evidence file, run
    `literature-research` first.
 2. For a recurring report project, use `zotero_sync_literature_project` with
-   the finalized `report.md`, EasyScholar-enriched ranked evidence, project
+   the search-record `report.md`, EasyScholar-enriched ranked evidence, project
    slug, and search date. Exact DOI/PMID operations and available create/reuse
    metrics proceed idempotently and return a compact result.
 3. Stop and ask Frank only if project sync reports a high-risk case. A large
@@ -308,8 +310,8 @@ A Zotero MCP server is optional runtime convenience. Do not make MCP state the
 only source of truth. Preserve JSON exports, match reports, and sync plans so a
 future agent can audit what was matched and changed.
 
-For lightweight project sync, `report.md` and ranked evidence remain the source
-of truth. Private MCP state stores only reconstructible Zotero bindings,
+For lightweight project sync, the search-record `report.md` and ranked evidence
+remain the source of truth. Private MCP state stores only reconstructible Zotero bindings,
 content hashes, and receipts; report ownership tags support recovery without
 user-facing plan files.
 

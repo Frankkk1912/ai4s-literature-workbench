@@ -88,15 +88,15 @@ restricted to the audited MCP workflow.
 Priority uses the same native-tag approach:
 
 ```text
-AI4S:Priority:1  # background/supporting
-AI4S:Priority:2  # important
-AI4S:Priority:3  # core/must-read
+AI4S:Priority:1  # selected, not a primary match for the question
+AI4S:Priority:2  # clearly relevant to the question
+AI4S:Priority:3  # directly addresses the question
 ```
 
 Priority means personal reading and use priority, not evidence quality. Keep
 exactly one Priority tag per item. If conflicting values exist, the column
 shows `⚠` and asks the user to choose a star instead of silently choosing one.
-The agent may initialize a missing value from a reviewed report-stage
+The agent may initialize a missing value from a relevance-review
 recommendation, but later imports preserve an existing user value.
 
 Hovering over a star previews the prospective rating; clicking commits it in

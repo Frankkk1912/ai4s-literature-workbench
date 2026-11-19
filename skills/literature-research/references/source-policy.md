@@ -1,53 +1,52 @@
 # Source Policy
 
-## v1 Sources
+## Default Sources
+
 - PubMed through NCBI E-utilities.
-- arXiv through the public arXiv API.
-- Web of Science through campus-network browser access plus official CSV/TSV
-  export import.
-- Versioned bundled `jcr_journals_2025.csv` for ISSN, CAS zone, JCR zone, and
-  impact-factor filtering/enrichment. A user-provided reviewed CSV is an
-  explicit override, not a prerequisite.
+- OpenAlex works API. Free, no key. A configured contact email is sent as
+  `mailto` for the polite pool and is omitted from saved artifacts. The search
+  still runs when no email is configured.
+- Versioned bundled `jcr_journals_2025.csv` for ISSN, JCR zone, and
+  impact-factor matching. A user-provided reviewed CSV is an explicit override,
+  not a prerequisite. The bundled table does not supply CAS zones.
 
-## Optional citation enrichment
-- **Crossref** via `/works/{doi}` API. Provides `is-referenced-by-count` and
-  `references-count`.
-  Rate limit: 50 req/s (polite pool with `mailto` parameter from config or
-  `CROSSREF_MAILTO` env). v1 does not depend on Crossref for core search;
-  it is enrichment-only.
+## Optional Sources
 
-Citation enrichment does **not** change record scores by default. Scoring
-adjustments require explicit `--citation-weight` on `merge-rank`. See
-`references/ranking.md` for the formulae.
+- arXiv through the public arXiv API, only when the user wants preprints.
+- Web of Science through an official CSV/TSV export the user downloaded. The
+  agent does not browse Web of Science or any other campus-network database.
+- Citation counts from Crossref. Rate limit follows Crossref's polite pool
+  when `email` or `CROSSREF_MAILTO` is set. Citation enrichment is not part of
+  the default search and does not change scores unless `merge-rank` is run
+  with `--citation-weight`.
 
-## Campus-Network Sources
-- A generic online search tool is not assumed to have Frank's campus IP,
-  institutional login, or library proxy. Use it for public web verification
-  only.
-- A local browser or local Playwright process running on Frank's machine may use
-  campus IP/VPN privileges. Prefer this path for WoS, journal sites, and
-  subscription full text.
-- For Web of Science, prefer official export files over DOM scraping. Import the
-  export with `import-wos-export` so the downstream ranking/report workflow
-  remains auditable.
-- Use headless browser mode only when the WoS page loads directly under campus
-  IP and no login, CAPTCHA, or export dialog needs human interaction. Otherwise
-  use a visible browser session and continue from exported records.
-- Do not store cookies, browser profiles, private exported records, or full-text
-  PDFs inside this repository.
+## Campus And Subscription Databases
+
+- This workbench does not browse campus-network or subscription sites.
+- A generic web search is not a substitute for PubMed or OpenAlex, and it is
+  not assumed to have institutional access.
+- For Web of Science, ask the user for the official export and import it with
+  `import-wos-export`. Do not scrape the site or automate a login.
+- Do not store cookies, browser profiles, private exported records, or
+  full-text PDFs inside this repository.
 
 ## Deferred Sources
-- Zotero import/search is deferred until local API or Better BibTeX behavior is
-  specified.
-- Google Scholar requires browser automation via web-access CDP; deferred to
-  future phase.
-- Local n8n transfer bundles are implementation references only. Do not commit
-  Docker archives, n8n databases, or private/unlicensed replacement journal
-  metric tables into this skill.
+
+- Europe PMC. It is free and needs no key, but its core MEDLINE overlap with
+  PubMed is large and its query dialect is a separate parser. Leave it as a
+  follow-up rather than a third default source.
+- Sources that require an API key, including Semantic Scholar as a retrieval
+  database. Semantic Scholar remains an optional citation-enrichment provider
+  only when a key is already configured outside chat.
+- Google Scholar. It is not retrieved from this skill.
+- Zotero is the library layer in `literature-manager`, not a discovery source.
 
 ## Rate-Limit References
+
 - NCBI E-utilities documentation:
   `https://www.ncbi.nlm.nih.gov/books/NBK25497/`
+- OpenAlex API:
+  `https://docs.openalex.org/`
 - arXiv API user manual:
   `https://info.arxiv.org/help/api/user-manual.html`
 - Crossref API etiquette:

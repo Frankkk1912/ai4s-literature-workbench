@@ -8,7 +8,8 @@ sections from `literature-research` and Zotero handoff artifacts.
 Require saved evidence before writing:
 
 - `literature-research` ranked evidence JSON/CSV, usually `ranked_all.json`.
-- `literature-research` report scaffold or final `report.md`.
+- `literature-research` search record `report.md` (queries, counts, selected
+  papers). It is not a draft synthesis.
 - Optional `literature-manager` match/sync JSON for citation keys,
   collection status, tags, and item provenance.
 - Verified full text or abstracts when the claim depends on details beyond

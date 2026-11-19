@@ -121,7 +121,7 @@ folder for the output (never the user's project folder):
 uv run literature-research/scripts/literature_search.py review --question "setup check" --pubmed-query "CRISPR base editing[Title]" --limit 3 --top-n 3 --output <private-temp>/ai4s-setup-check
 ```
 
-Read `report.md` there and show the user the first one to three titles. That is
+Read the selected-paper table in `report.md` there and show the user the first one to three titles. That is
 the result they should see. If it fails, say plainly that the search did not run
 and give the one reason in plain words (no network, helper missing), never
 "basic features work". Delete the temporary folder afterwards.
