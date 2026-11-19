@@ -1,6 +1,6 @@
 # AI4S Literature Workbench: Zero-Terminal Onboarding Plan
 
-Oct 18, 2026 · @Frank · updated Oct 20, 2026: DeepSeek Harness Desktop added as a host · Oct 21, 2026: Phase 3 findings (Zotero 10 local writes, update feed) · Oct 22, 2026: DeepSeek Harness package and route built
+Oct 18, 2026 · @Frank · updated Oct 20, 2026: DeepSeek Harness Desktop added as a host · Oct 21, 2026: Phase 3 findings (Zotero 10 local writes, update feed) · Oct 22, 2026: DeepSeek Harness package and route built · Nov 18, 2026: checkboxes brought up to date, "What is next" added, the search helper download built
 
 ## Goal and success criteria
 
@@ -77,9 +77,9 @@ WorkBuddy ships first. It is a desktop agent aimed at non-technical users, which
 
 **Tasks**
 
-- [ ] Add `.codebuddy-plugin/marketplace.json` pointing at the same plugin folder.
-- [ ] Write the WorkBuddy route in `INSTALL.md` and README\_CN first: add the plugin, accept the permission prompt, use the setup page that opens, run the first search.
-- [ ] Ship a ready-made `mcp.json` entry for when the plugin route fails, with the exact path and the "no leading dot" warning. Have the setup tool offer to write that entry itself, so the user edits no file.
+- [x] Add `.codebuddy-plugin/marketplace.json` pointing at the same plugin folder.
+- [x] Write the WorkBuddy route in `INSTALL.md` and README\_CN first: add the plugin, accept the permission prompt, use the setup page that opens, run the first search.
+- [ ] Ship a ready-made `mcp.json` entry for when the plugin route fails, with the exact path and the "no leading dot" warning. Have the setup tool offer to write that entry itself, so the user edits no file. *Half done: the entry and the warning are in `INSTALL.md`; `install-host.mjs` does not write `~/.workbuddy/mcp.json` yet, because the connector format was not confirmed.*
 - [ ] Run the first clean-machine tests on WorkBuddy, then Codex and Claude Desktop, then CodeBuddy.
 - [ ] Change the dashboard's WorkBuddy and CodeBuddy rows from "unverified" to measured once those runs pass.
 
@@ -91,12 +91,12 @@ Removed from the tree. The package, release asset, and install route are no long
 
 After install, the tools must already work: no `npm install`, no TypeScript build, and no browser download on the user's machine. CI does the building; the user receives the output.
 
-- [ ] Bundle `runtime` and `fulltext-runtime` into single JavaScript files with dependencies included (esbuild or similar), built in CI on every tag.
+- [x] Bundle `runtime` and `fulltext-runtime` into single JavaScript files with dependencies included (esbuild or similar), built in CI on every tag.
 - [x] Remove `database-browser-runtime`. Campus-network browsing was deprioritized; open-access full text stays in `fulltext-runtime`.
-- [ ] Publish four assets per release tag: a `.mcpb` bundle, a plugin archive with prebuilt `dist/` folders, the Zotero XPI, and a checksums file.
-- [ ] Add `scripts/bootstrap.mjs` as the single cross-platform entry. Reduce the `.sh` and `.ps1` scripts to one-line wrappers. Every command then has the shape `node scripts/<name>.mjs`, which removes problem 5.
-- [ ] Provide `uv` from `bootstrap.mjs` (fetch a pinned release with a checksum, or ship it in the archive) and point the research and manager skills at that copy.
-- [ ] Remove "Node.js ≥22.13, uv, Git" from the beginner path in README and README\_CN. Keep it in the developer section only.
+- [x] Publish four assets per release tag: a `.mcpb` bundle, a plugin archive with prebuilt `dist/` folders, the Zotero XPI, and a checksums file.
+- [x] Add `scripts/bootstrap.mjs` as the single cross-platform entry. Reduce the `.sh` and `.ps1` scripts to one-line wrappers. Every command then has the shape `node scripts/<name>.mjs`, which removes problem 5.
+- [x] Provide `uv` from `bootstrap.mjs` (fetch a pinned release with a checksum, or ship it in the archive) and point the research and manager skills at that copy. *Done differently (Nov 18, 2026): the runtime fetches it, not `bootstrap.mjs`, because every route has the runtime and only the source route runs `bootstrap.mjs`. The `install_search_helper` tool downloads pinned `uv` 0.13.7 with a hard-coded SHA-256 into the workbench's tools folder, and fetches Python 3.12 through uv when there is none (no `~/.local/bin` link, no registry entry). `setup_status` hands the skills the quoted command (`search_helper.run`). Shipping uv in the archive was rejected: six binaries add about 100 MB, and the Git-based routes do not use the archive. Tried on macOS from a home folder with no uv and only the system Python 3.9: install plus Python took about 18 seconds, then the setup-check search ran. **Not tried on Windows or Linux yet.***
+- [x] Remove "Node.js ≥22.13, uv, Git" from the beginner path in README and README\_CN. Keep it in the developer section only.
 
 **The `.mcpb` bundle covers two hosts.** Claude Desktop installs it by double-click or drag-and-drop and ships its own Node.js on macOS and Windows ([MCPB docs](https://claude.com/docs/connectors/building/mcpb)). Claude Code's `plugin.json` can point `mcpServers` at a `.mcpb` file or URL ([manifest reference](https://code.claude.com/docs/en/plugins/manifest-reference.md)).
 
@@ -138,12 +138,12 @@ Sources: [MCPB docs](https://claude.com/docs/connectors/building/mcpb), [Claude 
 
 **Tasks**
 
-- [ ] Runtime reads credentials in this order: host-injected environment variables, then the private config file. Existing native and legacy files keep working.
-- [ ] Add MCP tools `setup_status` and `open_setup`. `open_setup` starts the loopback wizard if it is not running and opens the user's default browser.
-- [ ] Start the wizard from the MCP process itself, so the agent no longer launches `--http` and relays a code from stderr.
-- [ ] Add double-click launchers (`Setup AI4S.bat`, `Setup AI4S.command`) that run `bootstrap.mjs` and open the wizard. They cover agent sandboxes that cannot start a server or a browser.
-- [ ] Keep `onboard.mjs` for developers; the beginner path never mentions it.
-- [ ] Ask only for keys that unlock something the user asked for. Search needs none; the wizard offers the Zotero, PubMed and EasyScholar keys one at a time, each with a plain-language reason and a link to where to get it.
+- [x] Runtime reads credentials in this order: host-injected environment variables, then the private config file. Existing native and legacy files keep working.
+- [x] Add MCP tools `setup_status` and `open_setup`. `open_setup` starts the loopback wizard if it is not running and opens the user's default browser.
+- [x] Start the wizard from the MCP process itself, so the agent no longer launches `--http` and relays a code from stderr.
+- [x] Add double-click launchers (`Setup AI4S.bat`, `Setup AI4S.command`) that run `bootstrap.mjs` and open the wizard. They cover agent sandboxes that cannot start a server or a browser.
+- [x] Keep `onboard.mjs` for developers; the beginner path never mentions it.
+- [x] Ask only for keys that unlock something the user asked for. Search needs none; the wizard offers the Zotero, PubMed and EasyScholar keys one at a time, each with a plain-language reason and a link to where to get it.
 
 **Decision, accepted:** today the pairing code never appears in a URL. To skip the copy-and-paste step, the launching process could open the browser with a one-time token in the URL fragment, which browsers do not send to the server. This weakens the current rule slightly in exchange for one less manual step. You accepted it, because the code only protects a loopback page that expires in minutes.
 
@@ -151,13 +151,13 @@ Sources: [MCPB docs](https://claude.com/docs/connectors/building/mcpb), [Claude 
 
 The agent should never guess what is installed or improvise setup steps. The skills and the status output tell it exactly what to say.
 
-- [ ] Add a first step to all three skills: call `setup_status`. If the MCP tools are missing, stop and say "My search tools are not connected yet" plus one next action. No silent fallback and no "basic features work" claim.
-- [ ] Add a fourth skill, `ai4s-setup`, that owns first-run. It detects the host, follows the install route for that host, calls `setup_status`, opens the wizard if a key is wanted, and re-checks at the end.
-- [ ] Add `INSTALL.md` (and a small `install-manifest.json`) listing the exact install route per host. The README prompt tells the agent to follow it, which prevents invented steps like problem 2.
-- [ ] Make `setup_status` return capabilities, not components, and have the skill render them in three groups.
-- [ ] Reply in the language the user writes in; ship status strings in Chinese and English, Chinese by default.
-- [ ] Ask the user to run a command only when the double-click launcher has failed. Then give one copy-paste line and say how to open a terminal in the right folder.
-- [ ] Finish setup with a real smoke test (a tiny PubMed query), so the user sees a result rather than a file-exists check.
+- [x] Add a first step to all three skills: call `setup_status`. If the MCP tools are missing, stop and say "My search tools are not connected yet" plus one next action. No silent fallback and no "basic features work" claim.
+- [x] Add a fourth skill, `ai4s-setup`, that owns first-run. It detects the host, follows the install route for that host, calls `setup_status`, opens the wizard if a key is wanted, and re-checks at the end.
+- [x] Add `INSTALL.md` (and a small `install-manifest.json`) listing the exact install route per host. The README prompt tells the agent to follow it, which prevents invented steps like problem 2.
+- [x] Make `setup_status` return capabilities, not components, and have the skill render them in three groups.
+- [x] Reply in the language the user writes in; ship status strings in Chinese and English, Chinese by default.
+- [x] Ask the user to run a command only when the double-click launcher has failed. Then give one copy-paste line and say how to open a terminal in the right folder.
+- [x] Finish setup with a real smoke test (a tiny PubMed query), so the user sees a result rather than a file-exists check.
 
 The status the user reads should look like this:
 
@@ -242,6 +242,20 @@ Effort figures are my rough estimates for one developer; re-plan them after the 
 | 3 Zotero | D: XPI in every release, local-API reads, add-on update route. Spike: key-free writes through the add-on (replaced by Zotero 10's own local writes; see the finding) | About 1 week, spike open-ended | None |
 | 4 Prove it | F: clean-machine runs, WorkBuddy first, then each other host. E: getting-started pages in both languages, screenshots | About 1 week | Gate 3: first search in 10 minutes or less for three beginners |
 
+### What is next (Nov 18, 2026)
+
+Phases 0 to 3 are done. What is left, in order:
+
+| # | Work | Who | Why now |
+| --- | --- | --- | --- |
+| 1 | ~~**Ship `uv` with the plugin**~~ **Done (Nov 18, 2026)**: `install_search_helper` fetches a pinned, checksum-checked `uv`, and Python when needed. Still to try on Windows, where it relies on System32 `tar.exe` to unpack the `.zip` | Code | Search was the first thing a beginner tries and depended on `uv` |
+| 2 | **Write the WorkBuddy `mcp.json` entry from the setup tool**, so the fallback route needs no file editing. Needs the connector format, which item 3 confirms | Code, after item 3 | The last open WorkBuddy task |
+| 3 | **Phase 4 manual runs** from [release-checklist.md](release-checklist.md): WorkBuddy first, on clean Windows 11 and macOS, three beginners, recorded | Owner | Gate 3. The runs also answer the WorkBuddy spike questions above |
+| 4 | **Screenshots or GIF** for both READMEs, taken from those runs | Owner, then code | The placeholders are still commented out |
+| 5 | **First real add-on update** after the next release, to see whether Zotero follows the GitHub redirect | Owner | Only a real update can answer it |
+
+Item 1 is built. The manual runs (item 3) should use a build that includes it, and the Windows run is its first real test.
+
 ## Risks and decisions
 
 The biggest risk is that a host's sandbox blocks something the plan assumes, and the plan keeps a fallback for each.
@@ -253,7 +267,7 @@ The biggest risk is that a host's sandbox blocks something the plan assumes, and
 | Claude Desktop does not inject `user_config` in cowork sessions | A March 2026 issue reports the values missing there ([claude-code#39125](https://github.com/anthropics/claude-code/issues/39125)) | Runtime reads its own config file as a backup |
 | Unsigned executables trigger antivirus, SmartScreen or macOS Gatekeeper warnings | Beginners will stop at a warning | Prefer the `.mcpb` route where possible; evaluate code signing, plus Apple notarization, for binaries |
 | Zotero's local API changes | Write support was undecided in 2024; it shipped in Zotero 10 (Aug 2026) and Zotero said it was still adjusting it | Feature-detect at runtime (a `Zotero-Server-ID` header means Zotero 10+); keep the Web API key path |
-| The agent's shell blocks the `uv` or Python download | Search then cannot run, and it is the first thing a beginner tries | Ship `uv` inside the archive; the skill already stops with a plain message |
+| The agent's shell blocks the `uv` or Python download | Search then cannot run, and it is the first thing a beginner tries | The download now runs in the tools' own process, not the agent's shell. If it is blocked there too, the skills fall back to the official installer; search itself needs network from the shell anyway |
 | Seven hosts times two operating systems | Maintenance cost grows quickly | WorkBuddy first, then Codex and Claude Desktop, then CodeBuddy and Claude Code; Trae and Qoder best-effort |
 
 **Decisions made**

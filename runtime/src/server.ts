@@ -32,12 +32,14 @@ export interface ContextOverrides {
 
 /**
  * Tools exposed for this config: read-only mode hides mutating tools (plus zotero_index,
- * which only touches local index files, and open_setup, which only opens the page where
- * the user types their own keys and never touches the library). Mirrors the M10 selection.
+ * which only touches local index files, open_setup, which only opens the page where
+ * the user types their own keys, and install_search_helper, which only downloads the search
+ * helper; none of them touches the library). Mirrors the M10 selection.
  */
 export const WORKBENCH_TOOL_NAMES = new Set([
   'setup_status',
   'open_setup',
+  'install_search_helper',
   'zotero_whoami',
   'zotero_search_items',
   'zotero_get_item',
@@ -59,15 +61,22 @@ export const WORKBENCH_TOOL_NAMES = new Set([
   'zotero_apply_ai_summaries',
 ]);
 
+/**
+ * Tools that act on this computer, not on the library: the key page and the search-helper
+ * download. Read-only mode keeps them; a remote (OAuth) deployment drops them, because its
+ * callers are on another machine.
+ */
+const LOCAL_ONLY_TOOLS = new Set(['open_setup', 'install_search_helper']);
+
 export function selectActiveTools(config: ZoteusConfig): ToolDefinition[] {
   const profiled = (config.toolProfile === 'workbench'
     ? tools.filter((tool) => WORKBENCH_TOOL_NAMES.has(tool.name))
     : tools
-  // A remote (OAuth) deployment deliberately has no local setup page, and its callers cannot
-  // reach this machine's loopback anyway, so the tool that opens one is not offered there.
-  ).filter((tool) => !(config.oauth.enabled && tool.name === 'open_setup'));
+  // A remote (OAuth) deployment deliberately has no local setup page or helper download: its
+  // callers are on another machine, so those tools are not offered there.
+  ).filter((tool) => !(config.oauth.enabled && LOCAL_ONLY_TOOLS.has(tool.name)));
   return config.readOnly
-    ? profiled.filter((t) => t.annotations?.readOnlyHint === true || t.name === 'zotero_index' || t.name === 'open_setup')
+    ? profiled.filter((t) => t.annotations?.readOnlyHint === true || t.name === 'zotero_index' || LOCAL_ONLY_TOOLS.has(t.name))
     : profiled;
 }
 

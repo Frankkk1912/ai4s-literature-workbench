@@ -174,9 +174,11 @@ creation, and tag/membership updates remain internal to the import-plan tool.
 `zotero_list_collections` is read-only and is how an agent finds a collection
 key before scoping a search. Use `full` only when developing or explicitly
 using inherited low-level tools. Combining `workbench` with
-`ZOTEUS_READ_ONLY=true` removes write-capable tools and leaves eleven tools:
-the two setup tools plus the read-only workflow tools, including collection
-listing, fulltext, semantic-tag, and AI Summary context preparation.
+`ZOTEUS_READ_ONLY=true` removes write-capable tools and leaves twelve tools:
+the three setup tools (`setup_status`, `open_setup`, and `install_search_helper`)
+plus the read-only workflow tools, including collection listing, fulltext,
+semantic-tag, and AI Summary context preparation. The helper download never
+touches the library.
 
 For an explicitly requested fulltext workflow, first use
 `zotero_fulltext_context` to preflight exact parents and local file PDFs. Send

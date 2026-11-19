@@ -35,7 +35,24 @@ describe('setup status groups', () => {
   it('a missing search helper is a need, never a quiet "basic features work"', () => {
     const items = evaluateSetup({ ...baseFacts(), uvAvailable: false });
     expect(groupOf(items, 'search')).toBe('needs_you');
-    expect(items.find((item) => item.id === 'search')?.action?.type).toBe('ask_to_install');
+    // The workbench downloads its own copy: no official installer, no PATH change.
+    expect(items.find((item) => item.id === 'search')?.action).toMatchObject({ type: 'install_helper', tool: 'install_search_helper' });
+  });
+
+  it('says the helper is downloading while an install runs, and falls back to the official installer where none is built', () => {
+    const downloading = evaluateSetup({ ...baseFacts(), uvAvailable: false, uvInstalling: 'downloading' });
+    expect(groupOf(downloading, 'search')).toBe('needs_you');
+    expect(downloading.find((i) => i.id === 'search')?.detail.en).toMatch(/downloading/);
+
+    const unsupported = evaluateSetup({ ...baseFacts(), uvAvailable: false, uvCanInstall: false });
+    expect(unsupported.find((i) => i.id === 'search')?.action?.type).toBe('ask_to_install');
+  });
+
+  it('hands the skills the command that replaces `uv run`, only when the helper works', () => {
+    const run = { posix: "'/tools/uv-x/uv' run", powershell: "& 'C:\\tools\\uv.exe' run" };
+    expect(buildSetupStatus({ ...baseFacts(), uvRun: run }).search_helper).toEqual({ ready: true, run });
+    expect(buildSetupStatus({ ...baseFacts(), uvRun: null }).search_helper.run).toEqual({ posix: 'uv run', powershell: 'uv run' });
+    expect(buildSetupStatus({ ...baseFacts(), uvAvailable: false, uvRun: run }).search_helper).toEqual({ ready: false, run: null });
   });
 
   it('asking for a capability moves it from optional to needs-you, and a met one stays in works-now', () => {

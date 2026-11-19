@@ -86,7 +86,7 @@ You get a deduplicated reading list, ranking reasons and a saved report you can 
 | No journal columns in Zotero | Install the add-on (Step 3), restart Zotero, then ask the agent to sync or refresh a collection. |
 | The add-on installed long ago never updates | Copies older than 0.1.14 cannot update themselves. Install the newest file once by hand. |
 | The app asks to reach GitHub or the network | Choose Allow. |
-| A search says the helper is missing | The agent offers to install a small search helper (`uv`). Say yes. |
+| A search says the helper is missing | The agent offers to download a small search helper (about 15 MB) into a folder in your user account (no admin rights). Say yes. If the download is blocked, it offers the helper's official installer instead. |
 
 ## Questions
 

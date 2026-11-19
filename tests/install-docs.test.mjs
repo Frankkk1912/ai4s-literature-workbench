@@ -28,10 +28,10 @@ test("the runtime's workbench list, verify-bundles and verify-runtime name the s
 	const runtime = namesAfter(read("runtime/src/server.ts"), "WORKBENCH_TOOL_NAMES = new Set(");
 	const bundles = namesAfter(read("scripts/verify-bundles.mjs"), "const EXPECTED_RUNTIME_TOOLS");
 	const verifyRuntime = namesAfter(read("scripts/verify-runtime.mjs"), "const expected");
-	assert.equal(runtime.length, 21);
+	assert.equal(runtime.length, 22);
 	assert.ok(sameList(runtime, bundles), "scripts/verify-bundles.mjs is out of step with WORKBENCH_TOOL_NAMES");
 	assert.ok(sameList(runtime, verifyRuntime), "scripts/verify-runtime.mjs is out of step with WORKBENCH_TOOL_NAMES");
-	assert.ok(runtime.includes("setup_status") && runtime.includes("open_setup"));
+	assert.ok(runtime.includes("setup_status") && runtime.includes("open_setup") && runtime.includes("install_search_helper"));
 });
 
 test("negative control: the list comparison notices a missing or extra tool", () => {
@@ -112,6 +112,18 @@ test("the setup skill follows the plan: INSTALL.md, setup_status, open_setup, la
 	assert.ok(text.indexOf("Setup AI4S.bat") < text.indexOf("node runtime/bundle/index.mjs --setup"));
 	assert.match(text, /Only if the double-click file also failed/);
 	assert.ok(existsSync(new URL("../skills/ai4s-setup/agents/openai.yaml", import.meta.url)));
+});
+
+test("the search skills use the helper the workbench downloads, not one the user installs", () => {
+	for (const name of ["literature-research", "literature-manager", "ai4s-setup"]) {
+		const text = skill(name);
+		assert.ok(text.includes("install_search_helper"), `${name} does not offer install_search_helper`);
+		assert.ok(text.includes("search_helper.run"), `${name} does not say what replaces uv run`);
+		// The official installer is the fallback, offered only after the download failed.
+		const official = text.indexOf("official installer");
+		if (official !== -1) assert.ok(text.indexOf("install_search_helper") < official, `${name}: official installer comes first`);
+	}
+	assert.match(install, /search_helper\.run/);
 });
 
 test("the setup skill is registered and ships in the plugin archive", () => {

@@ -8,7 +8,7 @@
 //      exit 0 (scripts/verify-launchers.mjs); the archive still leaves out the
 //      developer-only scripts/onboard.mjs and scripts/bootstrap.mjs
 //   4. the .mcpb, extracted and started exactly as its manifest says, with an unset
-//      optional key passed as Claude Desktop passes it, lists the 21 workbench tools
+//      optional key passed as Claude Desktop passes it, lists the 22 workbench tools
 //
 //   node scripts/verify-release.mjs <release-dir>
 //
@@ -131,7 +131,7 @@ try {
   process.stdout.write(`${launcherRun.stdout.trimEnd().replace(/^/gm, '  [archive] ')}\n`);
   report('plugin archive launchers run the bundle with --setup', launcherRun.status === 0, launcherRun.stderr || 'see the [archive] lines above');
 
-  await check('.mcpb starts as its manifest says and lists the 21 workbench tools', async () => {
+  await check('.mcpb starts as its manifest says and lists the 22 workbench tools', async () => {
     const mcpbDir = join(work, 'mcpb');
     extract(find(/\.mcpb$/), mcpbDir);
     const manifest = JSON.parse(readFileSync(join(mcpbDir, 'manifest.json'), 'utf8'));
@@ -170,7 +170,7 @@ try {
     try {
       await Promise.race([client.connect(transport), new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out after 60s.')), 60_000))]);
       const { tools } = await client.listTools();
-      if (tools.length !== 21) throw new Error(`Expected 21 tools, got ${tools.length}.`);
+      if (tools.length !== 22) throw new Error(`Expected 22 tools, got ${tools.length}.`);
       const whoami = await client.callTool({ name: 'zotero_whoami', arguments: {} });
       const text = JSON.stringify(whoami);
       if (text.includes('user_config')) throw new Error(`The unset key reached the server as a real value: ${text.slice(0, 300)}`);
