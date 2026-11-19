@@ -27,6 +27,7 @@ Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
 
 ### Added
 
+- `zotero_tag_manager` scans duplicate and unused Zotero tags, then merges, renames, or deletes them only after a confirmed plan hash. Item edits and the semantic vocabulary (loser folded into the winner's aliases) land in one receipt. Priority, Article Type, JCR, CAS, and untargeted user tags stay put.
 - Zotero add-on 0.1.14: the update feed (`literature-metrics/update.json`) now carries a
   SHA-256 `update_hash`, and the release build fails when the feed does not describe the add-on
   it packages. Copies installed before 0.1.14 checked a retired repository and never updated;

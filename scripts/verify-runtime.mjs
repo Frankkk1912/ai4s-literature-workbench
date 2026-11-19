@@ -49,6 +49,7 @@ const expected = [
   'zotero_semantic_tag_context',
   'zotero_semantic_tag_vocabulary',
   'zotero_sync_literature_project',
+  'zotero_tag_manager',
   'zotero_whoami',
 ];
 const actual = tools.map((tool) => tool.name).sort();

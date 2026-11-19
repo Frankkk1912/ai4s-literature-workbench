@@ -40,6 +40,7 @@ import semanticTagContext from './semantic-tag-context.js';
 import applySemanticTags from './apply-semantic-tags.js';
 import cleanupAutoTags from './cleanup-auto-tags.js';
 import semanticTagVocabulary from './semantic-tag-vocabulary.js';
+import tagManager from './tag-manager.js';
 import syncLiteratureProject from './sync-literature-project.js';
 import aiSummaryContext from './ai-summary-context.js';
 import applyAiSummaries from './apply-ai-summaries.js';
@@ -95,6 +96,7 @@ export const tools: ToolDefinition[] = [
   applySemanticTags,
   cleanupAutoTags,
   semanticTagVocabulary,
+  tagManager,
   syncLiteratureProject,
   aiSummaryContext,
   applyAiSummaries,

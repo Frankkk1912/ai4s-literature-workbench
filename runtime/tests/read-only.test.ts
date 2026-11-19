@@ -38,6 +38,7 @@ describe('read-only mode tool set', () => {
       'zotero_delete_items',
       'zotero_manage_collections',
       'zotero_manage_tags',
+      'zotero_tag_manager',
       'zotero_saved_searches',
       'zotero_attachment',
       'zotero_import',
@@ -52,7 +53,7 @@ describe('read-only mode tool set', () => {
 describe('workbench tool profile', () => {
   const config = { toolProfile: 'workbench', readOnly: false, oauth: { enabled: false } } as any;
 
-  it('exposes the two setup tools and only the eighteen workflow-facing tools', () => {
+  it('exposes the two setup tools and only the nineteen workflow-facing tools', () => {
     expect(selectActiveTools(config).map((tool) => tool.name)).toEqual([
       'setup_status',
       'open_setup',
@@ -71,6 +72,7 @@ describe('workbench tool profile', () => {
       'zotero_apply_semantic_tags',
       'zotero_cleanup_auto_tags',
       'zotero_semantic_tag_vocabulary',
+      'zotero_tag_manager',
       'zotero_sync_literature_project',
       'zotero_ai_summary_context',
       'zotero_apply_ai_summaries',
@@ -93,6 +95,7 @@ describe('workbench tool profile', () => {
     expect(names).not.toContain('zotero_apply_semantic_tags');
     expect(names).not.toContain('zotero_cleanup_auto_tags');
     expect(names).not.toContain('zotero_semantic_tag_vocabulary');
+    expect(names).not.toContain('zotero_tag_manager');
     expect(names).not.toContain('zotero_sync_literature_project');
     expect(names).not.toContain('zotero_apply_ai_summaries');
     expect(names).toContain('zotero_semantic_tag_context');

@@ -61,7 +61,7 @@ const tagAudit: ToolDefinition = {
   name: 'zotero_tag_audit',
   title: 'Audit tags against a controlled vocabulary',
   description:
-    'Audit a library against a controlled tag vocabulary with priority tiers. Provide the vocabulary inline as `vocabulary` (or a JSON file via `vocabulary_path`): { tags:[{name,tier?}], tiers?:[{name,required?}] }. Reports (1) off-taxonomy tags (library tags not in the vocabulary; Zotero auto-applied tags are bucketed separately unless include_auto), (2) items missing a tag from each required tier, and (3) optional per-collection coverage when `scope.collection_keys` is given. Read-only. Tag/auto-tag enumeration uses the cloud Web API.',
+    'Audit a library against a controlled tag vocabulary with priority tiers. Provide the vocabulary inline as `vocabulary` (or a JSON file via `vocabulary_path`): { tags:[{name,tier?}], tiers?:[{name,required?}] }. Reports (1) off-taxonomy tags (library tags not in the vocabulary; Zotero auto-applied tags are bucketed separately unless include_auto), (2) items missing a tag from each required tier, and (3) optional per-collection coverage when `scope.collection_keys` is given. Read-only. This does not find near-duplicate tags; use zotero_tag_manager for that. Tag/auto-tag enumeration uses the cloud Web API.',
   inputSchema: {
     vocabulary: vocabSchema.optional(),
     vocabulary_path: z.string().optional().describe('Path to a JSON file with the vocabulary.'),
