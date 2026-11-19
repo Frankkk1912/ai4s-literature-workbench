@@ -79,7 +79,7 @@ A separate XPI you install into Zotero Desktop ([download the newest](https://gi
 ## Get started
 
 ### What you need
-- An agent app: **Claude Desktop**, **Claude Code**, **Codex**, DeepSeek Harness, WorkBuddy, CodeBuddy, Trae or Qoder.
+- An agent app: **Claude Desktop**, **Claude Code**, **Codex**, WorkBuddy, CodeBuddy, Trae or Qoder.
 - **Zotero Desktop**, if you want your papers organized there and the journal columns.
 - A web browser, for the page where you paste optional keys.
 
@@ -91,17 +91,12 @@ That is all you install yourself. If your computer also needs a small free tool 
 1. Open the [latest release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest) and download `ai4s-literature-zotero-<version>.mcpb`.
 2. Double-click it, or drag it onto the Claude Desktop window, and accept the install screen. Leave the two optional settings as they are.
 
-**DeepSeek Harness** (Desktop; the tools and all skills; **not yet tested on a real machine**)
-1. The published v0.1.0 release does not include `dsh-ai4s-literature-workbench-<version>.tgz`. The release workflow builds that file for the next release. Until the [releases page](https://github.com/Frankkk1912/ai4s-literature-workbench/releases) lists it, install from source (INSTALL.md) instead of a download address.
-2. After a release lists the file: download `dsh-ai4s-literature-workbench-<version>.tgz`, then in DeepSeek Harness open the **Plugins** page, choose **Add plugin**, and paste the path of the downloaded file.
-3. Quit and reopen DeepSeek Harness, then ask: "run the ai4s-setup skill".
-
 **Claude Code, Codex, WorkBuddy, CodeBuddy**: paste this into the app:
 > Please install the plugin from https://github.com/Frankkk1912/ai4s-literature-workbench.git into this app. Follow INSTALL.md in that repository exactly and do not add steps of your own. When it's done, tell me in plain language what works now and what I need to do myself.
 
 **Trae, Qoder**: see "Other agents & manual install" below.
 
-Before you start: your app may ask permission to reach GitHub or the network. Choose **Allow**; the install cannot continue without it. WorkBuddy, CodeBuddy and DeepSeek Harness have not been tested on a real machine yet. For DeepSeek Harness, that includes the Plugins page, Windows, and how the DeepSeek models use the skills.
+Before you start: your app may ask permission to reach GitHub or the network. Choose **Allow**; the install cannot continue without it. WorkBuddy and CodeBuddy have not been tested on a real machine yet.
 
 ### 2. First-run setup
 Your agent runs the `ai4s-setup` skill: it tells you in plain words what works now and what needs you.
@@ -121,7 +116,6 @@ Start with **Find papers worth reading** above. The first search should take a f
 | The agent cannot read my Zotero library | Open Zotero and tick **Allow other applications on this computer to communicate with Zotero** in Settings → Advanced. |
 | It cannot save to Zotero | Add a Zotero key on the setup page, or use Zotero 10 or later and choose Always Allow when Zotero asks. |
 | No journal columns in Zotero | Install the add-on (step 2), restart Zotero, then ask the agent to sync or refresh a collection: the columns show data the tools wrote to your items. |
-| DeepSeek Harness shows no tools after you add the package | Quit and reopen it (the package loads at start-up), check that the package is listed on the Plugins page, then ask: "run the ai4s-setup skill". |
 | The app asks to reach GitHub or the network | Choose Allow. |
 
 More detail: [Getting started](docs/getting-started.md).
@@ -174,7 +168,6 @@ ai4s-literature-workbench/
 ├── skills/                    # Retrieval, Zotero management, and writing skills
 ├── runtime/                   # Zotero tools and local configuration service
 ├── fulltext-runtime/          # Open-access full-text retrieval and PDF checks
-├── database-browser-runtime/  # Visible-browser access to authorized databases
 ├── literature-metrics/        # Zotero Desktop add-on source
 └── tests/                     # Repository-level tests
 ```
@@ -186,7 +179,6 @@ node scripts/bootstrap.mjs
 node --import ./runtime/node_modules/tsx/dist/loader.mjs --test "tests/*.test.mjs"
 (cd runtime && npm run typecheck && npm test)
 (cd fulltext-runtime && npm run typecheck && npm test)
-(cd database-browser-runtime && npm ci && npx playwright install chromium && npm run build && npm run typecheck && npm test)
 (cd literature-metrics && npm ci && npm run check && npm test && npm run package)
 ```
 

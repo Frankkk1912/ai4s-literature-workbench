@@ -5,8 +5,8 @@ import { sha256 as hashSha256 } from './lib/canonical.js';
 
 const FILE_MODE = 0o600;
 const DIRECTORY_MODE = 0o700;
-// 与 database-browser store 同一 Windows replace-lock 模式，预防性对齐。
-// Round-6 CI showed EPERM on replace-rename lasting past a ~200ms budget;
+// Windows replace-lock retry. Round-6 CI showed EPERM on replace-rename
+// lasting past a ~200ms budget;
 // Defender scans and open read handles are the typical lock source. Retry on a
 // 5000ms deadline at a fixed 100ms interval. Non-lock errors throw immediately.
 const WRITE_REPLACE_BUDGET_MS = 5_000;

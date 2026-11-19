@@ -26,7 +26,6 @@ academic-research.json
 data/
 runtime/data/
 fulltext-runtime/data/
-database-browser-runtime/data/
 
 # Caches
 .pytest_cache/

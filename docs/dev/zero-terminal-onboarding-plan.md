@@ -4,7 +4,7 @@ Oct 18, 2026 · @Frank · updated Oct 20, 2026: DeepSeek Harness Desktop added a
 
 ## Goal and success criteria
 
-A biomedical beginner installs the workbench, runs a first literature search, and sees the Zotero journal-partition columns (IF / JCR / CAS), without ever opening a terminal of their own. This holds on WorkBuddy first, then Codex and Claude Desktop, then CodeBuddy, Claude Code, and Trae/Qoder. DeepSeek Harness Desktop follows after this plan, with its own plan in [deepseek-harness-support-plan.md](deepseek-harness-support-plan.md).
+A biomedical beginner installs the workbench, runs a first literature search, and sees the Zotero journal-partition columns (IF / JCR / CAS), without ever opening a terminal of their own. This holds on WorkBuddy first, then Codex and Claude Desktop, then CodeBuddy, Claude Code, and Trae/Qoder. DeepSeek Harness was later removed; see [removed-surfaces.md](removed-surfaces.md).
 
 The targets below are proposals; adjust them before work starts.
 
@@ -53,7 +53,7 @@ Every host installs the same prebuilt runtime, and every key-entry route ends in
 
 &#91;embedded content: architecture · 6 host boxes, 1 runtime, 3 key-entry routes\]
 
-Claude Desktop and Claude Code share one `.mcpb`; WorkBuddy and CodeBuddy use the plugin route; Codex and Trae/Qoder use the plugin archive or the install script; DeepSeek Harness installs a plugin package of its own and is planned separately. The runtime reads keys from the private file, whichever route wrote them.
+Claude Desktop and Claude Code share one `.mcpb`; WorkBuddy and CodeBuddy use the plugin route; Codex and Trae/Qoder use the plugin archive or the install script. DeepSeek Harness is not a current host. The runtime reads keys from the private file, whichever route wrote them.
 
 ## First target: WorkBuddy and CodeBuddy
 
@@ -85,14 +85,14 @@ WorkBuddy ships first. It is a desktop agent aimed at non-technical users, which
 
 ## DeepSeek Harness Desktop
 
-DeepSeek Harness has its own plugin model: an npm package that carries a configuration patch, not a `.claude-plugin` folder or a `.mcp.json`. It gets its own plan, [deepseek-harness-support-plan.md](deepseek-harness-support-plan.md), which holds the research, the `dsh web` spike results, the tasks and the risks. Its package (`dsh-plugin/`), the release asset and the install route are built (Oct 22, 2026); what is left there is testing on Desktop, which this plan's release gate does not wait for.
+Removed from the tree. The package, release asset, and install route are no longer built. [removed-surfaces.md](removed-surfaces.md) says how to put them back from git history.
 
 ## Workstream A: Packaging and prebuilt runtimes
 
 After install, the tools must already work: no `npm install`, no TypeScript build, and no browser download on the user's machine. CI does the building; the user receives the output.
 
 - [ ] Bundle `runtime` and `fulltext-runtime` into single JavaScript files with dependencies included (esbuild or similar), built in CI on every tag.
-- [ ] Move `database-browser-runtime` out of the default install. Playwright's Chromium is a large download, so fetch it on first use, after the user agrees.
+- [x] Remove `database-browser-runtime`. Campus-network browsing was deprioritized; open-access full text stays in `fulltext-runtime`.
 - [ ] Publish four assets per release tag: a `.mcpb` bundle, a plugin archive with prebuilt `dist/` folders, the Zotero XPI, and a checksums file.
 - [ ] Add `scripts/bootstrap.mjs` as the single cross-platform entry. Reduce the `.sh` and `.ps1` scripts to one-line wrappers. Every command then has the shape `node scripts/<name>.mjs`, which removes problem 5.
 - [ ] Provide `uv` from `bootstrap.mjs` (fetch a pinned release with a checksum, or ship it in the archive) and point the research and manager skills at that copy.
@@ -197,7 +197,7 @@ Today every Zotero feature needs a Web API key. Zotero Desktop 7 also offers a l
 
 The README should give one install route per host, in the order a beginner meets them. Everything about builds, keys and threat models moves out of the beginner path.
 
-- [x] **Install by host, not one generic prompt.** Four short blocks: Claude Desktop (download the `.mcpb`, double-click), Claude Code (the plugin install lines, typed inside Claude Code), Codex (a prompt that names the plugin marketplace route and points to `INSTALL.md`), DeepSeek Harness (paste one package spec into the Plugins page), and Trae/Qoder. *Done for all five blocks. The DeepSeek Harness block is marked as not yet tested on a real machine.*
+- [x] **Install by host, not one generic prompt.** Claude Desktop (download the `.mcpb`, double-click), Claude Code (the plugin install lines, typed inside Claude Code), Codex (a prompt that names the plugin marketplace route and points to `INSTALL.md`), and Trae/Qoder. The DeepSeek Harness block was removed later; see [removed-surfaces.md](removed-surfaces.md).
 - [x] **Reword "What you need".** Host app, a browser, and Zotero Desktop if wanted. Drop Node, uv and Git from this list.
 - [x] **Set expectations before the first run.** Say the agent may ask for permission to reach GitHub or the network, and that the user should choose Allow. In the transcript that approval cost a full round trip.
 - [ ] **Show the finish line.** Add a short GIF or four screenshots: install, the setup page, the first search result, and the partition columns in Zotero. *Not done: needs real runs on the target hosts; the placeholders are still commented out in the READMEs.*
@@ -228,7 +228,7 @@ GitHub-hosted CI cannot drive the desktop host apps, so the host-by-OS rows stay
 
 ## Roadmap
 
-Five phases ship in order, and a gate after phases 1, 2 and 4 decides whether the next one starts. Phase 0 can ship as a patch this week. Phase 1 is done (Gate 1 passed on Windows, macOS and Linux CI). Phases 2 and 3 are done and release v0.1.0 is published (Oct 22, 2026). Phase 4 has its documents and automatic checks in place; the manual runs (clean machines, three beginners) and the screenshots are still to do, see [release-checklist.md](release-checklist.md). The DeepSeek Harness package, release asset and install route are in place (Oct 22, 2026); testing it on Desktop is the owner's manual run, see [deepseek-harness-support-plan.md](deepseek-harness-support-plan.md).
+Five phases ship in order, and a gate after phases 1, 2 and 4 decides whether the next one starts. Phase 0 can ship as a patch this week. Phase 1 is done (Gate 1 passed on Windows, macOS and Linux CI). Phases 2 and 3 are done and release v0.1.0 is published (Oct 22, 2026). Phase 4 has its documents and automatic checks in place; the manual runs (clean machines, three beginners) and the screenshots are still to do, see [release-checklist.md](release-checklist.md). DeepSeek Harness was later removed; see [removed-surfaces.md](removed-surfaces.md).
 
 &#91;embedded content: roadmap · 5 phases, 3 gates\]
 
@@ -263,7 +263,7 @@ The biggest risk is that a host's sandbox blocks something the plan assumes, and
 3. The wizard opens with a one-time token in the URL fragment (Workstream B).
 4. Per-OS binaries of tens of megabytes are acceptable for releases.
 5. Chinese is the default language of the setup page and status text.
-6. DeepSeek Harness Desktop is a host with its own plan; its package and install route were built after this plan's phases 1 to 4 (Oct 22, 2026) and wait for the manual test.
+6. DeepSeek Harness Desktop was later removed from the tree. See [removed-surfaces.md](removed-surfaces.md).
 
 ## Sources
 
@@ -285,4 +285,4 @@ Host and Zotero documentation checked on 2026-10-18. The Codex transcript is the
 
 Also seen in search results only, for WorkBuddy and CodeBuddy: [WorkBuddy plugin reference](https://www.workbuddy.ai/docs/cli/plugins-reference), [WorkBuddy plugin marketplaces](https://www.workbuddy.ai/docs/cli/plugin-marketplaces), [EdgeOne plugin docs](https://pages.edgeone.ai/document/plugin), [ChatCut WorkBuddy guide](https://chatcut.io/zh/workbuddy), [CloudBase WorkBuddy guide](https://docs.cloudbase.net/en/ai/cloudbase-ai-toolkit/ide-setup/workbuddy).
 
-DeepSeek Harness sources are listed in [deepseek-harness-support-plan.md](deepseek-harness-support-plan.md#sources).
+DeepSeek Harness notes were removed with the package. See [removed-surfaces.md](removed-surfaces.md).

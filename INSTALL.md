@@ -124,26 +124,6 @@ node scripts/install-host.mjs --host qoder --target <project-folder>
 
 Not yet tested in Claude Desktop. The release page lists `ai4s-literature-zotero-<version>.mcpb`. Download it and double-click it, or drag it onto the Claude Desktop window. Claude Desktop shows an install screen with two optional settings: a Zotero key (leave empty to search and read without one) and the Zotero desktop connection (leave on `auto`). Do not paste a key into chat. The same key page is available later: `open_setup` opens it from this file's tools. This file installs only the Zotero tools. It does not install the three skills or the full-text tools, and it should need no separate Node.js, because Claude Desktop ships its own. Which Node version that is has not been confirmed, and the bundle asks for 22.13 or newer. If the install screen refuses it or the tools do not start, say so and stop. If the release page does not list this file, say so plainly rather than improvising.
 
-### DeepSeek Harness (unverified)
-
-Not yet tested in DeepSeek Harness Desktop. This route installs one plugin package that carries the prebuilt Zotero and full-text tools and all four skills, so it needs no build and no separate Node.js: the tools run on DeepSeek Harness's own Node. Which Node version Desktop ships has not been confirmed, and the bundles ask for 22.13 or newer.
-
-This is the one install an agent cannot do for the user, because it happens on DeepSeek Harness's Plugins page. Ask the user to do these steps and tell them they type nothing:
-
-1. The published v0.1.0 release does not include `dsh-ai4s-literature-workbench-<version>.tgz`. Do not open `https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/dsh-ai4s-literature-workbench.tgz`: that address 404s on v0.1.0. `scripts/package-release.mjs` writes the versioned tarball and a fixed-name copy, and `.github/workflows/release.yml` uploads both when the next tag is published. Until the releases page lists the file, use the source route in this file and say so.
-2. After a release lists the file, download `dsh-ai4s-literature-workbench-<version>.tgz` from that release. In DeepSeek Harness, open the **Plugins** page, choose **Add plugin**, and paste the path of the downloaded file.
-3. Quit and reopen DeepSeek Harness. The package loads at start-up.
-
-The package then provides the tools `mcp__ai4s-literature-zotero__*` and `mcp__ai4s-literature-fulltext__*` (the same 20 and 6 tools as the other routes, under those prefixes) and the skills in the `/` list. Continue with "Keys" and "Check at the end" below. The skills name the setup tools without that prefix; use the prefixed ones.
-
-If the user already uses the command line, `dsh plugin --profile desktop add <path to the .tgz>` with Desktop closed does the same (`dsh` needs Node.js 22.19 or newer and `pnpm` on the PATH). That was tried with the browser build (`dsh web`, profile `web`, version 0.2.1-rc.2) on macOS, and the release check repeats it on Linux. The Desktop profile name `desktop` comes from DeepSeek Harness's documentation and has not been tried.
-
-Not yet tested, and not to be claimed: the Plugins page and installing from an address, Desktop's own Node, Windows, whether `open_setup` can open the user's browser from inside DeepSeek Harness (if it reports `opened: false`, give the user `url` and `fallback_code`), and how the DeepSeek models use the skills. Skill descriptions are kept under 500 characters; if the model still does not pick a skill, name it. Report any step that fails and stop.
-
-## Not in any install route
-
-`database-browser-runtime/` (visible-browser access to subscription databases) is optional and is not in the archive, the `.mcpb`, or `.mcp.json`. It needs a separate Chromium download (a few hundred MB, 350 to 540 MB on disk on macOS), so it is only available from the source route, and only when the user asks for it by name. The download happens on first use and only after the user agrees: when `database_session_open` reports that the browser is not installed, ask the user in plain words, and call `database_browser_install` only after a yes, then check `database_browser_install_status` until it says installed (the download takes minutes). Its steps are in `database-browser-runtime/README.md`.
-
 ## Check at the end
 
 1. The tool list includes `setup_status` (and the `fulltext_*` tools, which are optional). If `setup_status` is missing, say "My search tools are not connected yet", name the step that failed, and give one next action. Then call it and use its `rendered` text.

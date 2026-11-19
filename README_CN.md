@@ -79,7 +79,7 @@ flowchart LR
 ## 开始使用
 
 ### 你需要什么
-- 一个 agent 应用：**Claude Desktop**、**Claude Code**、**Codex**、DeepSeek Harness，或 WorkBuddy、CodeBuddy、Trae、Qoder。
+- 一个 agent 应用：**Claude Desktop**、**Claude Code**、**Codex**，或 WorkBuddy、CodeBuddy、Trae、Qoder。
 - 如果想在 Zotero 里整理文献、看到期刊分区列，需要 **Zotero 桌面版**。
 - 一个浏览器，用来打开填写可选密钥的页面。
 
@@ -91,17 +91,12 @@ flowchart LR
 1. 打开[最新发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest)，下载 `ai4s-literature-zotero-<版本号>.mcpb`。
 2. 双击它，或把它拖进 Claude Desktop 窗口，在安装界面点确认。两个可选设置保持默认即可。
 
-**DeepSeek Harness**（桌面版；含全部工具和技能；**还没有在真实电脑上测试过**）
-1. 已发布的 v0.1.0 里没有 `dsh-ai4s-literature-workbench-<版本号>.tgz`。发布流程会在下一次发布时带上这个文件。在[发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases)列出它之前，请按 INSTALL.md 从源码安装，不要用下载地址。
-2. 等某个发布列出该文件后：下载 `dsh-ai4s-literature-workbench-<版本号>.tgz`，在 DeepSeek Harness 里打开**插件（Plugins）**页面，点**添加插件（Add plugin）**，把下载好的文件路径贴进去。
-3. 完全退出并重新打开 DeepSeek Harness，然后对它说：“运行 ai4s-setup 技能”。
-
 **Claude Code、Codex、WorkBuddy、CodeBuddy**：把下面这段话发给应用：
 > 请帮我从 https://github.com/Frankkk1912/ai4s-literature-workbench.git 安装这个插件到当前应用。严格按该仓库里的 INSTALL.md 操作，不要自己添加步骤。装好后，用通俗的话告诉我现在能用什么、我自己还需要做什么。
 
 **Trae、Qoder**：见下面“其他 agent 与手动安装”。
 
-开始之前：应用可能会请求访问 GitHub 或网络的权限，请选择**允许**，否则安装无法继续。WorkBuddy、CodeBuddy 与 DeepSeek Harness 目前还没有在真实电脑上测试过；DeepSeek Harness 还包括插件页面、Windows，以及 DeepSeek 模型如何使用这些技能。
+开始之前：应用可能会请求访问 GitHub 或网络的权限，请选择**允许**，否则安装无法继续。WorkBuddy 与 CodeBuddy 目前还没有在真实电脑上测试过。
 
 ### 2. 首次设置
 agent 会运行 `ai4s-setup` 技能，用通俗的话告诉你：现在能用什么，哪些需要你处理。
@@ -121,7 +116,6 @@ agent 会运行 `ai4s-setup` 技能，用通俗的话告诉你：现在能用什
 | agent 读不到我的 Zotero 文献库 | 打开 Zotero，在 设置 → 高级 里勾选“允许这台电脑上的其他应用与 Zotero 通信”。 |
 | 存不进 Zotero | 在设置页填入 Zotero 密钥；或使用 Zotero 10 及以上，Zotero 弹窗时选“始终允许”。 |
 | Zotero 里没有期刊分区列 | 按第 2 步安装插件并重启 Zotero，再让 agent 同步或刷新一个分类：这些列显示的是工具写进条目里的数据。 |
-| 在 DeepSeek Harness 里添加了插件包，却看不到工具 | 完全退出并重新打开它（插件包在启动时加载），确认插件页面里列出了这个包，然后对它说：“运行 ai4s-setup 技能”。 |
 | 应用请求访问 GitHub 或网络 | 选择“允许”。 |
 
 更多说明：[入门指南](docs/getting-started_CN.md)。
@@ -174,7 +168,6 @@ ai4s-literature-workbench/
 ├── skills/                    # 检索、Zotero 管理与写作技能
 ├── runtime/                   # Zotero 工具与本地配置服务
 ├── fulltext-runtime/          # 开放获取（Open Access）全文检索与 PDF 检查
-├── database-browser-runtime/  # 通过可见浏览器访问已授权数据库
 ├── literature-metrics/        # Zotero 桌面端附加组件源码
 └── tests/                     # 仓库级测试
 ```
@@ -186,7 +179,6 @@ node scripts/bootstrap.mjs
 node --import ./runtime/node_modules/tsx/dist/loader.mjs --test "tests/*.test.mjs"
 (cd runtime && npm run typecheck && npm test)
 (cd fulltext-runtime && npm run typecheck && npm test)
-(cd database-browser-runtime && npm ci && npx playwright install chromium && npm run build && npm run typecheck && npm test)
 (cd literature-metrics && npm ci && npm run check && npm test && npm run package)
 ```
 

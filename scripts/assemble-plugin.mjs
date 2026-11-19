@@ -75,9 +75,6 @@ function assertStructure(manifest) {
     'fulltext-runtime/src/index.ts',
     'fulltext-runtime/package.json',
     'fulltext-runtime/package-lock.json',
-    'database-browser-runtime/src/index.ts',
-    'database-browser-runtime/package.json',
-    'database-browser-runtime/package-lock.json',
     'literature-metrics/manifest.json',
     'tests',
     'scripts',
@@ -113,7 +110,6 @@ function assertManifest(manifest) {
     ['literature-writing', 'skills/literature-writing'],
     ['runtime', 'runtime'],
     ['fulltext-runtime', 'fulltext-runtime'],
-    ['database-browser-runtime', 'database-browser-runtime'],
     ['literature-metrics', 'literature-metrics'],
   ];
   const bundles = new Map((manifest.bundles ?? []).map((bundle) => [bundle.id, bundle]));
@@ -130,7 +126,7 @@ function assertManifest(manifest) {
     }
   }
   const packages = new Map((manifest.packages ?? []).map((pkg) => [pkg.path, pkg]));
-  for (const path of ['runtime', 'fulltext-runtime', 'database-browser-runtime', 'literature-metrics']) {
+  for (const path of ['runtime', 'fulltext-runtime', 'literature-metrics']) {
     if (!packages.has(path)) fail(`bundle-manifest.json is missing package ${path}`);
   }
   const artifacts = new Map((manifest.artifacts ?? []).map((artifact) => [artifact.path, artifact]));

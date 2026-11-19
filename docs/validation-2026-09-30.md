@@ -94,6 +94,8 @@ Test Files  71 passed | 2 skipped (73)
 
 ## V3 — fulltext / database-browser
 
+`database-browser-runtime` was removed after this validation. The commands below are the record of that day, not a current check.
+
 - Command: `cd fulltext-runtime && npm run build && npm test` then `cd database-browser-runtime && npm run build && npm test` (actual directory name is `database-browser-runtime`; existing `node_modules`; no `npm ci`)
 - Result:
   - fulltext-runtime build exit 0; vitest **3 files / 6 tests** passed

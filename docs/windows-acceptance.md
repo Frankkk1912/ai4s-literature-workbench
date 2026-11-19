@@ -42,7 +42,8 @@ That historical run included `codex-plugin-visible`, `bootstrap-all-runtimes`,
 and `literature-metrics-xpi`. The generated XPI and two redacted JSON reports
 remain local release evidence; no credentials, browser profiles, or Web of
 Science exports were written to the repository. The database-browser check was
-removed from the v0.1.0 scope when WoS was deferred.
+removed from the v0.1.0 scope when WoS was deferred, and the runtime itself
+was later removed from the repository.
 
 ## Zotero and Fulltext MCP live acceptance
 

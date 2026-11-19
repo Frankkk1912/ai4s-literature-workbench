@@ -121,56 +121,8 @@ test("the setup skill is registered and ships in the plugin archive", () => {
 	assert.match(read("scripts/package-release.mjs"), /copyTree\(join\(repoRoot, 'skills'\)/);
 });
 
-// --- DeepSeek Harness ---------------------------------------------------------------------
-
-const dshRoute = () => install.slice(install.indexOf("### DeepSeek Harness"), install.indexOf("## Not in any install route"));
-const WHAT_IS_UNTESTED = [/Plugins page/, /Desktop's own Node/, /Windows/, /open_setup/, /DeepSeek models/];
-
-// True when a route's text admits every open risk instead of leaving one out.
-function admitsUntested(text) {
-	return WHAT_IS_UNTESTED.every((pattern) => pattern.test(text));
-}
-
-test("the DeepSeek Harness route is marked unverified and names the release asset", () => {
-	const host = manifest.hosts["deepseek-harness"];
-	assert.ok(host, "install-manifest.json has no deepseek-harness route");
-	assert.equal(host.status, "unverified");
-	assert.match(install, /^### DeepSeek Harness \(unverified\)$/m);
-	assert.match(host.asset, /^dsh-ai4s-literature-workbench-<version>\.tgz$/);
-	assert.equal(host.asset_fixed_name, "dsh-ai4s-literature-workbench.tgz");
-	for (const text of [dshRoute(), JSON.stringify(host)]) assert.ok(text.includes("dsh-ai4s-literature-workbench"), "the route does not name the package file");
-	// The release builds the files the route tells people to download.
-	const packaging = read("scripts/package-release.mjs");
-	assert.ok(packaging.includes("dsh-ai4s-literature-workbench-${version}.tgz"));
-	assert.ok(packaging.includes("dsh-ai4s-literature-workbench.tgz"));
-	assert.equal(host.address, null);
-	assert.match(host.address_note, /v0\.1\.0/);
-	assert.match(host.address_note, /404/);
-	assert.match(host.address_note, /dsh-ai4s-literature-workbench\.tgz/);
-	assert.match(dshRoute(), /v0\.1\.0/);
-	assert.match(dshRoute(), /404/);
-	assert.match(read(".github/workflows/release.yml"), /dsh-ai4s-literature-workbench\.tgz/);
-});
-
-test("the DeepSeek Harness route admits what has not been tested, and claims no more", () => {
-	assert.ok(admitsUntested(dshRoute()), "INSTALL.md leaves an open risk out of the DeepSeek Harness route");
-	const open = manifest.hosts["deepseek-harness"].not_yet_tested;
-	assert.ok(open.length >= 5 && open.some((item) => /Windows/.test(item)) && open.some((item) => /Electron/.test(item)));
-	assert.doesNotMatch(dshRoute(), /\b(verified on|works on) (Desktop|Windows)/i);
-	assert.match(dshRoute(), /Not yet tested/);
-	// Keys: never in the package, never typed into the Plugins page.
-	assert.doesNotMatch(dshRoute(), /paste (a|your|the) key/i);
-});
-
-test("negative control: a route that forgets an open risk is noticed", () => {
-	assert.equal(admitsUntested("Plugins page, Desktop's own Node, Windows, open_setup, DeepSeek models"), true);
-	assert.equal(admitsUntested("Plugins page, Desktop's own Node, open_setup, DeepSeek models"), false);
-});
-
-test("the package source and the install manifest agree on the package name and the host range", () => {
-	const source = JSON.parse(read("dsh-plugin/package.json"));
-	assert.equal(source.name, "dsh-ai4s-literature-workbench");
-	assert.equal(source.version, JSON.parse(read(".claude-plugin/plugin.json")).version);
-	assert.ok(manifest.hosts["deepseek-harness"].engines.includes(source.engines.dsh));
-	assert.ok(dshRoute().includes("20 and 6"));
+test("install docs do not send people to the removed database browser or DeepSeek package", () => {
+	for (const text of [install, JSON.stringify(manifest), read("README.md"), read("README_CN.md")]) {
+		assert.doesNotMatch(text, /database-browser|database_browser|database_session|dsh-ai4s|DeepSeek Harness/);
+	}
 });
