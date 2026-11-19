@@ -167,5 +167,5 @@ test("the package source and the install manifest agree on the package name and 
 	assert.equal(source.name, "dsh-ai4s-literature-workbench");
 	assert.equal(source.version, JSON.parse(read(".claude-plugin/plugin.json")).version);
 	assert.ok(manifest.hosts["deepseek-harness"].engines.includes(source.engines.dsh));
-	assert.ok(dshRoute().includes("19 and 6"));
+	assert.ok(dshRoute().includes("20 and 6"));
 });

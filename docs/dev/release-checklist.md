@@ -9,7 +9,7 @@ prompt, and the goal of seeing the partition columns.
 | Check | Where |
 | --- | --- |
 | Tests and typechecks, runtime and full-text | `Workbench CI`, Windows, macOS, Linux |
-| Each bundle starts over stdio with no `node_modules` and lists its tools (19 / 6) | `scripts/verify-bundles.mjs`, same jobs |
+| Each bundle starts over stdio with no `node_modules` and lists its tools (20 / 6) | `scripts/verify-bundles.mjs`, same jobs |
 | Double-click launchers run the bundle with `--setup` | `scripts/verify-launchers.mjs` |
 | The wizard stores a key, masks it, rejects a bad one | runtime and root tests, loopback |
 | README commands, INSTALL.md and the manifests agree | `tests/readme-sync.test.mjs` |
