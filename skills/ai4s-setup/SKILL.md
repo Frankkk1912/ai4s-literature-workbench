@@ -42,15 +42,21 @@ If the tool is not in your tool list, go to Step 2. Otherwise go to Step 3.
 
 ## Step 2: Connect the tools
 
-1. Work out which app you are running in: Claude Code, Codex, Claude Desktop,
-   WorkBuddy, CodeBuddy, or Trae/Qoder. If you cannot tell, ask once.
+1. Work out which app you are running in: Claude Code, Codex, ChatGPT desktop,
+   Claude Desktop, WorkBuddy, CodeBuddy, or Trae/Qoder. ChatGPT desktop is the
+   desktop app, not the website. If you cannot tell, ask once.
 2. Open `INSTALL.md` in the plugin root (the folder with `INSTALL.md` and
    `install-manifest.json`; search for it, do not guess). If this install has
-   only the skills and no `INSTALL.md`, say so and use the one at
-   https://github.com/Frankkk1912/ai4s-literature-workbench/blob/main/INSTALL.md.
-3. Follow the route for that app, in order. Prefer the release archive over the
-   source route. Run what you can yourself; ask the user only to approve a
-   prompt or restart the app.
+   only the skills and no `INSTALL.md`, say so and read
+   https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md.
+3. Follow the route for that app, in order. Prefer the release archive when
+   the latest release version is the same or newer than `version` in
+   `.codex-plugin/plugin.json` on main, and the zip is listed. If the release
+   is older than that version, or it has no archive, use the source route and
+   say so. Run what you can yourself; ask the user only to approve a prompt
+   or restart the app. ChatGPT desktop: try the Codex plugin route when the
+   `codex` command exists; otherwise use the `config.toml` route in
+   `INSTALL.md`. Skills are not loaded by that file route, so say so.
 4. After the restart, call `setup_status` again. If the tool is still missing,
    say: "My search tools are not connected yet", name the one step that did not
    work, give one next action, and stop. Do not report partial success.

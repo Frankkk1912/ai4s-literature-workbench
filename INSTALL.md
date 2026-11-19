@@ -13,9 +13,17 @@ This file is the only source of install steps. If a step you want is not here, i
 
 ## Get the files: release archive or source
 
-There are two ways to get the plugin folder. Use the release archive whenever the releases page lists one, because it needs no build.
+There are two ways to get the plugin folder. Prefer the release archive when it is current, because it needs no build.
 
-**Release archive (no build).** Download `ai4s-literature-workbench-<version>.zip` from https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest and extract it. The extracted folder is `<plugin-root>`. It already contains the prebuilt tools in `runtime/bundle/` and `fulltext-runtime/bundle/`, so skip the build step below. `SHA256SUMS.txt` on the same page lists the expected checksum of each file. In every route below, use this folder wherever the route names the GitHub address. If the latest release does not list this file, use the source route instead and say so.
+**Which one.** Read `version` from `.codex-plugin/plugin.json` on the `main` branch:
+
+https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/.codex-plugin/plugin.json
+
+Read the latest release at https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest. The release version is the tag without a leading `v`. The archive file is `ai4s-literature-workbench-<version>.zip`. Compare the two versions as dotted numbers from the left (`0.2.0` is newer than `0.1.9`; equal counts as current). Use the release archive only when that release version is the same or newer than main, and the zip is listed. If the release version is older than main, or the zip is not listed, use the source route and say which of those two it was. Compare with main. The copy of `plugin.json` inside an archive matches that release, so it cannot answer this check.
+
+The v0.1.0 release publishes `ai4s-literature-workbench-0.1.0.zip`. CI builds and checks the archive. Installing it through a host has not been tested.
+
+**Release archive (no build).** Download `ai4s-literature-workbench-<version>.zip` from https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest and extract it. The extracted folder is `<plugin-root>`. It already contains the prebuilt tools in `runtime/bundle/` and `fulltext-runtime/bundle/`, so skip the build step below. `SHA256SUMS.txt` on the same page lists the expected checksum of each file. In every route below, use this folder wherever the route names the GitHub address.
 
 The archive still needs Node.js 22.13 or newer on the computer for every app except Claude Desktop (see the `.mcpb` route). Check with `node --version`.
 
@@ -71,12 +79,48 @@ codex plugin add ai4s-literature-workbench@personal
 
 From a release archive, replace the GitHub address in the first line with the extracted folder's path. This has not been tested with a local folder; if the app rejects it, say so and use the source route. Then build once (source route only), then restart Codex. Codex may block GitHub access until the user approves it.
 
-### WorkBuddy (unverified)
+### ChatGPT desktop
 
-Not yet tested on WorkBuddy. Per WorkBuddy's plugin documentation, try in this order and stop at the first that works:
+ChatGPT desktop (Windows and Mac) is a Codex-based app. The agent inside the app may not be able to run `codex plugin marketplace add`. Try the routes in order, and say which one you used.
 
-1. Add `https://github.com/Frankkk1912/ai4s-literature-workbench` as a plugin marketplace in the app and install `ai4s-literature-workbench`. Then build once and restart.
-2. If the app only accepts MCP entries, add the two servers below to `~/.workbuddy/mcp.json`. The file is named `mcp.json`, with no leading dot, unlike this repository's `.mcp.json`. Do not create a second file; add to the existing one if there is one.
+1. **Codex plugin route (unverified).** If the `codex` command is available, run the Codex route above. This has not been tested inside ChatGPT desktop. If the command is missing or it fails, say so and use the next route.
+2. **MCP config file (verified on Windows 11 only).** The app reads local MCP servers from `%USERPROFILE%\.codex\config.toml` on Windows and `~/.codex/config.toml` on Mac. Mac has not been tested.
+
+Copy `config.toml` to `config.toml.bak` in the same folder before you change it. If `config.toml.bak` is already there, pick a new backup name and tell the user that name. If `config.toml` does not exist, create it and say so. Keep every existing entry: add tables at the end, and do not rewrite other tables. If `[mcp_servers.ai4s-literature-zotero]` or `[mcp_servers.ai4s-literature-fulltext]` is already present, do not add that server again.
+
+Append the two servers from `.mcp.json`. Use absolute paths for `args` and `cwd`. Forward slashes are fine. The command is `node`, so Node.js 22.13 or newer must be on the computer. From a source checkout, the Windows shape that worked is:
+
+```toml
+[mcp_servers.ai4s-literature-zotero]
+command = "node"
+args = ["<plugin-root>/runtime/dist/index.js"]
+cwd = "<plugin-root>"
+
+[mcp_servers.ai4s-literature-zotero.env]
+LITERATURE_ZOTERO_MCP_TOOL_PROFILE = "workbench"
+
+[mcp_servers.ai4s-literature-fulltext]
+command = "node"
+args = ["<plugin-root>/fulltext-runtime/dist/index.js"]
+cwd = "<plugin-root>"
+```
+
+Replace `<plugin-root>` with the absolute path of the plugin folder. The Windows 11 check used paths of this shape (for example `C:/AI4S/ai4s-literature-workbench/runtime/dist/index.js` with the matching `cwd`) and `LITERATURE_ZOTERO_MCP_TOOL_PROFILE` set to `workbench`. Use the user's folder, not that example path.
+
+Also copy any other `env` keys `.mcp.json` lists for that server into the `[mcp_servers.ai4s-literature-zotero.env]` table. Today those are `ZOTEUS_LOCAL` (`auto`) and `ZOTEUS_EMBEDDINGS` (`off`). The Windows check did not record those two, so they stay unverified. Do not invent keys that `.mcp.json` does not list. The full-text server has no `env` table in `.mcp.json`; do not add one.
+
+From a release archive, point `args` at `<plugin-root>/runtime/bundle/index.mjs` and `<plugin-root>/fulltext-runtime/bundle/index.mjs` instead of the `dist/index.js` files. Those archive paths are unverified on ChatGPT desktop.
+
+Ask the user to restart ChatGPT desktop.
+
+Skills are not loaded by this route. Say so. `ai4s-setup`, `literature-research`, `literature-manager`, and `literature-writing` do not appear. The user still has this file, from the prompt.
+
+### WorkBuddy
+
+Two routes. Try them in order and stop at the first that works. Say which one you used.
+
+1. **Plugin marketplace (unverified).** Not yet tested on WorkBuddy. Per WorkBuddy's plugin documentation, add `https://github.com/Frankkk1912/ai4s-literature-workbench` as a plugin marketplace in the app and install `ai4s-literature-workbench`. Then build once (source route only) and restart.
+2. **MCP config file (verified on Windows 11).** If the marketplace route does not work, add the two servers below to `~/.workbuddy/mcp.json` (on Windows, `%USERPROFILE%\.workbuddy\mcp.json`). The file is named `mcp.json`, with no leading dot, unlike this repository's `.mcp.json`. Do not create a second file under another name. Add to the existing `mcp.json` if there is one. Keep servers already in the file. If a server name below is already present, do not add it again.
 
 ```json
 {
@@ -96,7 +140,9 @@ Not yet tested on WorkBuddy. Per WorkBuddy's plugin documentation, try in this o
 }
 ```
 
-Replace `<plugin-root>` with the absolute path, and keep any servers already in the file. From a release archive, use `runtime/bundle/index.mjs` and `fulltext-runtime/bundle/index.mjs` as the two entry files instead of the `dist/index.js` ones.
+Replace `<plugin-root>` with the absolute path. From a release archive, use `runtime/bundle/index.mjs` and `fulltext-runtime/bundle/index.mjs` as the two entry files instead of the `dist/index.js` ones. Those archive paths were not part of the Windows test, so they stay unverified. Mac was not part of it either.
+
+Verified on Windows 11 for this MCP file route: both servers load, `setup_status` works, `install_search_helper` installs uv 0.13.7, and a real PubMed search wrote `report.md`. Ask the user to restart WorkBuddy after the file changes.
 
 If neither route works, tell the user which step failed and stop.
 

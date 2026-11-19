@@ -10,6 +10,10 @@ Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
 
 ### Changed
 
+- Install guide: use the release archive only when its version is the same or newer than `version` in `.codex-plugin/plugin.json` on main. If the release is older, or it has no `ai4s-literature-workbench-<version>.zip`, use the source route and say so. v0.1.0 does publish `ai4s-literature-workbench-0.1.0.zip`. Installing that zip through a host is still untested.
+- ChatGPT desktop is an install host. Try the Codex plugin commands when the `codex` CLI is available (unverified inside the app). Otherwise append the two servers from `.mcp.json` to `%USERPROFILE%\.codex\config.toml` (`~/.codex/config.toml` on Mac), after a backup, without dropping or duplicating entries. The file route was verified on Windows 11 with a source checkout. Skills are not loaded by that route. Mac, the plugin CLI, and archive `bundle/index.mjs` paths are unverified.
+- WorkBuddy's `~/.workbuddy/mcp.json` route was verified on Windows 11 (both servers, `setup_status`, `install_search_helper` installing uv 0.13.7, a PubMed search writing `report.md`). The marketplace route, Mac, and archive bundle paths stay unverified. CodeBuddy stays unverified.
+- The beginner prompt in `README.md` and `README_CN.md` names ChatGPT desktop and includes the raw `INSTALL.md` URL, for apps that cannot clone the repository.
 - `literature-research` now searches OpenAlex with PubMed by default. The API is free and needs no key; a configured contact email is sent only as the polite-pool `mailto` and is not stored in the search plan. Results merge on DOI and PMID. Europe PMC is left as a follow-up.
 - `report.md` is now a script-written search record (question, date, databases, exact queries, limits, hit/dedup/selected counts, and a selected-paper table). The agent no longer writes a bilingual mini-review at retrieval time. Synthesis belongs in `literature-writing`, or in a separate summary when the user asks for one.
 - Priority 2 and 3 are judged by relevance to the search question during the relevance review. The `AI4S:Priority:1-3` tag contract is unchanged.
@@ -151,6 +155,8 @@ agent or any host can install the workbench.
 | Local wizard + dashboard (loopback HTTP) | Implemented and covered by automated tests | V6/V7 browser sign-off is Frank’s |
 | opencode | — | 未实测; docs only, no new install script |
 | Antigravity | — | 未实测; docs only, no new install script |
-| WorkBuddy / CodeBuddy | — | 未实测 / 待人工核验 (V12) |
+| WorkBuddy MCP file (`~/.workbuddy/mcp.json`) | Windows 11: both servers, `setup_status`, `install_search_helper` (uv 0.13.7), PubMed search wrote `report.md` | Marketplace route; Mac; archive `bundle/index.mjs` paths |
+| CodeBuddy | — | 未实测 |
+| ChatGPT desktop MCP config (`config.toml`) | Windows 11, source checkout (`dist/index.js`). Skills are not loaded by this route | Plugin CLI inside the app; Mac; archive `bundle/index.mjs` paths |
 | XPI installed inside Zotero Desktop | — | 本轮未核验 |
 | Measured MCP “已连接” | — | Not displayed without measured evidence |

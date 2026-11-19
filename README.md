@@ -79,7 +79,7 @@ A separate XPI you install into Zotero Desktop ([download the newest](https://gi
 ## Get started
 
 ### What you need
-- An agent app: **Claude Desktop**, **Claude Code**, **Codex**, WorkBuddy, CodeBuddy, Trae or Qoder.
+- An agent app: **Claude Desktop**, **Claude Code**, **Codex**, **ChatGPT desktop**, WorkBuddy, CodeBuddy, Trae or Qoder.
 - **Zotero Desktop**, if you want your papers organized there and the journal columns.
 - A web browser, for the page where you paste optional keys.
 
@@ -91,12 +91,12 @@ That is all you install yourself. The first search needs a small helper (about 1
 1. Open the [latest release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest) and download `ai4s-literature-zotero-<version>.mcpb`.
 2. Double-click it, or drag it onto the Claude Desktop window, and accept the install screen. Leave the two optional settings as they are.
 
-**Claude Code, Codex, WorkBuddy, CodeBuddy**: paste this into the app:
-> Please install the plugin from https://github.com/Frankkk1912/ai4s-literature-workbench.git into this app. Follow INSTALL.md in that repository exactly and do not add steps of your own. When it's done, tell me in plain language what works now and what I need to do myself.
+**Claude Code, Codex, ChatGPT desktop, WorkBuddy, CodeBuddy**: paste this into the app:
+> Please install the plugin from https://github.com/Frankkk1912/ai4s-literature-workbench.git into this app. Follow INSTALL.md exactly, and if you cannot open the repository read https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md. Do not add steps of your own. When it's done, tell me in plain language what works now and what I need to do myself.
 
 **Trae, Qoder**: see "Other agents & manual install" below.
 
-Before you start: your app may ask permission to reach GitHub or the network. Choose **Allow**; the install cannot continue without it. WorkBuddy and CodeBuddy have not been tested on a real machine yet.
+Before you start: your app may ask permission to reach GitHub or the network. Choose **Allow**; the install cannot continue without it. Tested on a real Windows 11 PC: WorkBuddy through its MCP file, and ChatGPT desktop through its MCP file (that route connects the tools and does not load the skills). Not tested yet: WorkBuddy's in-app marketplace, CodeBuddy, and ChatGPT desktop on a Mac.
 
 ### 2. First-run setup
 Your agent runs the `ai4s-setup` skill: it tells you in plain words what works now and what needs you.
@@ -147,6 +147,7 @@ claude plugin install ai4s-literature-workbench@ai4s-literature-workbench
 codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-workbench.git
 codex plugin add ai4s-literature-workbench@personal
 ```
+**ChatGPT desktop** — paste the prompt above. If you install by hand, use the Codex commands when the `codex` command exists; otherwise follow the MCP file route in INSTALL.md. That file route does not load the skills.
 **Trae / Qoder** — choose the line for your app.
 ```bash
 node scripts/install-host.mjs --host trae --target /path/to/project
