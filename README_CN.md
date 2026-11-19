@@ -136,9 +136,9 @@
 
 ```text
 请帮我从
-[https://github.com/Frankkk1912/ai4s-literature-workbench.git](https://github.com/Frankkk1912/ai4s-literature-workbench.git)
+https://github.com/Frankkk1912/ai4s-literature-workbench.git
 安装这个插件到当前应用。严格按 INSTALL.md 操作；如果打不开仓库，就读
-[https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md](https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md)
+https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md
 不要自己添加步骤。装好后，用通俗的话告诉我现在能用什么、我自己还需要做什么。
 ```
 
@@ -178,7 +178,7 @@
 前置要求：Git，以及包含 npm 的 Node.js ≥ 22.13。克隆仓库并完成一次本地构建即可；首次触发检索时会自动下载检索组件，无需预先手动安装 `uv`。
 
 ```bash
-git clone [https://github.com/Frankkk1912/ai4s-literature-workbench.git](https://github.com/Frankkk1912/ai4s-literature-workbench.git)
+git clone https://github.com/Frankkk1912/ai4s-literature-workbench.git
 cd ai4s-literature-workbench
 node scripts/bootstrap.mjs
 ```
@@ -195,7 +195,7 @@ claude plugin install ai4s-literature-workbench@ai4s-literature-workbench
 **Codex**
 
 ```bash
-codex plugin marketplace add [https://github.com/Frankkk1912/ai4s-literature-workbench.git](https://github.com/Frankkk1912/ai4s-literature-workbench.git)
+codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-workbench.git
 codex plugin add ai4s-literature-workbench@personal
 ```
 

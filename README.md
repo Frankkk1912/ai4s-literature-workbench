@@ -155,9 +155,9 @@ Nothing else needs manual installation. On your first search, the workbench asks
 
 ```text
 Please install the plugin from
-[https://github.com/Frankkk1912/ai4s-literature-workbench.git](https://github.com/Frankkk1912/ai4s-literature-workbench.git)
+https://github.com/Frankkk1912/ai4s-literature-workbench.git
 into this app. Follow INSTALL.md exactly, and if you cannot open the repository read
-[https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md](https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md)
+https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md
 Do not add steps of your own. When it's done, tell me in plain language what works now and what I need to do myself.
 ```
 
@@ -205,7 +205,7 @@ For a full walkthrough, see `docs/getting-started.md`.
 Requires Git and Node.js ≥ 22.13 (with npm). Clone the repository and run the bootstrap script once. The first search automatically downloads the search helper—you do not need to install `uv` manually.
 
 ```bash
-git clone [https://github.com/Frankkk1912/ai4s-literature-workbench.git](https://github.com/Frankkk1912/ai4s-literature-workbench.git)
+git clone https://github.com/Frankkk1912/ai4s-literature-workbench.git
 cd ai4s-literature-workbench
 node scripts/bootstrap.mjs
 ```
@@ -222,7 +222,7 @@ claude plugin install ai4s-literature-workbench@ai4s-literature-workbench
 **Codex**
 
 ```bash
-codex plugin marketplace add [https://github.com/Frankkk1912/ai4s-literature-workbench.git](https://github.com/Frankkk1912/ai4s-literature-workbench.git)
+codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-workbench.git
 codex plugin add ai4s-literature-workbench@personal
 ```
 
@@ -239,4 +239,68 @@ codex plugin add ai4s-literature-workbench@personal
 
 ```bash
 node scripts/install-host.mjs --host trae --target /path/to/project
-node scripts/install-host.
+node scripts/install-host.mjs --host qoder --target /path/to/project
+```
+
+</details>
+
+<details>
+<summary>For developers</summary>
+
+### Project structure
+
+```text
+ai4s-literature-workbench/
+├── .claude-plugin/            # Claude Code marketplace and plugin manifest
+├── .codebuddy-plugin/         # CodeBuddy marketplace manifest
+├── .codex-plugin/             # Codex manifest and marketplace
+├── docs/                      # Setup and component guides
+├── release/launchers/         # Setup AI4S.bat and Setup AI4S.command
+├── scripts/                   # Install, build, and verification
+├── skills/                    # ai4s-setup, research, Zotero, writing
+├── runtime/                   # Zotero tools and the local key page
+├── fulltext-runtime/          # Open-access full text and PDF checks
+├── literature-metrics/        # Zotero Desktop add-on
+└── tests/                     # Repository tests
+```
+
+`install-manifest.json` matches `INSTALL.md`. Agents follow those two files. This page is the human one.
+
+### Development
+
+From the repository root. The bootstrap installs and builds the Zotero and full-text runtimes:
+
+```bash
+node scripts/bootstrap.mjs
+node --import ./runtime/node_modules/tsx/dist/loader.mjs --test "tests/*.test.mjs"
+(cd runtime && npm run typecheck && npm test)
+(cd fulltext-runtime && npm run typecheck && npm test)
+(cd literature-metrics && npm ci && npm run check && npm test && npm run package)
+```
+
+### Docs
+
+- `docs/getting-started.md`
+- `docs/zotero-xpi.md`
+- `docs/dev/onboarding.md`
+- `docs/dev/local-dashboard.md`
+- `docs/dev/release-checklist.md`
+- `SECURITY.md`
+
+</details>
+
+## 🤝 Contributing
+
+Issues and pull requests are welcome.
+
+## 📄 License
+
+MIT, see `LICENSE`. © Frank AI4S Skill contributors.
+
+**No Evidence, No Conclusion.** A scientific claim traces back to saved evidence. The Zotero layer credits Oscar Devos's Zoteus (`https://github.com/oscardvs/zoteus`). Component credits are in `THIRD_PARTY_NOTICES.md`.
+
+---
+
+<p align="center">
+  <sub>📚 AI4S Literature Workbench · Which sentence came from which paper.</sub>
+</p>
