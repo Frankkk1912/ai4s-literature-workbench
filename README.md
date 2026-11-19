@@ -83,7 +83,7 @@ A separate XPI you install into Zotero Desktop ([download the newest](https://gi
 - **Zotero Desktop**, if you want your papers organized there and the journal columns.
 - A web browser, for the page where you paste optional keys.
 
-That is all you install yourself. If your computer also needs a small free tool (Node.js, or the search helper `uv`), your agent says so, asks first, and tells you where to get it. Claude Desktop needs neither for the Zotero tools.
+That is all you install yourself. The first search needs a small helper (about 15 MB). Your agent asks once, then downloads it (plus Python, if your computer has none it can use) into folders in your user account. It needs no admin rights and changes no system settings. If your app needs Node.js, your agent says so and tells you where to get it. Claude Desktop does not need it for the Zotero tools.
 
 ### 1. Install (pick your app)
 

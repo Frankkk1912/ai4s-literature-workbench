@@ -71,10 +71,16 @@ Optional
   Journal partition columns in Zotero: install the add-on (one file)
 ```
 
-Do not read out `diagnostics`. If something under Needs you has the action
-`ask_to_install` (the search helper is missing), say what it is and that you
-will install it with its official installer, wait for a yes, install it, and
-call `setup_status` again.
+Do not read out `diagnostics`. If `search` is under Needs you with the action
+`install_helper`, say in one plain sentence that search needs a small helper
+tool (about 15 MB, plus about 30 MB of Python if the computer has none it can
+use), downloaded into folders in their user account, with no admin rights and
+no system settings changed. After a yes, call `install_search_helper`. It
+answers within about 40 seconds; while it says `downloading` or
+`preparing_python`, tell the user it is still downloading and call it again.
+Then call `setup_status` again. Only if it reports `failed` or `unsupported`,
+or the action is `ask_to_install`, offer the official installer from the link
+in the status text, after a yes.
 
 ## Step 4: Add a key (only when wanted)
 
@@ -117,7 +123,9 @@ Never ask for this earlier.
 
 Do this once at the end of setup, and tell the user a tiny search is running.
 From the folder that holds `literature-research/`, with a private temporary
-folder for the output (never the user's project folder):
+folder for the output (never the user's project folder). Replace `uv run` with
+`search_helper.run` from `setup_status` (`run.posix` in bash or zsh,
+`run.powershell` in PowerShell):
 
 ```text
 uv run literature-research/scripts/literature_search.py review --question "setup check" --pubmed-query "CRISPR base editing[Title]" --limit 3 --top-n 3 --output <private-temp>/ai4s-setup-check

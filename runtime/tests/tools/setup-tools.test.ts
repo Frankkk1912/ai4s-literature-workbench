@@ -4,18 +4,27 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const launcher = vi.hoisted(() => ({ opened: true, urls: [] as string[] }));
+const helper = vi.hoisted(() => ({ result: undefined as unknown, state: 'downloading' }));
 vi.mock('../../src/lib/browser-open.js', () => ({
   openInBrowser: async (url: string) => {
     launcher.urls.push(url);
     return launcher.opened;
   },
 }));
-vi.mock('../../src/lib/setup-status.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../src/lib/setup-status.js')>()),
-  probeUv: async () => true,
+// Never look for a real uv on the test machine: CI runners may or may not have one.
+vi.mock('../../src/lib/search-helper.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/lib/search-helper.js')>()),
+  probeSearchHelper: async () => ({ available: true, source: 'path', path: null, run: { posix: 'uv run', powershell: 'uv run' }, can_install: true }),
+  INSTALL_WAIT_MS: 10,
+  startSearchHelperInstall: () => ({
+    state: helper.state,
+    result: helper.result,
+    promise: helper.result ? Promise.resolve(helper.result) : new Promise(() => {}),
+  }),
 }));
 
 import openSetup from '../../src/tools/open-setup.js';
+import installSearchHelper from '../../src/tools/install-search-helper.js';
 import setupStatus from '../../src/tools/setup-status.js';
 import { closeSetupSession } from '../../src/lib/setup-session.js';
 
@@ -121,5 +130,30 @@ describe('open_setup tool', () => {
     expect(second.url).not.toBe(first.url);
     await expect(fetch(first.url)).rejects.toThrow();
     expect((await fetch(second.url)).status).toBe(200);
+  });
+});
+
+describe('install_search_helper tool', () => {
+  it('takes no input, and answers "still downloading" instead of blocking the agent', async () => {
+    expect(Object.keys(installSearchHelper.inputSchema)).toEqual([]);
+    expect(installSearchHelper.annotations?.readOnlyHint).toBe(false);
+    helper.result = undefined;
+    helper.state = 'downloading';
+    const body = (await installSearchHelper.handler({}, ctx())).structuredContent as Record<string, unknown>;
+    expect(body).toMatchObject({ state: 'downloading', done: false, run: null });
+  });
+
+  it('hands back the command to use, and a plain reason when it fails', async () => {
+    const run = { posix: "'/x/uv' run", powershell: "& '/x/uv' run" };
+    helper.result = { state: 'installed', python_ready: false, path: '/x/uv', run };
+    const ready = (await installSearchHelper.handler({}, ctx())).structuredContent as { run: unknown; message: { en: string } };
+    expect(ready.run).toEqual(run);
+    expect(ready.message.en).toMatch(/first search also fetches Python/);
+
+    helper.result = { state: 'failed', python_ready: false, path: null, run: null, error: 'could not download the helper from GitHub (503)' };
+    const failed = (await installSearchHelper.handler({}, ctx())).structuredContent as { state: string; message: { zh: string; en: string } };
+    expect(failed.state).toBe('failed');
+    expect(failed.message.en).toMatch(/Reason: could not download/);
+    expect(failed.message.zh).toMatch(/原因/);
   });
 });

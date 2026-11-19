@@ -15,6 +15,16 @@ Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
 
 ### Added
 
+- The search helper no longer has to be installed by the user. A new tool, `install_search_helper`,
+  downloads the pinned `uv` 0.13.7 for the user's system from GitHub, checks it against a SHA-256 kept
+  in `runtime/src/lib/search-helper.ts`, and keeps it under the workbench's tools folder (per user;
+  `LOCALAPPDATA` on Windows). If the computer has no Python 3.10 or newer, uv fetches Python 3.12 into
+  its own per-user folder, with no `~/.local/bin` link and no Windows registry entry. The tool answers
+  within about 40 seconds and finishes in the background. `setup_status` offers it (action
+  `install_helper`) and reports `search_helper.run`, the quoted command that replaces `uv run` in
+  bash/zsh and PowerShell. The research, manager and setup skills ask once and use that command; the
+  official uv installer is now only the fallback. The workbench tool profile has 20 tools.
+
 - DeepSeek Harness support: the release carries `dsh-ai4s-literature-workbench-<version>.tgz`
   (and a fixed-name copy for `releases/latest/download/`), a plugin package with the Zotero and
   full-text tools and all skills. `INSTALL.md`, `install-manifest.json`, both READMEs and both

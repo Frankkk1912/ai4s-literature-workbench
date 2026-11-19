@@ -134,7 +134,7 @@ This is the one install an agent cannot do for the user, because it happens on D
 2. In DeepSeek Harness, open the **Plugins** page, choose **Add plugin**, and paste the path of the downloaded file. Pasting the address `https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/dsh-ai4s-literature-workbench.tgz` instead is also untested.
 3. Quit and reopen DeepSeek Harness. The package loads at start-up.
 
-The package then provides the tools `mcp__ai4s-literature-zotero__*` and `mcp__ai4s-literature-fulltext__*` (the same 19 and 6 tools as the other routes, under those prefixes) and the skills in the `/` list. Continue with "Keys" and "Check at the end" below. The skills name the setup tools without that prefix; use the prefixed ones. If the release page does not list the `.tgz` yet, say so plainly rather than improvising: this route needs a release newer than 0.1.0.
+The package then provides the tools `mcp__ai4s-literature-zotero__*` and `mcp__ai4s-literature-fulltext__*` (the same 20 and 6 tools as the other routes, under those prefixes) and the skills in the `/` list. Continue with "Keys" and "Check at the end" below. The skills name the setup tools without that prefix; use the prefixed ones. If the release page does not list the `.tgz` yet, say so plainly rather than improvising: this route needs a release newer than 0.1.0.
 
 If the user already uses the command line, `dsh plugin --profile desktop add <path to the .tgz>` with Desktop closed does the same (`dsh` needs Node.js 22.19 or newer and `pnpm` on the PATH). That was tried with the browser build (`dsh web`, profile `web`, version 0.2.1-rc.2) on macOS, and the release check repeats it on Linux. The Desktop profile name `desktop` comes from DeepSeek Harness's documentation and has not been tried.
 
@@ -147,7 +147,7 @@ Not yet tested, and not to be claimed: the Plugins page and the address route, D
 ## Check at the end
 
 1. The tool list includes `setup_status` (and the `fulltext_*` tools, which are optional). If `setup_status` is missing, say "My search tools are not connected yet", name the step that failed, and give one next action. Then call it and use its `rendered` text.
-2. Run one tiny real search, so the user sees a result rather than a file-exists check. In a private temporary folder, from the folder that holds `literature-research/`: `uv run literature-research/scripts/literature_search.py review --question "setup check" --pubmed-query "CRISPR base editing[Title]" --limit 3 --top-n 3 --output <private-temp>/ai4s-setup-check`. Show the first titles from `report.md`. If it fails, say the search did not run and give the one reason in plain words.
+2. Run one tiny real search, so the user sees a result rather than a file-exists check. In a private temporary folder, from the folder that holds `literature-research/`, with `uv run` replaced by `search_helper.run` from `setup_status` (`run.posix` or `run.powershell`): `uv run literature-research/scripts/literature_search.py review --question "setup check" --pubmed-query "CRISPR base editing[Title]" --limit 3 --top-n 3 --output <private-temp>/ai4s-setup-check`. Show the first titles from `report.md`. If it fails, say the search did not run and give the one reason in plain words.
 3. Report in this shape:
 
 ```text

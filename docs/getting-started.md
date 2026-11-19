@@ -89,7 +89,7 @@ You get a deduplicated reading list, ranking reasons and a saved report you can 
 | The add-on installed long ago never updates | Copies older than 0.1.14 cannot update themselves. Install the newest file once by hand. |
 | DeepSeek Harness shows no tools after you add the package | Quit and reopen it (the package loads at start-up), check that the package is listed on the Plugins page, then ask: "run the ai4s-setup skill". |
 | The app asks to reach GitHub or the network | Choose Allow. |
-| A search says the helper is missing | The agent offers to install a small search helper (`uv`). Say yes. |
+| A search says the helper is missing | The agent offers to download a small search helper (about 15 MB) into a folder in your user account (no admin rights). Say yes. If the download is blocked, it offers the helper's official installer instead. |
 
 ## Questions
 

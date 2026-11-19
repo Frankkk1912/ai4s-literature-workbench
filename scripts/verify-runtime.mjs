@@ -30,6 +30,7 @@ const { tools } = await client.listTools();
 await client.close();
 
 const expected = [
+  'install_search_helper',
   'open_setup',
   'setup_status',
   'zotero_ai_summary_context',

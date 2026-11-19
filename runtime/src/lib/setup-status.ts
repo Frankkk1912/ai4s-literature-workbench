@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import type { InstallState, RunCommand } from './search-helper.js';
 import * as core from './onboarding-core.mjs';
 import type { OnboardingPaths, ProviderName } from './onboarding-core.mjs';
 
@@ -35,6 +35,7 @@ export type SetupAction =
   | { type: 'open_setup'; keys: ProviderName[]; label: Text }
   | { type: 'link'; url: string; label: Text }
   | { type: 'restart_app'; label: Text }
+  | { type: 'install_helper'; tool: 'install_search_helper'; label: Text }
   | { type: 'ask_to_install'; url: string; label: Text };
 
 export interface SetupItem {
@@ -50,6 +51,12 @@ export type AddonState = 'active' | 'unconfirmed' | 'absent' | 'no_zotero';
 export interface SetupFacts {
   /** The search helper (uv) starts on this computer. */
   uvAvailable: boolean;
+  /** The workbench can download its own pinned copy here (false on an unusual system). */
+  uvCanInstall?: boolean;
+  /** An install started in this session and not finished yet. */
+  uvInstalling?: InstallState;
+  /** What replaces `uv run` in the skills' commands, quoted per shell. */
+  uvRun?: RunCommand | null;
   zotero: {
     /** A key exists in the environment or in a private file. */
     keyPresent: boolean;
@@ -78,6 +85,8 @@ export interface SetupStatus {
   needs_you: SetupItem[];
   optional: SetupItem[];
   next_action: SetupAction | null;
+  /** How the skills run their scripts: use `run` in place of `uv run`. */
+  search_helper: { ready: boolean; run: RunCommand | null };
   rendered: Text;
   diagnostics: Record<string, unknown>;
 }
@@ -106,29 +115,40 @@ export function evaluateSetup(facts: SetupFacts, wanted: readonly CapabilityId[]
   const items: SetupItem[] = [];
 
   // Search and drafting need nothing from the user except the helper that runs them.
-  items.push(
-    facts.uvAvailable
-      ? {
-          id: 'search',
-          group: 'works_now',
-          title: text('检索并排序文献；根据已保存的证据起草', 'Search and rank papers; draft from saved evidence'),
-          detail: text('不需要任何密钥。', 'No key needed.'),
-        }
-      : {
-          id: 'search',
-          group: 'needs_you',
-          title: text('检索文献', 'Search papers'),
-          detail: text(
-            '这台电脑还缺一个小的辅助工具（uv）。我会先征得你同意，再用官方安装程序装上。',
-            'This computer is missing a small helper tool (uv). I will ask first, then install it with the official installer.',
-          ),
-          action: {
-            type: 'ask_to_install',
-            url: LINKS.uv,
-            label: text('让我安装辅助工具', 'Let me install the helper'),
-          },
-        },
-  );
+  const searchTitle = text('检索并排序文献；根据已保存的证据起草', 'Search and rank papers; draft from saved evidence');
+  if (facts.uvAvailable) {
+    items.push({ id: 'search', group: 'works_now', title: searchTitle, detail: text('不需要任何密钥。', 'No key needed.') });
+  } else if (facts.uvInstalling === 'downloading' || facts.uvInstalling === 'preparing_python') {
+    items.push({
+      id: 'search',
+      group: 'needs_you',
+      title: text('检索文献', 'Search papers'),
+      detail: text('检索辅助工具正在下载，几分钟内就好，请稍等。', 'The search helper is downloading; it should be ready in a few minutes.'),
+      action: { type: 'install_helper', tool: 'install_search_helper', label: text('查看下载进度', 'Check the download') },
+    });
+  } else if (facts.uvCanInstall !== false) {
+    items.push({
+      id: 'search',
+      group: 'needs_you',
+      title: text('检索文献', 'Search papers'),
+      detail: text(
+        '检索还需要一个小的辅助工具（约 15 MB；如果电脑上没有合适的 Python，还会再下载约 30 MB）。你同意后，我会把它下载到你用户账户下的文件夹里，不需要管理员权限，也不会改动系统设置。',
+        'Search needs a small helper tool (about 15 MB, plus about 30 MB of Python if the computer has none it can use). With your OK, I will download it into folders in your user account; no admin rights, and no system settings change.',
+      ),
+      action: { type: 'install_helper', tool: 'install_search_helper', label: text('下载辅助工具', 'Download the helper') },
+    });
+  } else {
+    items.push({
+      id: 'search',
+      group: 'needs_you',
+      title: text('检索文献', 'Search papers'),
+      detail: text(
+        '这台电脑还缺一个小的辅助工具（uv）。我会先征得你同意，再用官方安装程序装上。',
+        'This computer is missing a small helper tool (uv). I will ask first, then install it with the official installer.',
+      ),
+      action: { type: 'ask_to_install', url: LINKS.uv, label: text('让我安装辅助工具', 'Let me install the helper') },
+    });
+  }
 
   const canRead = facts.zotero.localApi || facts.zotero.cloudOk;
   const readDetail = canRead
@@ -316,9 +336,11 @@ export function buildSetupStatus(
     needs_you,
     optional,
     next_action: needs_you.find((item) => item.action)?.action ?? null,
+    search_helper: { ready: facts.uvAvailable, run: facts.uvAvailable ? facts.uvRun ?? { posix: 'uv run', powershell: 'uv run' } : null },
     rendered: text(renderSetup(items, 'zh'), renderSetup(items, 'en')),
     diagnostics: {
       search_helper: facts.uvAvailable,
+      search_helper_installing: facts.uvInstalling ?? null,
       zotero_local_connection: facts.zotero.localApi,
       zotero_local_state: facts.zotero.localState ?? null,
       zotero_local_save: Boolean(facts.zotero.localSave),
@@ -331,17 +353,6 @@ export function buildSetupStatus(
       addon: facts.addon,
     },
   };
-}
-
-/** Run `uv --version`. A missing or broken helper is an answer, not an error. */
-export function probeUv(timeoutMs = 4000): Promise<boolean> {
-  return new Promise((resolve) => {
-    try {
-      execFile('uv', ['--version'], { timeout: timeoutMs, windowsHide: true }, (error) => resolve(!error));
-    } catch {
-      resolve(false);
-    }
-  });
 }
 
 function addonState(report: Record<string, unknown>): AddonState {
@@ -366,6 +377,9 @@ export interface FactSources {
   /** Zotero answered with a server id, which only Zotero 10 and later send. */
   localServerId?: string;
   uvAvailable: boolean;
+  uvCanInstall?: boolean;
+  uvInstalling?: InstallState;
+  uvRun?: RunCommand | null;
 }
 
 /** Collect the facts from the machine. Reads files and the environment; sends nothing anywhere. */
@@ -376,6 +390,9 @@ export function gatherFacts(sources: FactSources): SetupFacts {
   const user = sources.cloud?.access?.user as { write?: boolean } | undefined;
   return {
     uvAvailable: sources.uvAvailable,
+    uvCanInstall: sources.uvCanInstall,
+    uvInstalling: sources.uvInstalling,
+    uvRun: sources.uvRun,
     zotero: {
       keyPresent: status.providers.zotero.configured,
       keyLoadedAtStart: sources.startedWithKey,

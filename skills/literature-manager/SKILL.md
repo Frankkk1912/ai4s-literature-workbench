@@ -36,6 +36,16 @@ ask for the key in chat. A key saved after the app started takes effect after a
 restart. Never say "not configured". Do not write to Zotero until
 `zotero_save` is under Works now.
 
+The scripts below need the search helper too. If the `search` item is under
+Needs you, ask once in plain words, and after a yes call
+`install_search_helper` as the `literature-research` skill describes.
+
+Every `uv run` in this skill stands for the command in `setup_status`'s
+`search_helper.run`: use `run.posix` in bash or zsh and `run.powershell` in
+PowerShell, then the rest of the line. It is a quoted full path when the
+workbench downloaded the helper itself, and plain `uv run` when the computer
+already had one. Do not add the helper to PATH or install another copy.
+
 ## Overview
 Use this skill to connect saved literature evidence with Frank's Zotero library
 without letting Zotero replace source-database retrieval. Zotero is the

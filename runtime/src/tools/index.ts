@@ -13,6 +13,7 @@ import savedSearches from './saved-searches.js';
 import onboardingPairing from './onboarding-pairing.js';
 import setupStatus from './setup-status.js';
 import openSetup from './open-setup.js';
+import installSearchHelper from './install-search-helper.js';
 import groups from './groups.js';
 import exportTool from './export.js';
 import fulltext from './fulltext.js';
@@ -48,6 +49,7 @@ export const tools: ToolDefinition[] = [
   // First-run setup
   setupStatus,
   openSetup,
+  installSearchHelper,
   // Read
   whoami,
   searchItems,

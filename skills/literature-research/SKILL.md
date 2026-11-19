@@ -24,12 +24,23 @@ action: use the `ai4s-setup` skill, which connects them (and if that skill is
 missing too, follow the route for their app in `INSTALL.md` in the plugin root).
 Re-check afterwards and continue only if `setup_status` answers.
 
-If it answers, look at the `search` item. If it is under Needs you, stop: say in
-plain words that a small helper tool (uv) is missing on this computer, offer to
-install it with its official installer from
-<https://docs.astral.sh/uv/getting-started/installation/> after the user
-approves, and call `setup_status` again. Otherwise continue with the task
-without reciting the status. Show the three groups from `rendered` only when the
+If it answers, look at the `search` item. If it is under Needs you with the
+action `install_helper`, stop and say in plain words that search needs a small
+helper tool (about 15 MB, plus about 30 MB of Python if the computer has none
+it can use), downloaded into folders in their user account, with no admin
+rights and no system settings changed. After a yes, call
+`install_search_helper`; call it again while it says `downloading` or
+`preparing_python`, then call `setup_status` again. Only if it reports `failed`
+or `unsupported`, or the action is `ask_to_install`, offer the official
+installer from <https://docs.astral.sh/uv/getting-started/installation/> after
+the user approves. Otherwise continue with the task without reciting the
+status.
+
+Every `uv run` in this skill stands for the command in `setup_status`'s
+`search_helper.run`: use `run.posix` in bash or zsh and `run.powershell` in
+PowerShell, then the rest of the line. It is a quoted full path when the
+workbench downloaded the helper itself, and plain `uv run` when the computer
+already had one. Do not add the helper to PATH or install another copy. Show the three groups from `rendered` only when the
 user asks what works, or when a key they asked for is missing.
 
 Never ask for a key in chat. If the user wants PubMed speed or journal ratings

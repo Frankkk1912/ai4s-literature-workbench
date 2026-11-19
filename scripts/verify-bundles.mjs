@@ -9,8 +9,8 @@
 // instead of copying them from this repository (scripts/verify-release.mjs does this).
 //
 // Checks, in order (each prints PASS or FAIL, and the child process's stderr on FAIL):
-//   1. runtime bundle over stdio lists exactly the 19 workbench tools (17 plus the two
-//      setup tools, setup_status and open_setup)
+//   1. runtime bundle over stdio lists exactly the 20 workbench tools (17 plus the three
+//      setup tools, setup_status, open_setup and install_search_helper)
 //   2. runtime bundle with --http serves the onboarding page (GET /admin/onboarding)
 //   3. setup_status answers in plain words and returns no key; open_setup starts a page that
 //      refuses a wrong code, takes the right one, and offers the keys that were asked for
@@ -34,6 +34,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const inActions = process.env.GITHUB_ACTIONS === 'true';
 
 const EXPECTED_RUNTIME_TOOLS = [
+  'install_search_helper',
   'open_setup',
   'setup_status',
   'zotero_ai_summary_context',
@@ -290,6 +291,17 @@ async function verifySetupStatus(driver, entry) {
       for (const lang of ['zh', 'en']) {
         if (INTERNAL_WORDS.test(body.rendered[lang])) throw new Error(`setup_status uses a build word in ${lang}: ${body.rendered[lang]}`);
       }
+      // The skills replace `uv run` with this. Whether a uv is on the runner varies, so check
+      // the shape: a command when ready, and an install offer when not.
+      const helper = body.search_helper;
+      if (typeof helper?.ready !== 'boolean') throw new Error('setup_status does not report search_helper.ready.');
+      if (helper.ready && (typeof helper.run?.posix !== 'string' || typeof helper.run?.powershell !== 'string')) {
+        throw new Error(`setup_status reports the helper ready but gives no command: ${JSON.stringify(helper)}`);
+      }
+      const search = [...body.works_now, ...body.needs_you].find((item) => item.id === 'search');
+      if (!helper.ready && search?.action?.type !== 'install_helper') {
+        throw new Error(`With no helper, search should offer install_helper: ${JSON.stringify(search)}`);
+      }
       if (JSON.stringify(raw).includes(planted)) throw new Error('setup_status returned the value of a key.');
     });
 }
@@ -375,7 +387,7 @@ try {
   const runtimeEntry = join(pluginDir, 'runtime', 'bundle', 'index.mjs');
   const fulltextEntry = join(pluginDir, 'fulltext-runtime', 'bundle', 'index.mjs');
 
-  await check('runtime bundle starts over stdio and lists its 19 workbench tools', () =>
+  await check('runtime bundle starts over stdio and lists its 20 workbench tools', () =>
     withStdioClient(driver, 'runtime bundle', runtimeEntry,
       cleanEnv({ LITERATURE_ZOTERO_MCP_TOOL_PROFILE: 'workbench', ZOTEUS_LOCAL: 'off', ZOTEUS_EMBEDDINGS: 'off' }),
       async (client) => {
