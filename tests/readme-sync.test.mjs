@@ -40,14 +40,50 @@ test("the bootstrap line in the README exists in INSTALL.md, and its script exis
 	assert.ok(existsSync(new URL("../scripts/bootstrap.mjs", import.meta.url)));
 });
 
-test("the install prompt is the same in both languages' sources of truth", () => {
-	const raw = "https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md";
-	for (const name of READMES) {
-		assert.ok(read(name).includes("https://github.com/Frankkk1912/ai4s-literature-workbench.git"), `${name}: install address`);
-		assert.ok(read(name).includes("INSTALL.md"), `${name}: does not point at INSTALL.md`);
-		assert.ok(read(name).includes(raw), `${name}: raw INSTALL.md URL`);
-		assert.match(read(name), /ChatGPT/);
+const PROMPT_URLS = [
+	"https://github.com/Frankkk1912/ai4s-literature-workbench.git",
+	"https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md",
+];
+const INSTALL_PROMPTS = {
+	"README.md": `Please install the plugin from
+https://github.com/Frankkk1912/ai4s-literature-workbench.git
+into this app. Follow INSTALL.md exactly, and if you cannot open the repository read
+https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md
+Do not add steps of your own. When it's done, tell me in plain language what works now and what I need to do myself.`,
+	"README_CN.md": `请帮我从
+https://github.com/Frankkk1912/ai4s-literature-workbench.git
+安装这个插件到当前应用。严格按 INSTALL.md 操作；如果打不开仓库，就读
+https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md
+不要自己添加步骤。装好后，用通俗的话告诉我现在能用什么、我自己还需要做什么。`,
+};
+
+// ASCII URL, then the next source character. A full-width 。 glued on becomes part of the link.
+function nonAsciiRightAfterUrl(text) {
+	const bad = [];
+	for (const m of text.matchAll(/https?:\/\/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+/g)) {
+		const next = text[m.index + m[0].length];
+		if (next !== undefined && next.charCodeAt(0) > 127) bad.push(`${m[0]}${next}`);
 	}
+	return bad;
+}
+
+test("the install prompt is the same in both languages' sources of truth", () => {
+	const raw = PROMPT_URLS[1];
+	for (const name of READMES) {
+		const page = read(name);
+		assert.ok(page.includes(INSTALL_PROMPTS[name]), `${name}: install prompt drifted`);
+		assert.ok(page.includes(PROMPT_URLS[0]), `${name}: install address`);
+		assert.ok(page.includes("INSTALL.md"), `${name}: does not point at INSTALL.md`);
+		assert.ok(page.includes(raw), `${name}: raw INSTALL.md URL`);
+		assert.match(page, /ChatGPT/);
+		const prompt = INSTALL_PROMPTS[name];
+		assert.deepEqual(nonAsciiRightAfterUrl(prompt), [], `${name}: a prompt URL is glued to non-ASCII text`);
+		for (const url of PROMPT_URLS) {
+			assert.ok(prompt.split("\n").includes(url), `${name}: ${url} is not on its own line`);
+		}
+	}
+	const setup = read("skills/ai4s-setup/SKILL.md");
+	assert.ok(setup.split("\n").some((line) => line.trim() === raw), "ai4s-setup: raw INSTALL.md URL is not alone on its line");
 	assert.match(read("docs/getting-started.md"), /ChatGPT desktop/);
 	assert.match(read("docs/getting-started_CN.md"), /ChatGPT/);
 	for (const name of [...READMES, "docs/getting-started.md", "docs/getting-started_CN.md"]) {
@@ -57,6 +93,14 @@ test("the install prompt is the same in both languages' sources of truth", () =>
 			`${name}: still says WorkBuddy was never tested`,
 		);
 	}
+});
+
+test("negative control: a URL glued to full-width punctuation is caught", () => {
+	const glued = "https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md。不要";
+	assert.deepEqual(nonAsciiRightAfterUrl(glued), [
+		"https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md。",
+	]);
+	assert.deepEqual(nonAsciiRightAfterUrl(`${glued.split("。")[0]}\n不要`), []);
 });
 
 test("the README's Claude Desktop route names the file the release builds", () => {

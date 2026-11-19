@@ -98,7 +98,7 @@ A one-sentence Chinese summary is optional. It is written from the title and the
 
 ### 📊 The literature-metrics add-on
 
-A separate file for Zotero Desktop. [Download the newest](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi), then Tools → Add-ons → the gear → Install Add-on From File…, and restart. Steps and updates: [Zotero add-on](docs/zotero-xpi.md).
+A separate file for Zotero Desktop. Download `literature-metrics.xpi` from `https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi`, then Tools → Add-ons → the gear → Install Add-on From File…, and restart. Steps and updates are in `docs/zotero-xpi.md`.
 
 It adds columns for colored **IF / JCR / CAS**, and **Priority** stars. The stars use the same 1 / 2 / 3 reading order as the search. Article Type, Agent Tags, and a one-line AI Summary show up in the same list. The stars, the number keys `1` / `2` / `3`, and the **Set Priority** context menu are the add-on's only write. They change the Priority tags and leave every other field.
 
@@ -142,14 +142,20 @@ That is all you install yourself. The first search asks once, then downloads a h
 
 **Claude Desktop** (Zotero tools only. The skills and the full-text tools are not in this file. This route has not been tried in Claude Desktop yet.)
 
-1. Open the [latest release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest) and download `ai4s-literature-zotero-<version>.mcpb`.
+1. Open `https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest` and download `ai4s-literature-zotero-<version>.mcpb`.
 2. Double-click it, or drag it onto the Claude Desktop window. Leave the two optional settings as they are. Do not paste a key into chat.
 
 The `.mcpb` is meant to use the Node.js that Claude Desktop ships. Which version that is has not been confirmed. The bundle asks for 22.13 or newer.
 
 **Claude Code, Codex, ChatGPT desktop, WorkBuddy, CodeBuddy**: paste this into the app:
 
-> Please install the plugin from https://github.com/Frankkk1912/ai4s-literature-workbench.git into this app. Follow INSTALL.md exactly, and if you cannot open the repository read https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md. Do not add steps of your own. When it's done, tell me in plain language what works now and what I need to do myself.
+```text
+Please install the plugin from
+https://github.com/Frankkk1912/ai4s-literature-workbench.git
+into this app. Follow INSTALL.md exactly, and if you cannot open the repository read
+https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md
+Do not add steps of your own. When it's done, tell me in plain language what works now and what I need to do myself.
+```
 
 **Trae, Qoder**: use "Other agents & manual install" below.
 
@@ -164,7 +170,7 @@ The agent runs the `ai4s-setup` skill and tells you, in plain language, what wor
 - **Keys are optional.** Search, ranking, and drafting need none. A key goes on the local page, never into chat.
 - **Reading your Zotero library needs no key.** Settings → Advanced → **Allow other applications on this computer to communicate with Zotero**.
 - **Saving to Zotero** needs a Zotero key, or Zotero 10 or later. When it asks, choose Always Allow.
-- **IF / JCR / CAS columns**: download [the add-on](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi), then Tools → Add-ons → the gear → Install Add-on From File…, and restart. The columns show data written onto the items, so ask for a sync or a refresh after it is installed.
+- **IF / JCR / CAS columns**: download `literature-metrics.xpi` from `https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi`, then Tools → Add-ons → the gear → Install Add-on From File…, and restart. The columns show data written onto the items, so ask for a sync or a refresh after it is installed.
 
 ### 3. First prompt
 
@@ -181,7 +187,7 @@ Start with **Find what to read** above. The first search should come back within
 | No IF / JCR / CAS columns | Install the add-on, restart Zotero, then ask for a sync or a refresh. |
 | The app asks to reach GitHub or the network | Choose Allow. |
 
-More detail: [Getting started](docs/getting-started.md).
+More detail: `docs/getting-started.md`.
 
 ### Keys, in short
 
@@ -254,7 +260,7 @@ ai4s-literature-workbench/
 └── tests/                     # Repository tests
 ```
 
-`install-manifest.json` matches [INSTALL.md](INSTALL.md). Agents follow those two files. This page is the human one.
+`install-manifest.json` matches `INSTALL.md`. Agents follow those two files. This page is the human one.
 
 ### Development
 
@@ -270,12 +276,12 @@ node --import ./runtime/node_modules/tsx/dist/loader.mjs --test "tests/*.test.mj
 
 ### Docs
 
-- [Getting started](docs/getting-started.md)
-- [Zotero add-on: install, updates, and build](docs/zotero-xpi.md)
-- [First-run setup and credentials](docs/dev/onboarding.md)
-- [Local configuration status view](docs/dev/local-dashboard.md)
-- [Release checklist](docs/dev/release-checklist.md)
-- [Security](SECURITY.md)
+- `docs/getting-started.md`
+- `docs/zotero-xpi.md`
+- `docs/dev/onboarding.md`
+- `docs/dev/local-dashboard.md`
+- `docs/dev/release-checklist.md`
+- `SECURITY.md`
 
 </details>
 
@@ -285,9 +291,9 @@ Issues and pull requests are welcome.
 
 ## 📄 License
 
-[MIT](LICENSE) © Frank AI4S Skill contributors.
+MIT, see `LICENSE`. © Frank AI4S Skill contributors.
 
-**No Evidence, No Conclusion.** A scientific claim traces back to saved evidence. The Zotero layer credits Oscar Devos's [Zoteus](https://github.com/oscardvs/zoteus). Component credits are in [third-party notices](THIRD_PARTY_NOTICES.md).
+**No Evidence, No Conclusion.** A scientific claim traces back to saved evidence. The Zotero layer credits Oscar Devos's Zoteus (`https://github.com/oscardvs/zoteus`). Component credits are in `THIRD_PARTY_NOTICES.md`.
 
 ---
 

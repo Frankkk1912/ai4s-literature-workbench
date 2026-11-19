@@ -98,7 +98,7 @@ arXiv 要你开口才加。Web of Science 只收你已经下好的官方 CSV 或
 
 ### 📊 Zotero 里的分区列
 
-literature-metrics 是单独装进 Zotero 桌面版的插件。[下载最新版](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi)，工具 → 插件 → 齿轮 → 从文件安装插件，然后重启。更新和详细步骤见 [Zotero 插件说明](docs/zotero-xpi.md)。
+literature-metrics 是单独装进 Zotero 桌面版的插件。下载 `literature-metrics.xpi`，地址是 `https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi`，然后工具 → 插件 → 齿轮 → 从文件安装插件，再重启。更新和详细步骤在 `docs/zotero-xpi.md`。
 
 条目列表里会多出彩色的 **IF / JCR / 中科院分区** 列，还有 **Priority** 星星。星星用的就是检索时那套 1 / 2 / 3。Article Type、Agent Tags、一句话 AI Summary 也在这个列表里。星星、数字键 `1` / `2` / `3`、右键 **Set Priority**，是这个插件唯一会改条目的地方，改的只有 Priority 那几个标签。
 
@@ -142,14 +142,20 @@ PubMed 密钥用 NCBI 账号免费申请，用来提高请求额度。Zotero 密
 
 **Claude Desktop**（只有 Zotero 工具，没有那三个 skill，也没有全文工具。这条还没在 Claude Desktop 里试过。）
 
-1. 打开[最新发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest)，下载 `ai4s-literature-zotero-<版本号>.mcpb`。
+1. 打开 `https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest`，下载 `ai4s-literature-zotero-<版本号>.mcpb`。
 2. 双击，或拖进 Claude Desktop 窗口。两个可选设置保持原样。密钥不要贴进聊天。
 
 这个 `.mcpb` 用的是 Claude Desktop 自带的 Node.js。具体是哪个版本还没核对。程序包要求 22.13 或更新。
 
 **Claude Code、Codex、ChatGPT 桌面版、WorkBuddy、CodeBuddy**：把下面这段原样发给应用：
 
-> 请帮我从 https://github.com/Frankkk1912/ai4s-literature-workbench.git 安装这个插件到当前应用。严格按 INSTALL.md 操作；如果打不开仓库，就读 https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md。不要自己添加步骤。装好后，用通俗的话告诉我现在能用什么、我自己还需要做什么。
+```text
+请帮我从
+https://github.com/Frankkk1912/ai4s-literature-workbench.git
+安装这个插件到当前应用。严格按 INSTALL.md 操作；如果打不开仓库，就读
+https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md
+不要自己添加步骤。装好后，用通俗的话告诉我现在能用什么、我自己还需要做什么。
+```
 
 **Trae、Qoder**：按下面「其他 agent 与手动安装」做。
 
@@ -164,7 +170,7 @@ agent 会跑 `ai4s-setup`，用大白话告诉你现在能干什么、还要你�
 - **密钥可选。** 检索、排序、起草都不用。密钥贴在本机页面上，别贴进聊天。
 - **读本机文献库不用密钥。** 设置 → 高级 → 勾选 **允许这台电脑上的其他应用与 Zotero 通信**。
 - **存进 Zotero** 要 Zotero 密钥，或者 Zotero 10 及以上。弹窗时选始终允许。
-- **IF / JCR / 中科院分区列**：下载[插件](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi)，工具 → 插件 → 齿轮 → 从文件安装插件，重启。列里是工具写进条目的数据，装完让 agent 同步或刷新一个分类。
+- **IF / JCR / 中科院分区列**：下载 `literature-metrics.xpi`，地址是 `https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi`，工具 → 插件 → 齿轮 → 从文件安装插件，重启。列里是工具写进条目的数据，装完让 agent 同步或刷新一个分类。
 
 ### 3. 你的第一句
 
@@ -181,7 +187,7 @@ agent 会跑 `ai4s-setup`，用大白话告诉你现在能干什么、还要你�
 | 没有 IF / JCR / 分区列 | 装上插件，重启 Zotero，再让 agent 同步或刷新。 |
 | 应用要访问 GitHub 或网络 | 选允许。 |
 
-更多说明：[入门指南](docs/getting-started_CN.md)。
+更多说明：`docs/getting-started_CN.md`。
 
 ### 密钥，三句
 
@@ -254,7 +260,7 @@ ai4s-literature-workbench/
 └── tests/                     # 仓库测试
 ```
 
-`install-manifest.json` 和 [INSTALL.md](INSTALL.md) 是一对。agent 按那两份走。这份 README 是给人看的。
+`install-manifest.json` 和 `INSTALL.md` 是一对。agent 按那两份走。这份 README 是给人看的。
 
 ### 开发
 
@@ -270,12 +276,12 @@ node --import ./runtime/node_modules/tsx/dist/loader.mjs --test "tests/*.test.mj
 
 ### 文档
 
-- [入门指南](docs/getting-started_CN.md)
-- [Zotero 插件：安装、更新、构建](docs/zotero-xpi.md)
-- [首次设置和凭据](docs/dev/onboarding.md)
-- [本机配置状态页](docs/dev/local-dashboard.md)
-- [发布检查清单](docs/dev/release-checklist.md)
-- [安全说明](SECURITY.md)
+- `docs/getting-started_CN.md`
+- `docs/zotero-xpi.md`
+- `docs/dev/onboarding.md`
+- `docs/dev/local-dashboard.md`
+- `docs/dev/release-checklist.md`
+- `SECURITY.md`
 
 </details>
 
@@ -285,9 +291,9 @@ node --import ./runtime/node_modules/tsx/dist/loader.mjs --test "tests/*.test.mj
 
 ## 📄 许可证
 
-[MIT](LICENSE) © Frank AI4S Skill contributors。
+MIT，见 `LICENSE`。© Frank AI4S Skill contributors。
 
-**无证据，不下结论。** 科学论断要能追溯到存下来的证据。Zotero 这一层参考了 Oscar Devos 的 [Zoteus](https://github.com/oscardvs/zoteus)。组件署名见[第三方声明](THIRD_PARTY_NOTICES.md)。
+**无证据，不下结论。** 科学论断要能追溯到存下来的证据。Zotero 这一层参考了 Oscar Devos 的 Zoteus（`https://github.com/oscardvs/zoteus`）。组件署名在 `THIRD_PARTY_NOTICES.md`。
 
 ---
 
