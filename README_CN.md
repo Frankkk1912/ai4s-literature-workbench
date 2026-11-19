@@ -1,180 +1,265 @@
-# AI4S Literature Workbench
+<h1 align="center">📚 AI4S Literature Workbench</h1>
 
-[English](README.md)
+<p align="center">
+  <strong>一句课题，收成阅读清单、一个 Zotero 分类，和能对上出处的草稿。</strong><br>
+  <em>写综述的时候，还找得到那句话出自哪篇。</em>
+</p>
 
-> 把你的研究问题变成有排序的阅读清单、整理好的 Zotero 文库分类，以及能回溯到证据的草稿。
+<p align="center">
+  🔎 检索留着记录 · 📚 论文进自己的库 · ✍️ 草稿对得上出处
+</p>
+<p align="center">
+  <a href="https://github.com/Frankkk1912/ai4s-literature-workbench/releases">📥 发布页</a> ·
+  <a href="README.md">🇬🇧 English</a> ·
+  <a href="#-快速开始">🚀 快速开始</a> ·
+  <a href="docs/getting-started_CN.md">📖 入门</a>
+</p>
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue)
+---
 
-<!-- Screenshot: 展示 Zotero 项目分类中的彩色 IF/JCR/CAS 指标列与阅读优先级（Priority）控件。 -->
-<!-- ![带期刊指标与阅读优先级的 Zotero 项目分类](assets/zotero-project-collection.png) -->
+## 🤔 为什么要做这个？
 
-## 它能帮你做什么
-别再来回切换数据库检索、期刊指标查询和零散的引文笔记。研究一个生物医学问题时，你需要知道哪些论文值得读，以及它们究竟能支持哪些结论。
+> 🎓 明天组会，开题也还空着。前一天晚上你在 PubMed 里翻页，一篇篇查影响因子和分区，再手动导入 Zotero。综述写到某一句，哪句话出自哪篇，找不到了。
+>
+> **要是你只说一句课题，回来就是阅读清单、一个 Zotero 分类，还有一段能对上论文的草稿呢？**
 
-用一句话描述你的问题。让内置工具检索并排序论文，把选中的证据和报告一起整理到 Zotero，再基于这些证据起草。下结论前，先检查检索覆盖范围，以及证据来自摘要还是全文。
+这是装在你已经在用的 agent 里的一套文献工具。你用平时说话的方式讲课题。它去 PubMed 和 OpenAlex 检索，DOI 或 PMID 相同的并成一条，把检索式和篇数写成一份记录，再把选中的论文和这份记录放进 Zotero 的同一个分类。写的时候句子后面留着 `[EV:n]`，指回存下来的那一篇。检索有条数上限，看到的多半是摘要，两件事都写在检索记录里，下结论前看一眼。
 
-```mermaid
-flowchart LR
-    A["研究<br/>literature-research"] --> B["检索并打分<br/>literature-research"]
-    B --> C["整理到 Zotero<br/>literature-manager"]
-    C --> D["带证据的写作<br/>literature-writing"]
-```
+### 😩 现在怎么做
 
-看看你会得到什么：带排序理由、匹配到的 2025 JCR 指标和来源链接的阅读表，以及研究报告。
-<!-- Screenshot: 并排展示 ranked_all.csv 与 report.md，包含排序理由、匹配到的 2025 JCR 指标和来源链接。 -->
-<!-- ![文献检索证据表与研究报告](assets/retrieval-evidence-table.png) -->
+| 麻烦 | 自己弄的时候 |
+| --- | --- |
+| 🔁 翻库 | PubMed 一页页点，换一个库再点一遍 |
+| 📊 分区 | 影响因子、JCR、中科院分区，一篇篇查 |
+| 📥 入库 | 条目手动导入 Zotero，重复的过一会儿才发现 |
+| 📝 写综述 | 写到某句，想不起是哪篇说的 |
 
-## 试试看：你这样说，会得到什么
-### 找到值得读的论文
+### 💡 换成三件事
+
+| | 你拿到什么 |
+| --- | --- |
+| 🔎 **先检索** | PubMed 和 OpenAlex 一起查，按 DOI 或 PMID 去重，留下检索记录，再用 Priority 1–3 标这份课题先读哪几篇 |
+| 📚 **再入库** | DOI 或 PMID 对上的条目直接复用。检索记录和论文放在同一个 Zotero 分类 |
+| ✍️ **写的时候留出处** | 草稿用 `[EV:n]`。只有摘要、或者对不上的，另列一张待查表 |
+
+<!-- GIF: 一句话检索到 Zotero 分类 -->
+<!-- GIF: Zotero 里的 IF、JCR、中科院分区列和 Priority 星星 -->
+<!-- GIF: 综述段落里的 [EV:n]，旁边是待查参考文献 -->
+
+## ⚔️ 跟另外两种做法比
+
+| | 这个工作台 | 自己动手 | 直接问一个通用聊天机器人 |
+| --- | --- | --- | --- |
+| 📄 **文献从哪来** | PubMed 和 OpenAlex，DOI 或 PMID 相同就合成一条 | 你在网页上翻 | 模型凭记忆回答，可能写出不存在的文献 |
+| 📝 **检索记录** | `report.md` 里有问题、日期、数据库、原样检索式，以及命中、去重、入选的篇数 | 你自己的笔记，有就有 | 不会在你的课题文件夹里留下检索式 |
+| 📚 **你的文献库** | 本机 Zotero 可以不配密钥就读。写入用 Zotero 密钥，或者开着 Zotero 10 及以上（它自己弹一次窗） | 你一条条导入 | 读不到你的 Zotero，也写不进去 |
+| 📊 **影响因子和分区** | 自带 2025 年 JCR/IF 表，按 ISSN 对上。中科院分区要 EasyScholar 查过，或者你另外给的指标表写进条目之后，列里才有 | 一篇篇查 | 聊天里报的影响因子不是查的这份 2025 表，数字可能对不上 |
+| ✍️ **写综述** | 按保存的证据下笔，句子用 `[EV:n]` 指回论文。只有摘要、或者对不上的，进待查清单 | 出处记在你脑子里 | 它没读过你存下来的那批证据 |
+
+> 它管的是组会前最常见的那一晚：课题已经清楚，你要一份能复核的检索、一个 Zotero 分类，还有一段能对上论文的草稿。
+
+## 🧰 里面有什么
+
+三个 skill 分工：`literature-research` 检索，`literature-manager` 放进 Zotero，`literature-writing` 写。第一次用 `ai4s-setup` 看现在能干什么。Zotero 这边 22 个工具。只读模式下还留着 12 个，它们不改文献库，其中两个只是打开密钥页、下载检索小工具。工具走 MCP，你说话就行。
+
+### 🔎 检索和排序
+
+默认同时查 PubMed 和 OpenAlex。OpenAlex 免费，不用密钥。电脑上如果已经配了联系邮箱，请求会走 OpenAlex 的 polite pool，这个地址不写进检索计划。
+
+两条记录先按 DOI 合并，没有 DOI 再看 PMID。`report.md` 由脚本写成检索记录：问题、日期、数据库、原样检索式、条数限制、命中和去重之后的篇数、入选论文表。排序理由在 `ranked_all.json`。这份文件只记检索，综述放到 `literature-writing` 里写。
+
+排序分按写死的规则算。题名、摘要、MeSH 里的词，再加上年份等，每一分都有原因，记在 `ranked_all.json`。Priority 是这份课题的阅读顺序。选进来的默认是 1。相关性过一遍时，agent 把值得细读的（机制、方法、综述或相反结果）标成 2，把必读标成 3，并记一个简短原因码。影响因子在分区列里。星星你可以事后改。下次导入时，条目上已经有的 Priority 会留着。
+
+期刊数默认用仓库里审过的 2025 年 JCR/IF 表，按 ISSN 对上，附在证据旁边。检索结果还是原来那些。中科院分区来自 EasyScholar，或者你另外给的指标表。仓库里这张表是 2025 年的。
+
+arXiv 要你开口才加。Web of Science 只收你已经下好的官方 CSV 或 TSV。校园网数据库留在你自己的浏览器里。开放获取的 PDF 可以另一步去取。PDF 还没到手时，这条证据按摘要算。
+
+### 📚 放进 Zotero
+
+读你这台电脑上的文献库不用密钥。打开 Zotero，设置 → 高级，勾上 **允许这台电脑上的其他应用与 Zotero 通信**。
+
+存进去有两条路。填 Zotero 密钥，或者开着 Zotero 10 及以上，弹窗时选始终允许。更早的版本，本机连接只能读。无密钥写入这条，目前只对照文档里的协议做了替身测试，还没在打开的 Zotero 窗口里核过。
+
+同步按 DOI、PMID 精确匹配，对上了就用库里那一条，不新建一份。检索记录写成这个分类里的一条笔记。只靠题名加年份猜中的，先给你看，你点头才算同一篇。
+
+### 🏷️ 整理标签
+
+`zotero_tag_manager` 管重复标签和没人用的标签。顺序是 `scan`、`plan`、`apply`。`plan` 写出一份带 hash 的计划，Zotero 和词表先不动。`apply` 先 dry-run。你确认那个 plan hash 之后才真改。
+
+合并的时候，被收掉的标签进保留标签的别名，条目和词表记在同一张回执里。你没点名的标签留在原条目上。Priority、Article Type、JCR、CAS 这些，操作里没写上、你也没允许，就不动。
+
+### ✍️ 写的时候留出处
+
+写作从已经存下的 `ranked_all.json` 和检索记录开始。文件还没有，skill 会停下来，先去检索。草稿从这两份文件里来。
+
+句子后面用 `[EV:n]`，也可以带 PMID 或 DOI。草稿旁边有一张参考文献核对表。证据偏弱、只有摘要、或者对不上的，才另写 `references_to_check.md`。
+
+一句话中文摘要是看题名和摘要写的，你明确要它才生成，用来在文献库里扫一眼。写结论时回到排序结果，或者回到你真正取到的全文。
+
+### 📊 Zotero 里的分区列
+
+literature-metrics 是单独装进 Zotero 桌面版的插件。[下载最新版](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi)，工具 → 插件 → 齿轮 → 从文件安装插件，然后重启。更新和详细步骤见 [Zotero 插件说明](docs/zotero-xpi.md)。
+
+条目列表里会多出彩色的 **IF / JCR / 中科院分区** 列，还有 **Priority** 星星。星星用的就是检索时那套 1 / 2 / 3。Article Type、Agent Tags、一句话 AI Summary 也在这个列表里。星星、数字键 `1` / `2` / `3`、右键 **Set Priority**，是这个插件唯一会改条目的地方，改的只有 Priority 那几个标签。
+
+列里的数字，是工具写进条目之后才显示的。装完让 agent 同步或刷新一个分类。插件读条目里的 `Extra`。查指标是同步和刷新那些工具的事。密钥只在设置页。
+
+### 🔑 密钥不进聊天
+
+密钥都是可选的。检索、排序、起草都不用。
+
+你要填的时候，agent 调 `open_setup`，在你自己电脑上打开一个页面。输入框是遮住的。你贴在那里，agent 看不到，聊天里也不会出现。密钥存在这台电脑的私有文件里。
+
+PubMed 密钥用 NCBI 账号免费申请，用来提高请求额度。Zotero 密钥用 Zotero 账号免费创建，用来写入。EasyScholar 密钥用来补期刊指标，包括中科院分区。页面上有领取链接。
+
+## 🗣️ 你可以这样说
+
+### 找该读的论文
 ```text
-检索并排序关于 GLP-1 受体激动剂与心血管结局的 PubMed 文献证据。保存证据和报告，供后续写作使用。
+帮我查 GLP-1 受体激动剂和心血管结局，PubMed 和 OpenAlex 都要，排个序，检索记录留下来。
 ```
-拿到去重后的阅读清单、排序理由和可检查的报告。
 
-### 把课题资料放在同一个 Zotero 分类
+### 放进一个分类
 ```text
-把我定稿的文献报告和选中的论文同步到名为 "GLP-1 CVD Project" 的 Zotero 文库分类。
+把这次的检索记录和选中的论文放进 Zotero，分类名叫 "GLP-1 CVD Project"。库里已经有的按 DOI 或 PMID 对上。
 ```
-把报告笔记和选中的论文放在一起；复用 DOI/PMID 精确匹配的条目，避免重复创建。
 
-### 起草能核查证据的段落
+### 写一段能对上的综述
 ```text
-基于我保存的排序证据和报告，起草一段中文文献综述。使用 [EV:n] 引文占位符，并标出需要核查的参考文献。
+用我存好的排序结果和检索记录写一段中文综述。句子后面标 [EV:n]，对不上的参考文献单独列出来。
 ```
-拿到带证据出处的草稿和参考文献核对表；有引文需要进一步检查时，再附一份待核查清单。
-<!-- Screenshot: 并排展示带 [EV:n] 占位符的综述段落与对应的参考文献核对表。 -->
-<!-- ![证据可追溯的综述段落与参考文献核对表](assets/evidence-traced-writing.png) -->
 
-## 为什么你会喜欢它
-- **选好下一篇要读的论文** — 比较相关性与排序理由，并查看从内置 2025 JCR 表匹配到的期刊指标。
-- **随时找回课题资料** — 把选中的论文和当前报告放在同一个 Zotero 分类；需要时再请求生成可复用的英文标签或一句话中文摘要。
-- **核查草稿里的结论** — 通过引文占位符和参考文献核对表，把论点追溯到保存的证据。
-- **掌握修改的决定权** — 批量导入和指标更新先预览，你确认后才写入，并留下修改记录。
-- **不把密钥交给聊天窗口** — 在你自己的电脑上，通过隐藏输入内容的设置向导亲手录入可选凭据。
-<details>
-<summary>内置技能（Skill）清单</summary>
+## 🚀 快速开始
 
-`literature-research` — 检索与排序；`literature-manager` — 整理到 Zotero；`literature-writing` — 基于证据起草。
-</details>
+### 你得先有
+- 一个 agent：**Claude Desktop**、**Claude Code**、**Codex**、**ChatGPT 桌面版**，或者 WorkBuddy、CodeBuddy、Trae、Qoder。
+- 想整理文献库、想看分区列，就装 **Zotero 桌面版**。
+- 一个浏览器，用来打开填密钥的页面。
 
-## 里面有什么
-整个工作台分两块。单独使用其中一块，或合在一起用。
-
-### 你用的 agent 自带的工具
-你的 agent 可以代你调用这些能力——它们和 agent 已经在用的同一种协议对话（即 MCP, Model Context Protocol），所以你只需要用自然语言提问。
-- **检索与排序** — 从配置好的源库抓论文、去重、按相关性打分。`search-items`、`find-duplicates`
-- **同步到 Zotero 分类** — 用 DOI/PMID 精确匹配，写一份课题笔记，绝不重复创建。`sync-literature-project`、`apply-import-plan`、`manage-collections`
-- **打标签与生成摘要** — 清理冗余源标签，应用 `AI4S:Semantic:*` 结构化标签，给每条目加一句话中文摘要。`apply-semantic-tags`、`apply-ai-summaries`、`cleanup-auto-tags`、`tag-audit`
-- **引文与起草** — 把排序后的证据变成带 `[EV:n]` 占位符的草稿，格式化参考文献并导出。`apply-citation-plan`、`format-bibliography`、`export`
-- **审计与指标** — 维护证据-论点对应表，审计标签一致性，更新期刊指标。`tag-audit`、`apply-metrics-plan`
-
-### Zotero 桌面端附加组件
-需要单独安装到 Zotero 桌面端的插件（XPI）：[下载最新版](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi)，在 Zotero 里选 工具 → 插件 → 齿轮 → 从文件安装插件，再重启（[详细步骤](docs/zotero-xpi.md)）。它在你的文库右侧增加这些列与控件，默认只读：
-- 彩色 **IF / JCR / CAS** 指标列，一眼看清期刊质量
-- **文章类型（Article Type）** 自动识别、**AI 摘要（AI Summary）** 字段、**智能标签（Agent Tags）** 便于导航
-- **优先级 1 / 2 / 3** — 唯一允许直接写入的路径，必须由你通过星标控件、数字快捷键或右键菜单显式设置
-
-
-## 开始使用
-
-### 你需要什么
-- 一个 agent 应用：**Claude Desktop**、**Claude Code**、**Codex**、**ChatGPT 桌面版**，或 WorkBuddy、CodeBuddy、Trae、Qoder。
-- 如果想在 Zotero 里整理文献、看到期刊分区列，需要 **Zotero 桌面版**。
-- 一个浏览器，用来打开填写可选密钥的页面。
-
-这些就是你要自己装的全部。第一次检索需要一个小的辅助工具（约 15 MB）。agent 会先问你一次，再把它（以及电脑上没有合适版本时所需的 Python）下载到你用户账户下的文件夹里，不需要管理员权限，也不改动系统设置。如果你的应用需要 Node.js，agent 会告诉你，并说明去哪里下载；用 Claude Desktop 装 Zotero 工具则不需要。
+这些就是你要自己装的。第一次检索，agent 会先问你一声，再下载一个大约 15 MB 的小工具到你的用户目录。电脑上没有能用的 Python 时，它会再下一个。不需要管理员权限，也不改系统设置。应用如果还要 Node.js，agent 会告诉你去哪下。
 
 ### 1. 安装（选你用的应用）
 
-**Claude Desktop**（只包含 Zotero 工具，不含技能和全文工具）
-1. 打开[最新发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest)，下载 `ai4s-literature-zotero-<版本号>.mcpb`。
-2. 双击它，或把它拖进 Claude Desktop 窗口，在安装界面点确认。两个可选设置保持默认即可。
+**Claude Desktop**（只有 Zotero 工具，没有那三个 skill，也没有全文工具。这条还没在 Claude Desktop 里试过。）
 
-**Claude Code、Codex、ChatGPT 桌面版、WorkBuddy、CodeBuddy**：把下面这段话发给应用：
+1. 打开[最新发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest)，下载 `ai4s-literature-zotero-<版本号>.mcpb`。
+2. 双击，或拖进 Claude Desktop 窗口。两个可选设置保持原样。密钥不要贴进聊天。
+
+这个 `.mcpb` 用的是 Claude Desktop 自带的 Node.js。具体是哪个版本还没核对。程序包要求 22.13 或更新。
+
+**Claude Code、Codex、ChatGPT 桌面版、WorkBuddy、CodeBuddy**：把下面这段原样发给应用：
+
 > 请帮我从 https://github.com/Frankkk1912/ai4s-literature-workbench.git 安装这个插件到当前应用。严格按 INSTALL.md 操作；如果打不开仓库，就读 https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md。不要自己添加步骤。装好后，用通俗的话告诉我现在能用什么、我自己还需要做什么。
 
-**Trae、Qoder**：见下面“其他 agent 与手动安装”。
+**Trae、Qoder**：按下面「其他 agent 与手动安装」做。
 
-开始之前：应用可能会请求访问 GitHub 或网络的权限，请选择**允许**，否则安装无法继续。已在一台真实的 Windows 11 电脑上试过：WorkBuddy 通过它的 MCP 配置文件安装，ChatGPT 桌面版也通过它的 MCP 配置文件安装（这条路径能连上工具，但不会加载技能）。还没有测试过的是：WorkBuddy 应用里的插件市场、CodeBuddy，以及 Mac 上的 ChatGPT 桌面版。
+应用如果问能不能访问 GitHub 或网络，选**允许**。不选的话，安装就停在这里。
 
-### 2. 首次设置
-agent 会运行 `ai4s-setup` 技能，用通俗的话告诉你：现在能用什么，哪些需要你处理。
-- **密钥都是可选的。** 检索、排序、起草都不需要密钥。想用时，agent 会在你自己的电脑上打开一个页面，把密钥贴到那个页面里，不要贴进聊天。
-- **读取你电脑上的 Zotero 文献库不需要密钥。** 打开 Zotero，在 设置 → 高级 里勾选**“允许这台电脑上的其他应用与 Zotero 通信”**。
-- **把文献存进 Zotero** 需要 Zotero 密钥，或使用 Zotero 10 及以上版本（保存时 Zotero 会弹窗询问一次，请选“始终允许”）。
-- **Zotero 里的期刊分区列**（IF / JCR / 中科院分区）：下载[插件](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi)，在 Zotero 中选择 工具 → 插件，点齿轮 → 从文件安装插件（Install Add-on From File…），选下载的文件，再重启 Zotero。
+> 在一台 Windows 11 上试过：WorkBuddy 走它的 MCP 配置文件，ChatGPT 桌面版也走它的 MCP 配置文件。ChatGPT 这条能连上工具，技能不会加载。还没试过的：WorkBuddy 应用里的插件市场、CodeBuddy、Mac 上的 ChatGPT 桌面版、Claude Desktop，以及在 ChatGPT 桌面版里跑 Codex 的插件命令。
 
-### 3. 发出你的第一条指令
-从上面的 **找到值得读的论文** 开始。第一次检索最多几分钟。
+### 2. 第一次用
 
-### 遇到问题时
+agent 会跑 `ai4s-setup`，用大白话告诉你现在能干什么、还要你做哪一步。
+
+- **密钥可选。** 检索、排序、起草都不用。密钥贴在本机页面上，别贴进聊天。
+- **读本机文献库不用密钥。** 设置 → 高级 → 勾选 **允许这台电脑上的其他应用与 Zotero 通信**。
+- **存进 Zotero** 要 Zotero 密钥，或者 Zotero 10 及以上。弹窗时选始终允许。
+- **IF / JCR / 中科院分区列**：下载[插件](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi)，工具 → 插件 → 齿轮 → 从文件安装插件，重启。列里是工具写进条目的数据，装完让 agent 同步或刷新一个分类。
+
+### 3. 你的第一句
+
+用上面 **找该读的论文** 那句。第一次检索一般要等几分钟。
+
+### 出了问题
+
 | 你看到的 | 怎么办 |
 | --- | --- |
-| agent 说“检索工具还没有连上”（My search tools are not connected yet） | 重启应用，然后对它说：“运行 ai4s-setup 技能”。 |
-| 设置页没有自动打开 | agent 会给你一个网址和一个短码：打开网址，输入短码。也可以在解压出来的发布文件夹里双击 `Setup AI4S.bat`（Windows）或 `Setup AI4S.command`（Mac）。Mac 上如果被拦截，右键点它，选“打开”，再点“打开”。 |
-| agent 读不到我的 Zotero 文献库 | 打开 Zotero，在 设置 → 高级 里勾选“允许这台电脑上的其他应用与 Zotero 通信”。 |
-| 存不进 Zotero | 在设置页填入 Zotero 密钥；或使用 Zotero 10 及以上，Zotero 弹窗时选“始终允许”。 |
-| Zotero 里没有期刊分区列 | 按第 2 步安装插件并重启 Zotero，再让 agent 同步或刷新一个分类：这些列显示的是工具写进条目里的数据。 |
-| 应用请求访问 GitHub 或网络 | 选择“允许”。 |
+| agent 说 “My search tools are not connected yet” | 重启应用，再让它跑 `ai4s-setup`。 |
+| 设置页没打开 | 打开 agent 给的网址，输入那个短码。或者在解压出来的发布文件夹里双击 `Setup AI4S.bat`（Windows）或 `Setup AI4S.command`（Mac）。Mac 上如果被拦，右键，打开，再点打开。 |
+| 读不到文献库 | Zotero 设置 → 高级，勾上允许其他应用与 Zotero 通信。 |
+| 存不进 Zotero | 在设置页填 Zotero 密钥，或者用 Zotero 10 及以上，弹窗选始终允许。 |
+| 没有 IF / JCR / 分区列 | 装上插件，重启 Zotero，再让 agent 同步或刷新。 |
+| 应用要访问 GitHub 或网络 | 选允许。 |
 
 更多说明：[入门指南](docs/getting-started_CN.md)。
 
-### 关于密钥，用大白话说
-- **密钥是什么？** 一长串像密码的字符，让这个工具以你的身份使用某个服务。你把它贴进自己电脑上的设置页，它只存在这台电脑的私有文件里，不会出现在聊天中。
-- **哪些免费？** PubMed 密钥用 NCBI 账号免费申请；Zotero 密钥用免费的 Zotero 账号即可创建；EasyScholar 密钥由 EasyScholar 发放，请以其网站说明为准。
-- **为什么不配密钥也能检索？** 检索用的是公开数据源。密钥的作用是提高 PubMed 的请求额度、让工具能存进 Zotero，以及补充更多期刊指标。
+### 密钥，三句
+
+- 密钥是一长串字符，让工具以你的身份去调那个服务。它在你电脑的私有文件里，聊天里看不到。
+- PubMed 密钥、Zotero 密钥，用各自的免费账号就能办。EasyScholar 的密钥看它网站上的说明。
+- 检索走的是公开数据源，所以不配密钥也能查。密钥用来提高 PubMed 的额度、写入 Zotero，或者补期刊指标。
 
 <details>
 <summary>其他 agent 与手动安装</summary>
 
-安装 Git、Node.js ≥22.13（含 npm）和 uv。在 macOS/Linux 上克隆并构建：
+需要 Git，以及带 npm 的 Node.js 22.13 或更新。克隆之后构建一次。第一次检索会自己下载检索小工具，这条路不用你先装 uv。
+
 ```bash
 git clone https://github.com/Frankkk1912/ai4s-literature-workbench.git
 cd ai4s-literature-workbench
 node scripts/bootstrap.mjs
 ```
-在 Windows 上执行同样的 `git clone` 和 `cd`，再执行同样的 `node scripts/bootstrap.mjs`。
-选择你所用 agent 的命令。Trae/Qoder 命令需在此仓库目录运行；把 `/path/to/project` 换成你的项目文件夹。这些命令会把内置工具添加到该项目。
+
+Windows 上同样这三行。用 `node` 跑脚本，不要去跑 `.ps1` 或 `.sh`。
 
 **Claude Code**
+
 ```bash
 claude plugin marketplace add Frankkk1912/ai4s-literature-workbench
 claude plugin install ai4s-literature-workbench@ai4s-literature-workbench
 ```
+
 **Codex**
+
 ```bash
 codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-workbench.git
 codex plugin add ai4s-literature-workbench@personal
 ```
-**ChatGPT 桌面版** — 把上面的安装说明发给应用。若要自己动手：本机有 `codex` 命令时用上面的 Codex 命令；否则按 INSTALL.md 里的 MCP 配置文件来做。配置文件这条路径不会加载技能。
-**Trae / Qoder** — 选择你所用应用对应的那一行。
+
+**ChatGPT 桌面版。** 把上面的安装说明发给应用。自己动手的话，本机有 `codex` 命令就用上面的 Codex 命令，否则按 [INSTALL.md](INSTALL.md) 里的 MCP 配置文件来。配置文件这条不会加载 skill。Windows 11 上试过这条，Mac 还没有。
+
+**CodeBuddy**（还没在 CodeBuddy 上试过）。在应用里：
+
+```bash
+/plugin marketplace add Frankkk1912/ai4s-literature-workbench
+/plugin install ai4s-literature-workbench@ai4s-literature-workbench
+```
+
+**Trae / Qoder。** 在这份仓库目录里运行，把 `/path/to/project` 换成你的项目文件夹。
+
 ```bash
 node scripts/install-host.mjs --host trae --target /path/to/project
 node scripts/install-host.mjs --host qoder --target /path/to/project
 ```
+
 </details>
 
----
-
-## 开发者指南
+<details>
+<summary>给开发者</summary>
 
 ### 项目结构
+
 ```text
 ai4s-literature-workbench/
-├── .claude-plugin/            # Claude Code 插件清单与市场定义
-├── .codex-plugin/             # Codex 插件清单与默认提示词
-├── docs/                      # 设置与组件指南
-├── scripts/                   # 安装、构建与验证脚本
-├── skills/                    # 检索、Zotero 管理与写作技能
-├── runtime/                   # Zotero 工具与本地配置服务
-├── fulltext-runtime/          # 开放获取（Open Access）全文检索与 PDF 检查
-├── literature-metrics/        # Zotero 桌面端附加组件源码
-└── tests/                     # 仓库级测试
+├── .claude-plugin/            # Claude Code 的市场和插件清单
+├── .codebuddy-plugin/         # CodeBuddy 的市场清单
+├── .codex-plugin/             # Codex 的清单和市场
+├── docs/                      # 安装和组件说明
+├── release/launchers/         # Setup AI4S.bat 和 Setup AI4S.command
+├── scripts/                   # 安装、构建、检查
+├── skills/                    # ai4s-setup、检索、Zotero、写作
+├── runtime/                   # Zotero 工具和本机密钥页
+├── fulltext-runtime/          # 开放获取全文和 PDF 检查
+├── literature-metrics/        # Zotero 桌面版插件
+└── tests/                     # 仓库测试
 ```
 
+`install-manifest.json` 和 [INSTALL.md](INSTALL.md) 是一对。agent 按那两份走。这份 README 是给人看的。
+
 ### 开发
-从仓库根目录运行；构建过程会安装 Zotero/全文组件依赖：
+
+在仓库根目录运行。bootstrap 会装依赖并构建 Zotero 和全文这两边：
+
 ```bash
 node scripts/bootstrap.mjs
 node --import ./runtime/node_modules/tsx/dist/loader.mjs --test "tests/*.test.mjs"
@@ -184,14 +269,28 @@ node --import ./runtime/node_modules/tsx/dist/loader.mjs --test "tests/*.test.mj
 ```
 
 ### 文档
-- [入门指南（分步说明与问题排查）](docs/getting-started_CN.md)
-- [首次设置与凭据（开发者参考）](docs/dev/onboarding.md)
-- [Zotero 桌面端附加组件：构建与安装](docs/zotero-xpi.md)
-- [本地配置状态页（开发者参考）](docs/dev/local-dashboard.md)
 
-### 引用与致谢
-遵循 **No Evidence, No Conclusion（无证据，不下结论）**：把科学论断追溯到保存的证据。
-感谢 Frank AI4S Skill contributors 和 Oscar Devos 的 [Zoteus](https://github.com/oscardvs/zoteus)。组件署名与许可证见[第三方声明](THIRD_PARTY_NOTICES.md)。
+- [入门指南](docs/getting-started_CN.md)
+- [Zotero 插件：安装、更新、构建](docs/zotero-xpi.md)
+- [首次设置和凭据](docs/dev/onboarding.md)
+- [本机配置状态页](docs/dev/local-dashboard.md)
+- [发布检查清单](docs/dev/release-checklist.md)
+- [安全说明](SECURITY.md)
 
-### 许可证
+</details>
+
+## 🤝 参与
+
+欢迎提 Issue 和 Pull Request。
+
+## 📄 许可证
+
 [MIT](LICENSE) © Frank AI4S Skill contributors。
+
+**无证据，不下结论。** 科学论断要能追溯到存下来的证据。Zotero 这一层参考了 Oscar Devos 的 [Zoteus](https://github.com/oscardvs/zoteus)。组件署名见[第三方声明](THIRD_PARTY_NOTICES.md)。
+
+---
+
+<p align="center">
+  <sub>📚 AI4S Literature Workbench · 写综述的时候，还找得到那句话出自哪篇。</sub>
+</p>

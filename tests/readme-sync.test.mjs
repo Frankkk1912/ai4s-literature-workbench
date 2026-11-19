@@ -83,8 +83,10 @@ test("what a beginner reads names no internal ID and does not send them to a bui
 		assert.doesNotMatch(read(file), /\b(D12|R12|M4|T5\.2)\b/, `${file} names an internal ID`);
 	}
 	for (const name of READMES) {
-		const start = read(name).indexOf(name === "README.md" ? "## Get started" : "## 开始使用");
+		const start = read(name).indexOf(name === "README.md" ? "## 🚀 Quick Start" : "## 🚀 快速开始");
+		assert.notEqual(start, -1, `${name}: beginner section heading missing`);
 		const end = read(name).indexOf("<details>", start);
+		assert.ok(end > start, `${name}: beginner section has no manual-install details`);
 		assert.doesNotMatch(read(name).slice(start, end), /npm (ci|run)|node scripts\/bootstrap/, `${name}: the beginner path mentions a build`);
 	}
 });
