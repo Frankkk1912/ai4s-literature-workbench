@@ -96,7 +96,12 @@ test("both READMEs carry the DeepSeek Harness block, with the release file and a
 	for (const name of READMES) {
 		const text = read(name);
 		assert.match(text, asset, `${name}: no DeepSeek Harness download line`);
-		assert.ok(text.includes("releases/latest/download/dsh-ai4s-literature-workbench.tgz"), `${name}: the fixed-name address is missing`);
+		assert.match(text, /v0\.1\.0/, `${name}: does not say the published release lacks the package`);
+		assert.equal(
+			text.includes("releases/latest/download/dsh-ai4s-literature-workbench.tgz"),
+			false,
+			`${name}: still offers the fixed-name address that 404s on v0.1.0`,
+		);
 		const start = text.indexOf("**DeepSeek Harness**");
 		assert.notEqual(start, -1, `${name}: no DeepSeek Harness install block`);
 		const block = text.slice(start, text.indexOf("**Claude Code", start));
@@ -104,7 +109,8 @@ test("both READMEs carry the DeepSeek Harness block, with the release file and a
 		assert.doesNotMatch(block, /npm |node scripts|\bdsh plugin\b/, `${name}: the block sends a beginner to a command`);
 	}
 	assert.match(install, /dsh-ai4s-literature-workbench-<version>\.tgz/);
-	assert.ok(install.includes("releases/latest/download/dsh-ai4s-literature-workbench.tgz"));
+	assert.match(install, /v0\.1\.0/);
+	assert.match(install, /404/);
 });
 
 test("the getting-started pages list DeepSeek Harness and keep the untested warning", () => {

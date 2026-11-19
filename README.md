@@ -92,8 +92,8 @@ That is all you install yourself. If your computer also needs a small free tool 
 2. Double-click it, or drag it onto the Claude Desktop window, and accept the install screen. Leave the two optional settings as they are.
 
 **DeepSeek Harness** (Desktop; the tools and all skills; **not yet tested on a real machine**)
-1. Open the [latest release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest) and download `dsh-ai4s-literature-workbench-<version>.tgz`.
-2. In DeepSeek Harness, open the **Plugins** page, choose **Add plugin**, and paste the path of the downloaded file. Pasting the address `https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/dsh-ai4s-literature-workbench.tgz` instead is also untested.
+1. The published v0.1.0 release does not include `dsh-ai4s-literature-workbench-<version>.tgz`. The release workflow builds that file for the next release. Until the [releases page](https://github.com/Frankkk1912/ai4s-literature-workbench/releases) lists it, install from source (INSTALL.md) instead of a download address.
+2. After a release lists the file: download `dsh-ai4s-literature-workbench-<version>.tgz`, then in DeepSeek Harness open the **Plugins** page, choose **Add plugin**, and paste the path of the downloaded file.
 3. Quit and reopen DeepSeek Harness, then ask: "run the ai4s-setup skill".
 
 **Claude Code, Codex, WorkBuddy, CodeBuddy**: paste this into the app:

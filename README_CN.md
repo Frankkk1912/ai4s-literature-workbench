@@ -92,8 +92,8 @@ flowchart LR
 2. 双击它，或把它拖进 Claude Desktop 窗口，在安装界面点确认。两个可选设置保持默认即可。
 
 **DeepSeek Harness**（桌面版；含全部工具和技能；**还没有在真实电脑上测试过**）
-1. 打开[最新发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest)，下载 `dsh-ai4s-literature-workbench-<版本号>.tgz`。
-2. 在 DeepSeek Harness 里打开**插件（Plugins）**页面，点**添加插件（Add plugin）**，把下载好的文件路径贴进去。改贴网址 `https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/dsh-ai4s-literature-workbench.tgz` 同样没有测试过。
+1. 已发布的 v0.1.0 里没有 `dsh-ai4s-literature-workbench-<版本号>.tgz`。发布流程会在下一次发布时带上这个文件。在[发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases)列出它之前，请按 INSTALL.md 从源码安装，不要用下载地址。
+2. 等某个发布列出该文件后：下载 `dsh-ai4s-literature-workbench-<版本号>.tgz`，在 DeepSeek Harness 里打开**插件（Plugins）**页面，点**添加插件（Add plugin）**，把下载好的文件路径贴进去。
 3. 完全退出并重新打开 DeepSeek Harness，然后对它说：“运行 ai4s-setup 技能”。
 
 **Claude Code、Codex、WorkBuddy、CodeBuddy**：把下面这段话发给应用：

@@ -28,7 +28,7 @@ test("the runtime's workbench list, verify-bundles and verify-runtime name the s
 	const runtime = namesAfter(read("runtime/src/server.ts"), "WORKBENCH_TOOL_NAMES = new Set(");
 	const bundles = namesAfter(read("scripts/verify-bundles.mjs"), "const EXPECTED_RUNTIME_TOOLS");
 	const verifyRuntime = namesAfter(read("scripts/verify-runtime.mjs"), "const expected");
-	assert.equal(runtime.length, 19);
+	assert.equal(runtime.length, 20);
 	assert.ok(sameList(runtime, bundles), "scripts/verify-bundles.mjs is out of step with WORKBENCH_TOOL_NAMES");
 	assert.ok(sameList(runtime, verifyRuntime), "scripts/verify-runtime.mjs is out of step with WORKBENCH_TOOL_NAMES");
 	assert.ok(runtime.includes("setup_status") && runtime.includes("open_setup"));
@@ -143,8 +143,13 @@ test("the DeepSeek Harness route is marked unverified and names the release asse
 	const packaging = read("scripts/package-release.mjs");
 	assert.ok(packaging.includes("dsh-ai4s-literature-workbench-${version}.tgz"));
 	assert.ok(packaging.includes("dsh-ai4s-literature-workbench.tgz"));
-	assert.ok(host.address.endsWith("/releases/latest/download/dsh-ai4s-literature-workbench.tgz"));
-	assert.ok(dshRoute().includes(host.address));
+	assert.equal(host.address, null);
+	assert.match(host.address_note, /v0\.1\.0/);
+	assert.match(host.address_note, /404/);
+	assert.match(host.address_note, /dsh-ai4s-literature-workbench\.tgz/);
+	assert.match(dshRoute(), /v0\.1\.0/);
+	assert.match(dshRoute(), /404/);
+	assert.match(read(".github/workflows/release.yml"), /dsh-ai4s-literature-workbench\.tgz/);
 });
 
 test("the DeepSeek Harness route admits what has not been tested, and claims no more", () => {

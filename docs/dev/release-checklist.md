@@ -46,6 +46,7 @@ in 10 minutes or less, for three beginners on the release candidate.
 
 - Download the release assets on a fresh machine and run `sha256sum -c SHA256SUMS.txt` (or `Get-FileHash`).
 - Check that `releases/latest/download/literature-metrics.xpi` downloads.
+- Check that `releases/latest/download/dsh-ai4s-literature-workbench.tgz` downloads. v0.1.0 does not include this file (that address 404s). `scripts/package-release.mjs` writes the versioned tarball and the fixed-name copy, and `.github/workflows/release.yml` uploads both. Do not publish a release only to add the file; the next tag that runs the workflow is what attaches it.
 - **First update check:** install an older add-on build, publish the next release, and confirm
   Zotero offers the update from the GitHub address in `update.json`. Zotero's documentation does not
   say whether a redirecting address is followed; this is the only way to know.
