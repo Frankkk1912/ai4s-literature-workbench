@@ -49,10 +49,20 @@ export class ScholarGraph {
   }
 }
 
-/** Tag works that are already in the library (by lowercased DOI). */
+/** Compare DOIs ignoring case, a leading `doi:`, and a `doi.org` URL prefix. */
+export function normalizeDoi(value: string | undefined): string {
+  if (!value) return '';
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\/(dx\.)?doi\.org\//, '')
+    .replace(/^doi:/, '');
+}
+
+/** Tag works that are already in the library. `libraryDois` holds normalized DOIs. */
 export function markInLibrary(works: ScholarWork[], libraryDois: Set<string>): ScholarWork[] {
-  return works.map((w) => ({
-    ...w,
-    inLibrary: w.doi ? libraryDois.has(w.doi.toLowerCase()) : false,
-  }));
+  return works.map((w) => {
+    const doi = normalizeDoi(w.doi);
+    return { ...w, inLibrary: Boolean(doi) && libraryDois.has(doi) };
+  });
 }

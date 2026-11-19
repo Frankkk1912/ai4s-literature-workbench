@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { OpenAlexClient } from '../../src/features/scholar/openalex.js';
-import { ScholarGraph, markInLibrary } from '../../src/features/scholar/graph.js';
+import { ScholarGraph, markInLibrary, normalizeDoi } from '../../src/features/scholar/graph.js';
 import { RateLimitedFetcher } from '../../src/api/http.js';
 
 function fetcher(fetchImpl: any) {
@@ -72,5 +72,11 @@ describe('markInLibrary', () => {
     const marked = markInLibrary([{ doi: '10.1038/NATURE14539', authors: [] }, { doi: '10.9/zzz', authors: [] }], set);
     expect(marked[0].inLibrary).toBe(true);
     expect(marked[1].inLibrary).toBe(false);
+  });
+
+  it('treats a doi.org URL and a bare DOI as the same identifier', () => {
+    expect(normalizeDoi('https://doi.org/10.1000/XYZ')).toBe('10.1000/xyz');
+    const marked = markInLibrary([{ doi: 'https://doi.org/10.1000/XYZ', authors: [] }], new Set(['10.1000/xyz']));
+    expect(marked[0].inLibrary).toBe(true);
   });
 });
