@@ -81,10 +81,9 @@ was later removed from the repository.
 Do not automatically delete acceptance entries or attachments. Retain them for
 manual comparison and remove them later through Zotero Desktop only if desired.
 
-## Deferred Web of Science browser workflow
+## Web of Science export import
 
-Web of Science browser search and official export are not part of the v0.1.0
-plugin registration or Windows acceptance. Keep official export files outside
-the repository; the existing `import-wos-export` command remains available for
-user-obtained exports. A future release will restore the campus-network browser
-acceptance gates after the backend is ready.
+Web of Science browser search is not part of this workbench. The supported path
+is `import-wos-export` on an official CSV/TSV file the user downloaded. Keep
+that file outside the repository. There is no campus-network browser acceptance
+gate.

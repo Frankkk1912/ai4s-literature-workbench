@@ -14,12 +14,14 @@ Use this reference when converting a user request into a search strategy.
 - `mesh_terms`: MeSH descriptor terms for diseases, processes, and entities
   (populated by `expand-query` apply mode).
 - `pubmed_query`: Boolean query suitable for PubMed.
-- `journal_filter`: optional CAS/JCR/impact-factor limits and the external CSV
-  used to derive an ISSN filter.
+- `openalex_query`: the exact OpenAlex `search` string. The default is
+  `pubmed_query` with field tags removed.
+- `openalex_filters`: filters actually sent, such as `publication_year` when
+  the PubMed query contains a `"YYYY:YYYY"[dp]` limit.
+- `journal_filter`: optional JCR/impact-factor limits and the metrics CSV.
 - `arxiv_query`: compact keyword query suitable for arXiv.
-- `wos_query`: Boolean query suitable for Web of Science Topic search.
-- `campus_access_notes`: whether campus IP, VPN, institutional login, or a
-  visible browser is needed for paid databases or full text.
+- `wos_query`: Boolean query the user can paste into Web of Science. The agent
+  does not run it. The user downloads an official CSV/TSV export.
 - `screening_notes`: what makes a hit relevant or irrelevant.
 - `expansion_source`: `null` for naive plans, `"llm-assisted"` when
   `expand-query` apply mode has been used.
@@ -60,8 +62,13 @@ organism constraints, year ranges, and exclusion terms:
 For arXiv, use shorter keyword strings. arXiv is less reliable for biomedical
 synonym-heavy Boolean searches, so keep the query compact.
 
-For Web of Science, prefer a Topic-style Boolean query that preserves the same
-core concepts but avoids PubMed-only field syntax:
+For OpenAlex, store the exact search string that will be sent. Do not leave
+PubMed field tags such as `[Title]` or `[MeSH Terms]` in it. Record a
+`publication_year` filter separately when the PubMed query already has a date
+limit.
+
+For Web of Science, write a Topic-style Boolean query the user can paste. It
+preserves the same core concepts but avoids PubMed-only field syntax:
 
 ```text
 TS=((ENTITY_SYNONYMS) AND (DISEASE_OR_PROCESS_SYNONYMS) AND (OPTIONAL_CONTEXT))
@@ -85,7 +92,8 @@ Use this pattern when the user requests journal quality restrictions such as
    `--filter-to-matches` to perform the actual local filtering by saved ISSNs.
    For JCR Q1 and IF >=5, save `filtered_q1_if_gt5.json` plus
    `filtered_q1_if_gt5.csv`.
-5. Render `report.md` from the locally filtered ranked JSON.
+5. Render the search record `report.md` from the locally filtered ranked JSON.
+   Do not add a scientific answer to that file.
 
 For multi-database workflows, raw/normalized source outputs use stable
 database-prefixed names such as `pubmed_raw.json`, `arxiv_raw.json`, and
@@ -152,7 +160,7 @@ The script merges the filled expansion into the query plan:
 - `expanded_terms` = core_terms + synonyms + related_diseases (deduplicated, case-insensitive)
 - `exclude_terms` = original + new exclusions
 - `mesh_terms` = populated from expansion
-- `pubmed_query` / `arxiv_query` / `wos_query` = regenerated from expanded terms
+- `pubmed_query` / `openalex_query` / `arxiv_query` / `wos_query` = regenerated from expanded terms
 - `expansion_source` = `"llm-assisted"` (audit marker)
 - `expansion_applied_at` = current date (audit marker)
 
@@ -169,5 +177,6 @@ Ask the user only if the ambiguity changes the biological target, such as:
 - same abbreviation maps to multiple genes/proteins,
 - disease acronym has multiple meanings,
 - user asks for "best papers" but does not specify review vs original studies,
-- paid or logged-in databases such as Web of Science are required and the agent
-  cannot determine whether the current browser has campus access.
+- the user wants Web of Science. Ask for the official CSV/TSV they downloaded.
+  Do not try to tell whether a browser has campus access; this skill does not
+  browse that site.

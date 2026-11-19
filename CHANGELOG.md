@@ -8,6 +8,13 @@ Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
 
 ## [Unreleased]
 
+### Changed
+
+- `literature-research` now searches OpenAlex with PubMed by default. The API is free and needs no key; a configured contact email is sent only as the polite-pool `mailto` and is not stored in the search plan. Results merge on DOI and PMID. Europe PMC is left as a follow-up.
+- `report.md` is now a script-written search record (question, date, databases, exact queries, limits, hit/dedup/selected counts, and a selected-paper table). The agent no longer writes a bilingual mini-review at retrieval time. Synthesis belongs in `literature-writing`, or in a separate summary when the user asks for one.
+- Priority 2 and 3 are judged by relevance to the search question during the relevance review. The `AI4S:Priority:1-3` tag contract is unchanged.
+- Retrieval guidance no longer tells the agent to browse Web of Science or other campus databases. The supported Web of Science path is an official CSV/TSV export the user downloaded.
+
 ### Removed
 
 - `database-browser-runtime/` (Playwright campus-network database browsing) and its CI, packaging, and install references. Open-access full text stays in `fulltext-runtime/`.

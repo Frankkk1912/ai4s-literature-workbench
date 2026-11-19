@@ -9,7 +9,8 @@ scientific judgment.
 - A **script command** is a deterministic node: API calls, XML/CSV/JSON parsing,
   ISSN filtering, deduplication, ranking, citation enrichment, report rendering.
 - The **main agent** is a quality gate: query semantics, ambiguity resolution,
-  evidence inspection, retry decisions, final synthesis.
+  evidence inspection, retry decisions, and relevance priority. Scientific
+  synthesis belongs in `literature-writing`.
 - A **subagent** is an independent evidence worker: one database, one source, or
   one separable research branch. It is not a replacement for every n8n node.
 
@@ -20,13 +21,14 @@ scientific judgment.
 | Chat trigger | user request | main agent |
 | LLM PubMed query generator | `plan` / `expand-query` plus agent review | main agent + script |
 | ESearch / EFetch HTTP nodes | `search-pubmed` | script |
+| OpenAlex works search | `search-openalex` | script |
 | XML parse, article split, ISSN extraction | internal parser in `search-pubmed` outputs | script |
 | Prepare CSV / save files | script `--output` paths | script |
 | IF/CAS/JCR filter scripts | `journal-filter-query` for audit, `enrich-journal-metrics --filter-to-matches` for local filtering | script |
 | Generate second PubMed query | explicit fallback with `compose-pubmed-query`, then `search-pubmed` only when local-first retrieval is impractical | script, agent reviews semantics |
 | Review outline agent | evidence-based outline from ranked JSON/report | main agent |
-| Review writing agent | final synthesis from saved evidence, written back into `report.md` or routed to `literature-writing` for manuscript prose | main agent / literature-writing |
-| Zotero collection/report/paper management | `literature-manager` lightweight project sync after ranked evidence and `report.md` exist | downstream Zotero skill |
+| Review writing agent | final synthesis from saved ranked evidence, written by `literature-writing` | literature-writing |
+| Zotero collection/report/paper management | `literature-manager` lightweight project sync after ranked evidence and the search-record `report.md` exist | downstream Zotero skill |
 | Reference renumber / docx export | downstream writing/document workflow, not core retrieval | literature-writing / document tooling |
 
 ## Agent Intervention Points
@@ -39,10 +41,10 @@ The agent should intervene before:
 3. Local journal-quality filtering, to confirm the journal-quality constraint is
    intended and not accidentally narrowing the biology; use PubMed second-pass
    ISSN filtering only as an explicit fallback for oversized broad searches.
-4. Final synthesis, after inspecting ranked JSON, score reasons, abstracts,
-   limitations, and links. The synthesis must be merged into `report.md` with
-   the search strategy and evidence table, not written as a separate topical
-   Markdown report.
+4. Relevance review, after inspecting ranked JSON, score reasons, abstracts,
+   limitations, and links. Record Priority 2 and 3, then re-run `render-report`.
+   Do not merge a scientific answer into `report.md`. If the user wants that
+   answer, hand the ranked evidence to `literature-writing`.
 
 The agent should not intervene for:
 
@@ -51,8 +53,8 @@ The agent should not intervene for:
 - Joining PubMed query fragments for an approved second-pass fallback.
 - Ranking arithmetic.
 - File naming and saved evidence manifests.
-- Creating duplicate report files to separate "search strategy" from "research
-  findings"; the canonical report is `report.md`.
+- Creating duplicate report files. The canonical Markdown file is the search
+  record `report.md`. A summary, when the user asks for one, is a different file.
 - Writing ad hoc helper scripts such as `filter_q1_if.py`; reusable script
   commands must own deterministic filtering and enrichment.
 - Renaming canonical outputs into target-specific duplicate files such as
@@ -67,8 +69,9 @@ The agent should not intervene for:
 Use subagents only when the work can return a complete evidence handoff:
 
 - PubMed source retrieval.
+- OpenAlex source retrieval.
 - arXiv source retrieval.
-- Web of Science browser search plus official export import.
+- Import of a Web of Science CSV/TSV the user already downloaded.
 - Separate research questions or target/disease branches.
 
 Do not create subagents for:
@@ -81,14 +84,15 @@ Do not create subagents for:
 
 Required subagent handoff fields: exact query, filters/limits, count, output
 paths, top records with IDs/DOIs/URLs, and limitations. The main agent owns the
-final merge/rank and scientific conclusion.
+final merge/rank and the relevance review. Scientific conclusions belong in
+`literature-writing`.
 
 ## Downstream Literature Workbench Boundary
 
 The production literature workflow is split into three skills:
 
-1. `literature-research`: source search, retrieval, filtering, ranking, and
-   evidence report drafting.
+1. `literature-research`: source search, retrieval, filtering, ranking, and the
+   search record.
 2. `literature-manager`: Zotero library matching, deduplication,
    collection/tag/note sync planning, and approved API updates.
 3. `literature-writing`: review/proposal/manuscript prose from ranked evidence
@@ -96,9 +100,10 @@ The production literature workflow is split into three skills:
 
 The interface is file-based:
 
-- `literature-research` writes ranked evidence JSON/CSV and `report.md`.
-- A Zotero-bound project hands selected ranked evidence plus the finalized
-  report to `literature-manager`; exact-ID incremental sync is quiet and
+- `literature-research` writes ranked evidence JSON/CSV and the search-record
+  `report.md`.
+- A Zotero-bound project hands selected ranked evidence plus that search record
+  to `literature-manager`; exact-ID incremental sync is quiet and
   idempotent, while ambiguous or conflicting cases are surfaced for review.
 - `literature-manager` reads ranked evidence and `report.md`. Recurring exact-ID
   project sync updates Zotero with private runtime state; lower-level or

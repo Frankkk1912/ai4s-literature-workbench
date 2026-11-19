@@ -1,0 +1,64 @@
+{
+  "meta": {
+    "count": 2,
+    "next_cursor": null
+  },
+  "results": [
+    {
+      "id": "https://openalex.org/W1001",
+      "display_name": "EXAMPLE-GENE regulates cardiac function in heart failure",
+      "publication_year": 2023,
+      "publication_date": "2023-04-02",
+      "type": "article",
+      "doi": "https://doi.org/10.1234/jcr.2023.001",
+      "ids": {
+        "openalex": "https://openalex.org/W1001",
+        "doi": "https://doi.org/10.1234/jcr.2023.001",
+        "pmid": "https://pubmed.ncbi.nlm.nih.gov/12345678"
+      },
+      "authorships": [
+        {"author": {"display_name": "Jane Smith"}}
+      ],
+      "primary_location": {
+        "landing_page_url": "https://example.org/example-gene",
+        "source": {
+          "display_name": "Journal of Cardiovascular Research",
+          "issn_l": "1234-5678",
+          "issn": ["1234-5678"]
+        }
+      },
+      "abstract_inverted_index": {
+        "EXAMPLE-GENE": [0],
+        "regulates": [1],
+        "cardiac": [2],
+        "function": [3]
+      }
+    },
+    {
+      "id": "https://openalex.org/W2002",
+      "display_name": "A PMID-only EXAMPLE-GENE methods note",
+      "publication_year": 2021,
+      "publication_date": "2021-01-01",
+      "type": "article",
+      "ids": {
+        "openalex": "https://openalex.org/W2002",
+        "pmid": "https://pubmed.ncbi.nlm.nih.gov/55500001"
+      },
+      "authorships": [
+        {"author": {"display_name": "Alex Doe"}}
+      ],
+      "primary_location": {
+        "source": {
+          "display_name": "Methods Journal",
+          "issn_l": "2222-3333",
+          "issn": ["2222-3333"]
+        }
+      },
+      "abstract_inverted_index": {
+        "Methods": [0],
+        "for": [1],
+        "EXAMPLE-GENE": [2]
+      }
+    }
+  ]
+}

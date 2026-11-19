@@ -46,6 +46,37 @@ function context(dataDir: string, web: FakeWeb): any { return { config: { dataDi
 const record = { source: 'pubmed', id: '123', title: 'A stable-ID study', doi: '10.1000/test.1', pmid: '12345678', authors: ['Smith J'], journal: 'Test Journal', date: '2025', article_types: ['Journal Article'] };
 
 describe('project sync', () => {
+  it('imports a search record as the project Note', async () => {
+    const files = await fixture([record]);
+    const searchRecord = [
+      '# Literature search record',
+      '',
+      '## Question',
+      'EXAMPLE-GENE in heart failure',
+      '',
+      '## Selected papers',
+      '| Rank | Title | Journal | Year | PMID | DOI | Priority |',
+      '| --- | --- | --- | --- | --- | --- | --- |',
+      '| 1 | A stable-ID study | Test Journal | 2025 | 12345678 | 10.1000/test.1 | 1 |',
+      '',
+      '## Limitations',
+      'Capped search, abstract-level.',
+      '',
+    ].join('\n');
+    await writeFile(files.reportPath, searchRecord, 'utf8');
+    const web = new FakeWeb();
+    const result = await syncLiteratureProject(context(files.dir, web), { type: 'user', id: 1 }, {
+      projectSlug: 'search-record', collectionName: 'Search Record', searchDate: '2026-11-19',
+      reportPath: files.reportPath, evidencePath: files.evidencePath,
+    });
+    expect(result).toMatchObject({ status: 'complete', created: 1, report: 'created' });
+    const note = dataOf(web.items.find((item) => dataOf(item).itemType === 'note')).note as string;
+    expect(note).toContain('EXAMPLE-GENE in heart failure');
+    expect(note).toContain('<table>');
+    expect(note).toContain('A stable-ID study');
+    expect(note).toContain('Capped search, abstract-level.');
+    expect(note).not.toContain('## Question');
+  });
   it('renders report tables and escapes raw HTML', () => {
     const html = renderReportMarkdown('# Report\n\n| A | B |\n|---|---|\n| <x> | [link](https://example.com) |');
     expect(html).toContain('<h1>Report</h1>'); expect(html).toContain('<table>'); expect(html).toContain('&lt;x&gt;'); expect(html).toContain('<a href="https://example.com">link</a>');
