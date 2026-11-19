@@ -13,7 +13,8 @@
 //   node scripts/verify-release.mjs <release-dir>
 //
 // Needs `unzip` on Linux and macOS; Windows uses the bsdtar that ships with it.
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
+import { spawnCommand } from './spawn-command.mjs';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -51,8 +52,8 @@ async function check(name, run) {
 function extract(archive, into) {
   mkdirSync(into, { recursive: true });
   const result = process.platform === 'win32'
-    ? spawnSync('tar', ['-xf', archive, '-C', into], { encoding: 'utf8' })
-    : spawnSync('unzip', ['-q', archive, '-d', into], { encoding: 'utf8' });
+    ? spawnCommand('tar', ['-xf', archive, '-C', into], { encoding: 'utf8' })
+    : spawnCommand('unzip', ['-q', archive, '-d', into], { encoding: 'utf8' });
   if (result.error || result.status !== 0) {
     throw new Error(`Could not extract ${archive}: ${result.error?.message ?? result.stderr}`);
   }
@@ -111,7 +112,7 @@ try {
     if (existsSync(join(pluginDir, 'dsh-plugin'))) throw new Error('The archive must not include dsh-plugin.');
   });
 
-  const bundleRun = spawnSync(process.execPath, [join(repoRoot, 'scripts', 'verify-bundles.mjs'), '--plugin-dir', pluginDir], { encoding: 'utf8' });
+  const bundleRun = spawnCommand(process.execPath, [join(repoRoot, 'scripts', 'verify-bundles.mjs'), '--plugin-dir', pluginDir], { encoding: 'utf8' });
   process.stdout.write(`${bundleRun.stdout.trimEnd().replace(/^/gm, '  [archive] ')}\n`);
   if (bundleRun.status !== 0) {
     report('plugin archive bundles start and list their tools', false, bundleRun.stderr || 'see the [archive] lines above');
@@ -127,7 +128,7 @@ try {
 
   // The launchers are what a user double-clicks when the agent's sandbox cannot start a server
   // or a browser. They must run from the extracted folder, with no node_modules anywhere.
-  const launcherRun = spawnSync(process.execPath, [join(repoRoot, 'scripts', 'verify-launchers.mjs'), '--plugin-dir', pluginDir], { encoding: 'utf8' });
+  const launcherRun = spawnCommand(process.execPath, [join(repoRoot, 'scripts', 'verify-launchers.mjs'), '--plugin-dir', pluginDir], { encoding: 'utf8' });
   process.stdout.write(`${launcherRun.stdout.trimEnd().replace(/^/gm, '  [archive] ')}\n`);
   report('plugin archive launchers run the bundle with --setup', launcherRun.status === 0, launcherRun.stderr || 'see the [archive] lines above');
 

@@ -10,17 +10,16 @@
  * The Zotero runtime is required. The Fulltext runtime is optional unless
  * --require-optional is passed.
  */
-import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
+import { spawnCommand } from "./spawn-command.mjs";
 
 const REQUIRED = [22, 13];
 const pluginRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const scriptsDir = join(pluginRoot, "scripts");
-const isWindows = process.platform === "win32";
-const npm = isWindows ? "npm.cmd" : "npm";
+const npm = "npm";
 
 function parseArgs(argv) {
   const out = { requireOptional: false, report: null };
@@ -37,7 +36,8 @@ function parseArgs(argv) {
 }
 
 function run(command, args, cwd) {
-  const result = spawnSync(command, args, { cwd, stdio: "inherit", shell: isWindows });
+  // Direct spawn. A shell would split a script path at the first space.
+  const result = spawnCommand(command, args, { cwd, stdio: "inherit" });
   if (result.error) throw result.error;
   if (result.status !== 0) {
     throw new Error(`${command} ${args.join(" ")} exited with code ${result.status}.`);
@@ -45,7 +45,7 @@ function run(command, args, cwd) {
 }
 
 function capture(command, args) {
-  const result = spawnSync(command, args, { encoding: "utf8", shell: isWindows });
+  const result = spawnCommand(command, args, { encoding: "utf8" });
   return result.status === 0 ? result.stdout.trim() : null;
 }
 

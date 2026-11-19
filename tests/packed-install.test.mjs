@@ -3,40 +3,44 @@
 // the runtime, installs the tarball into a clean project, and loads the bridge.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync, existsSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { spawnCommand } from "../scripts/spawn-command.mjs";
 
 const runtimeDir = resolve("runtime");
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+
+function runNpm(args, options) {
+  const result = spawnCommand("npm", args, { encoding: "utf8", ...options });
+  if (result.error || result.status !== 0) {
+    const error = new Error(result.stderr || result.error?.message || `npm ${args.join(" ")} exited ${result.status}`);
+    error.stdout = result.stdout;
+    error.stderr = result.stderr;
+    throw error;
+  }
+  return result.stdout ?? "";
+}
 
 test("packed runtime loads the onboarding core from inside the package", () => {
   // Build first: dist/ is not produced by npm ci, and the root test step runs
   // before the workflow's runtime build. Without this the tarball has no dist.
-  execFileSync(npm, ["run", "build"], {
-    cwd: runtimeDir,
-    stdio: "ignore",
-    shell: process.platform === "win32",
-  });
-  const work = mkdtempSync(join(tmpdir(), "packed-install-"));
+  runNpm(["run", "build"], { cwd: runtimeDir, stdio: "ignore" });
+  // A space in the destination is the Windows failure mode: cmd.exe used to
+  // split `--pack-destination` and the packed tarball path.
+  const work = mkdtempSync(join(tmpdir(), "packed install-"));
   try {
-    const packOut = execFileSync(npm, ["pack", "--pack-destination", work, "--silent"], {
-      cwd: runtimeDir,
-      encoding: "utf8",
-      shell: process.platform === "win32",
-    }).trim().split(/\r?\n/).pop();
+    const packOut = runNpm(["pack", "--pack-destination", work, "--silent"], { cwd: runtimeDir }).trim().split(/\r?\n/).pop();
     const tgz = join(work, packOut);
 
     const consumer = join(work, "consumer");
-    execFileSync("node", ["-e", "require('fs').mkdirSync(process.argv[1],{recursive:true})", consumer]);
+    const made = spawnCommand(process.execPath, ["-e", "require('fs').mkdirSync(process.argv[1],{recursive:true})", consumer]);
+    if (made.status !== 0) throw made.error || new Error(`mkdir failed: ${made.stderr}`);
     writeFileSync(join(consumer, "package.json"), JSON.stringify({ name: "consumer", version: "0.0.0", type: "module" }));
     // Capture npm's output instead of discarding it, so a failing install
     // reports its real reason rather than a downstream "module not found".
-    const install = spawnSync(npm, ["install", tgz, "--no-audit", "--no-fund"], {
+    const install = spawnCommand("npm", ["install", tgz, "--no-audit", "--no-fund"], {
       cwd: consumer,
       encoding: "utf8",
-      shell: process.platform === "win32",
     });
     assert.equal(
       install.status,
@@ -52,7 +56,7 @@ test("packed runtime loads the onboarding core from inside the package", () => {
     );
     // On failure, record what the consumer actually contains so a CI-only
     // difference is visible in the test output instead of guessed at.
-    const probeRun = spawnSync("node", [probe], { cwd: consumer, encoding: "utf8" });
+    const probeRun = spawnCommand(process.execPath, [probe], { cwd: consumer, encoding: "utf8" });
     if (probeRun.status !== 0) {
       const pkgDir = join(consumer, "node_modules", "literature-zotero-mcp");
       const libDir = join(pkgDir, "dist", "lib");
@@ -62,7 +66,7 @@ test("packed runtime loads the onboarding core from inside the package", () => {
         `probe failed (exit ${probeRun.status}).\n` +
         `package top-level: ${top}\n` +
         `dist/lib: ${listing}\n` +
-        `stderr: ${probeRun.stderr.slice(0, 600)}`,
+        `stderr: ${String(probeRun.stderr ?? "").slice(0, 600)}`,
       );
     }
     assert.deepEqual(JSON.parse(probeRun.stdout.trim().split(/\r?\n/).pop()), { ok: true });

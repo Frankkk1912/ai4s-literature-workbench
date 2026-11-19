@@ -21,10 +21,10 @@
  *     and pass `tsc --noEmit` (requires that package's npm ci)
  *   - literature-metrics build inputs must pass `node scripts/check.mjs`
  */
-import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawnCommand } from './spawn-command.mjs';
 
 const command = process.argv[2];
 if (command === 'sync') {
@@ -180,18 +180,11 @@ function assertMcpResolution(artifacts) {
   }
 }
 
-// On Windows spawn cannot execute the npm.cmd shim directly: without a shell it
-// fails (ENOENT before Node's CVE-2024-27980 fix, EINVAL after — npm.cmd is a
-// .cmd script and Node now refuses .cmd without a shell). Route only the npm
-// invocations through cmd.exe; every argument below is a fixed literal with no
-// spaces or shell metacharacters, and no user input is ever passed.
-const isWindows = process.platform === 'win32';
-
 function run(commandName, args, cwd, timeout) {
-  execFileSync(commandName, args, {
+  const result = spawnCommand(commandName, args, {
     cwd,
     timeout,
-    shell: isWindows && commandName === 'npm',
+    encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     env: {
       ...process.env,
@@ -200,6 +193,12 @@ function run(commandName, args, cwd, timeout) {
       npm_config_update_notifier: 'false',
     },
   });
+  if (result.error || result.status !== 0) {
+    const error = result.error instanceof Error ? result.error : new Error(`${commandName} exited with code ${result.status}`);
+    error.stdout = result.stdout;
+    error.stderr = result.stderr;
+    throw error;
+  }
 }
 
 function assertLockfile(pkg) {

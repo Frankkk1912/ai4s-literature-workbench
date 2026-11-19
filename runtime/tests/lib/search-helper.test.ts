@@ -79,12 +79,34 @@ describe('pinned uv release table', () => {
 });
 
 describe('runCommandFor', () => {
-  it('quotes a path with spaces and quotes for each shell', () => {
-    const run = runCommandFor("/Users/o'neil/Library/Application Support/uv");
-    expect(run.posix).toBe(`'/Users/o'\\''neil/Library/Application Support/uv' run`);
-    expect(run.powershell).toBe(`& '/Users/o''neil/Library/Application Support/uv' run`);
-    const sh = spawnSync('sh', ['-c', `printf '%s' ${run.posix.slice(0, -4)}`], { encoding: 'utf8' });
-    if (process.platform !== 'win32') expect(sh.stdout).toBe("/Users/o'neil/Library/Application Support/uv");
+  it('quotes a path with spaces, quotes, shell metacharacters, and non-ASCII characters', () => {
+    const path = String.raw`C:\Users\o'neil\AI4S Test & $文献\uv.exe`;
+    const run = runCommandFor(path);
+    expect(run.posix).toBe(String.raw`'C:\Users\o'\''neil\AI4S Test & $文献\uv.exe' run`);
+    expect(run.powershell).toBe(String.raw`& 'C:\Users\o''neil\AI4S Test & $文献\uv.exe' run`);
+    if (process.platform !== 'win32') {
+      const sh = spawnSync('sh', ['-c', `printf '%s' ${run.posix.slice(0, -4)}`], { encoding: 'utf8' });
+      expect(sh.stdout).toBe(path);
+    } else {
+      const powershell = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+      const payload = Buffer.from(run.powershell, 'utf16le').toString('base64');
+      const script = [
+        "$ErrorActionPreference = 'Stop'",
+        `$line = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('${payload}'))`,
+        '$errs = $null',
+        '$tokens = $null',
+        '$ast = [System.Management.Automation.Language.Parser]::ParseInput($line, [ref]$tokens, [ref]$errs)',
+        'if ($errs -and @($errs).Count -gt 0) { throw (($errs | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine) }',
+        '$cmd = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.CommandAst] }, $false)',
+        "if ($cmd.InvocationOperator -ne [System.Management.Automation.Language.TokenKind]::Ampersand) { throw \"operator $($cmd.InvocationOperator)\" }",
+        '$value = [string]$cmd.CommandElements[0].Value',
+        '[Console]::Out.Write([Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($value)))',
+      ].join('\n');
+      const encoded = Buffer.from(script, 'utf16le').toString('base64');
+      const parsed = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], { encoding: 'utf8' });
+      if (parsed.status !== 0) throw new Error(parsed.stderr || parsed.error?.message || 'PowerShell could not parse the helper command');
+      expect(Buffer.from((parsed.stdout ?? '').trim(), 'base64').toString('utf16le')).toBe(path);
+    }
   });
 
   it('is plain `uv run` for a uv the user already has', () => {
