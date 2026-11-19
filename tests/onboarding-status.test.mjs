@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { execFileSync } from "node:child_process";
 import { request as httpRequest } from "node:http";
 import { afterEach, test } from "node:test";
+import { spawnCommand } from "../scripts/spawn-command.mjs";
 
 import {
   applyOnboardingLayout,
@@ -16,12 +16,14 @@ import {
 } from "../runtime/src/public/onboarding/app.js";
 import { maskKey, redactedStatus } from "../runtime/src/lib/onboarding-core.mjs";
 
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-execFileSync(npmCommand, ["run", "build"], {
+const build = spawnCommand("npm", ["run", "build"], {
   cwd: new URL("../runtime/", import.meta.url),
-  stdio: "pipe",
-  shell: process.platform === "win32",
+  encoding: "utf8",
+  stdio: ["ignore", "pipe", "pipe"],
 });
+if (build.status !== 0) {
+  throw new Error(build.stderr || build.error?.message || `npm run build exited ${build.status}`);
+}
 
 const { McpServer } = await import(
   "../runtime/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js"

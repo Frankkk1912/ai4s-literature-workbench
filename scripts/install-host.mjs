@@ -12,10 +12,10 @@
 //   node scripts/install-host.mjs --host claude [--dry-run]
 //   node scripts/install-host.mjs --host qoder --target <project-dir>
 //   node scripts/install-host.mjs --host all --dry-run
-import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnCommand } from "./spawn-command.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MARKETPLACE = "Frankkk1912/ai4s-literature-workbench";
@@ -40,7 +40,7 @@ const HOSTS = {
       ];
       if (dry) return { status: "instructions", detail: cmds.map((c) => `claude ${c.join(" ")}`).join("\n") };
       for (const c of cmds) {
-        const r = spawnSync("claude", c, { encoding: "utf8" });
+        const r = spawnCommand("claude", c, { encoding: "utf8" });
         if (r.status !== 0) {
           return { status: "unverified", detail: `claude ${c.join(" ")} exited ${r.status}: ${(r.stderr || r.stdout).trim()}` };
         }
@@ -59,7 +59,7 @@ const HOSTS = {
       ];
       if (dry) return { status: "instructions", detail: cmds.map((c) => `codex ${c.join(" ")}`).join("\n") };
       for (const c of cmds) {
-        const r = spawnSync("codex", c, { encoding: "utf8" });
+        const r = spawnCommand("codex", c, { encoding: "utf8" });
         if (r.status !== 0) {
           return { status: "unverified", detail: `codex ${c.join(" ")} exited ${r.status}: ${(r.stderr || r.stdout).trim()}` };
         }
@@ -124,8 +124,12 @@ const HOSTS = {
 };
 
 function hasCommand(name) {
-  const probe = process.platform === "win32" ? "where" : "which";
-  return spawnSync(probe, [name], { encoding: "utf8" }).status === 0;
+  // where.exe is a real executable. Spawning the bare name `where` can land
+  // on a shim, and a shell would split a path that contains a space.
+  const probe = process.platform === "win32"
+    ? join(process.env.SystemRoot || "C:\\Windows", "System32", "where.exe")
+    : "which";
+  return spawnCommand(probe, [name], { encoding: "utf8" }).status === 0;
 }
 
 // The repo's .mcp.json is the single source for MCP servers. Read it, never retype it.

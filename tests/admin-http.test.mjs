@@ -2,21 +2,22 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { execFileSync } from "node:child_process";
 import { request as httpRequest } from "node:http";
 import { afterEach, test } from "node:test";
+import { spawnCommand } from "../scripts/spawn-command.mjs";
 
 // Root node:test runs before the runtime build in CI. Build here so this black-box
 // suite exercises the same emitted JavaScript and copied static assets users run.
-// Windows: Node's CVE-2024-27980 hardening refuses to spawn the npm.cmd shim
-// without a shell (spawnSync npm.cmd EINVAL). Route only this fixed-literal npm
-// invocation through cmd.exe on win32; no user input is passed to the command.
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-execFileSync(npmCommand, ["run", "build"], {
+// spawnCommand runs npm's JavaScript entry on Windows, so a checkout path with
+// a space is not re-parsed by cmd.exe.
+const build = spawnCommand("npm", ["run", "build"], {
   cwd: new URL("../runtime/", import.meta.url),
-  stdio: "pipe",
-  shell: process.platform === "win32",
+  encoding: "utf8",
+  stdio: ["ignore", "pipe", "pipe"],
 });
+if (build.status !== 0) {
+  throw new Error(build.stderr || build.error?.message || `npm run build exited ${build.status}`);
+}
 
 const { McpServer } =
   await import("../runtime/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js");

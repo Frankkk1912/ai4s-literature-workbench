@@ -17,12 +17,12 @@
 //                                             always gives the newest add-on
 //   SHA256SUMS.txt                            checked with `sha256sum -c` or Get-FileHash
 import { createHash } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import {
   chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync,
 } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { spawnCommand } from './spawn-command.mjs';
 
 const { checkFeed } = await import(pathToFileURL(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'literature-metrics', 'scripts', 'update-feed.mjs')).href);
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -54,7 +54,9 @@ function readJson(relative) {
 }
 
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, { stdio: 'inherit', shell: isWindows, ...options });
+  // tar.exe is spawned directly, so an output path with spaces is one argument.
+  // npx.cmd is a shim; spawnCommand runs its JavaScript entry under this Node.
+  const result = spawnCommand(command, args, { stdio: 'inherit', ...options });
   if (result.error) fail(`${command} could not start: ${result.error.message}`);
   if (result.status !== 0) fail(`${command} ${args.join(' ')} exited with code ${result.status}.`);
 }

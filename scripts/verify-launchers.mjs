@@ -12,7 +12,7 @@
 // Checks: both launchers are present, the .command keeps its execute bit, the launcher
 // runs the bundle with --setup and prints the page address, and (negative control) the
 // launcher stops and points to nodejs.org when Node.js is not on the PATH.
-import { spawnSync } from 'node:child_process';
+import { spawnCommand } from './spawn-command.mjs';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, parse, resolve } from 'node:path';
@@ -73,9 +73,14 @@ try {
     const env = { ...process.env, AI4S_NO_BROWSER: '1', AI4S_NO_PAUSE: '1', ...extraEnv };
     for (const key of Object.keys(env)) if (/^(ZOTERO_|ZOTEUS_|LITERATURE_|NODE_PATH$|NODE_OPTIONS$)/.test(key)) delete env[key];
     const file = join(pluginDir, launcherName);
-    return isWindows
-      ? spawnSync('cmd.exe', ['/d', '/s', '/c', `""${file}" --check"`], { cwd: pluginDir, env, encoding: 'utf8', windowsVerbatimArguments: true, timeout: 60_000 })
-      : spawnSync(file, ['--check'], { cwd: tmpdir(), env, encoding: 'utf8', timeout: 60_000 });
+    // The Windows launcher is `Setup AI4S.bat` (a space in the file name) and
+    // the folder it is opened from may contain a space or a non-ASCII character.
+    return spawnCommand(file, ['--check'], {
+      cwd: isWindows ? pluginDir : tmpdir(),
+      env,
+      encoding: 'utf8',
+      timeout: 60_000,
+    });
   }
 
   check('both launchers are present, and the .command can be opened from Finder', () => {
@@ -101,7 +106,7 @@ try {
     // A PATH with no node in it: only the system folders.
     const systemPath = isWindows ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32') : '/usr/bin:/bin';
     const [command, args] = isWindows ? ['cmd.exe', ['/d', '/c', 'where node']] : ['sh', ['-c', 'command -v node']];
-    const probe = spawnSync(command, args, { env: { ...process.env, PATH: systemPath }, encoding: 'utf8' });
+    const probe = spawnCommand(command, args, { env: { ...process.env, PATH: systemPath }, encoding: 'utf8' });
     if (probe.status === 0) {
       process.stdout.write('      (skipped: this machine has Node.js in its system folders, so the launcher cannot be run without it)\n');
       return;
