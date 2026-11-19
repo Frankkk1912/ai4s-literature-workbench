@@ -939,6 +939,56 @@ def metric_column(row: dict[str, str], *names: str) -> str:
     return ""
 
 
+# A print ISSN of "N/A" must not hide a later eISSN column, so each name is read on its own.
+ISSN_COLUMN_NAMES = (
+    "ISSN",
+    "eISSN",
+    "e-ISSN",
+    "EISSN",
+    "Print ISSN",
+    "Electronic ISSN",
+    "Online ISSN",
+    "ISSN-L",
+    "ISSN (Print)",
+    "ISSN (Online)",
+)
+
+
+def row_metric_issns(row: dict[str, str]) -> list[str]:
+    """Return distinct valid ISSN and eISSN values from one metrics row."""
+    found: list[str] = []
+    for name in ISSN_COLUMN_NAMES:
+        for candidate in re.split(r"[;,/|\s]+", metric_column(row, name)):
+            normalized = normalize_issn(candidate)
+            if normalized and normalized not in found:
+                found.append(normalized)
+    return found
+
+
+def row_journal_name_keys(row: dict[str, str]) -> list[str]:
+    """Return distinct normalized title and abbreviation keys for one metrics row."""
+    names: list[str] = []
+    for value in (
+        metric_column(row, "Journal", "Journal Title", "publicationTitle"),
+        metric_column(row, "Abbreviation", "Journal Abbreviation", "ISO Abbreviation"),
+    ):
+        normalized = normalize_journal_name(value)
+        if normalized and normalized not in names:
+            names.append(normalized)
+    return names
+
+
+def _unique_metrics(keys: list[str] | set[str], by_key: dict[str, dict[str, Any]], ambiguous: set[str]) -> list[dict[str, Any]]:
+    metrics: list[dict[str, Any]] = []
+    for key in keys:
+        if key in ambiguous or key not in by_key:
+            continue
+        metric = by_key[key]
+        if metric not in metrics:
+            metrics.append(metric)
+    return metrics
+
+
 EASYSCHOLAR_JCR_DATASETS = (
     "jcr",
     "jcr分区",
@@ -1160,9 +1210,6 @@ def load_journal_metrics(path: str | Path) -> tuple[dict[str, dict[str, Any]], s
     ambiguous: set[str] = set()
     by_journal_name: dict[str, set[str]] = {}
     for row in rows:
-        issn = normalize_issn(metric_column(row, "ISSN", "eISSN", "e-ISSN"))
-        if not issn:
-            continue
         try:
             impact_factor = float(metric_column(row, "Impact Factor", "IF", "impact_factor"))
         except ValueError:
@@ -1180,17 +1227,26 @@ def load_journal_metrics(path: str | Path) -> tuple[dict[str, dict[str, Any]], s
             metric["jcr_zone"] = jcr
         if cas:
             metric["cas_zone"] = cas
-        if issn in by_issn and by_issn[issn] != metric:
-            ambiguous.add(issn)
+        issns = row_metric_issns(row)
+        names = row_journal_name_keys(row)
+        if issns:
+            keys = issns
+        elif names:
+            # The bundled JCR table marks missing print ISSNs as "N/A". Keep the
+            # row addressable by journal name. The synthetic key is not 8 digits,
+            # so an item ISSN cannot collide with it.
+            keys = [f"name:{names[0]}"]
         else:
-            by_issn[issn] = metric
-        for journal_name in (
-            metric_column(row, "Journal", "Journal Title", "publicationTitle"),
-            metric_column(row, "Abbreviation", "Journal Abbreviation", "ISO Abbreviation"),
-        ):
-            normalized_name = normalize_journal_name(journal_name)
-            if normalized_name:
-                by_journal_name.setdefault(normalized_name, set()).add(issn)
+            continue
+        for key in keys:
+            if key in ambiguous:
+                continue
+            if key in by_issn and by_issn[key] != metric:
+                ambiguous.add(key)
+            else:
+                by_issn[key] = metric
+        for normalized_name in names:
+            by_journal_name.setdefault(normalized_name, set()).update(keys)
     return by_issn, ambiguous, by_journal_name, source_sha256
 
 
@@ -1219,24 +1275,27 @@ def command_plan_metrics_backfill(args: argparse.Namespace) -> None:
             actions.append({**base, "decision": "skip", "reason_codes": ["missing-item-key-or-version"], "metric": None})
             continue
         matches = sorted({issn for issn in issns if issn in metrics_by_issn and issn not in ambiguous_issns})
+        issn_metrics = _unique_metrics(matches, metrics_by_issn, ambiguous_issns)
         if any(issn in ambiguous_issns for issn in issns):
             actions.append({**base, "decision": "skip", "reason_codes": ["ambiguous-metrics-issn"], "metric": None})
-        elif len(matches) == 1:
-            metric = {**metrics_by_issn[matches[0]], "source_label": source_label, "source_sha256": source_sha256}
+        elif len(issn_metrics) == 1:
+            metric = {**issn_metrics[0], "source_label": source_label, "source_sha256": source_sha256}
             actions.append({**base, "decision": "update", "reason_codes": ["unique-issn-match"], "metric": metric})
-        elif len(matches) > 1:
+        elif len(issn_metrics) > 1:
             actions.append({**base, "decision": "skip", "reason_codes": ["multiple-metrics-issn-matches"], "metric": None})
         else:
-            journal_match_issns = sorted({
-                issn
-                for journal_name in journal_names
-                for issn in metrics_by_journal_name.get(journal_name, set())
-                if issn in metrics_by_issn and issn not in ambiguous_issns
-            })
-            if len(journal_match_issns) == 1:
-                metric = {**metrics_by_issn[journal_match_issns[0]], "source_label": source_label, "source_sha256": source_sha256}
+            journal_keys: list[str] = []
+            seen_keys: set[str] = set()
+            for journal_name in journal_names:
+                for key in metrics_by_journal_name.get(journal_name, set()):
+                    if key not in seen_keys:
+                        seen_keys.add(key)
+                        journal_keys.append(key)
+            journal_metrics = _unique_metrics(journal_keys, metrics_by_issn, ambiguous_issns)
+            if len(journal_metrics) == 1:
+                metric = {**journal_metrics[0], "source_label": source_label, "source_sha256": source_sha256}
                 actions.append({**base, "decision": "update", "reason_codes": ["unique-journal-name-match"], "metric": metric})
-            elif len(journal_match_issns) > 1:
+            elif len(journal_metrics) > 1 or journal_keys:
                 actions.append({**base, "decision": "skip", "reason_codes": ["ambiguous-journal-name-match"], "metric": None})
             elif not issns:
                 actions.append({**base, "decision": "skip", "reason_codes": ["missing-issn-and-no-unique-journal-match"], "metric": None})

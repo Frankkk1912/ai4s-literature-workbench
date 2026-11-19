@@ -452,6 +452,78 @@ class TestMetricsPlanning(unittest.TestCase):
             ambiguous = next(action for action in plan["actions"] if action["item_key"] == "AMBIG001")
             self.assertEqual(ambiguous["reason_codes"], ["ambiguous-journal-name-match"])
 
+    def test_missing_issn_matches_by_journal_name_and_eissn(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            tmp = Path(directory)
+            snapshot = tmp / "items.json"
+            csv_file = tmp / "metrics.csv"
+            output = tmp / "metrics-plan.json"
+            snapshot.write_text(json.dumps({"items": [
+                {"key": "NAME0001", "version": 1, "data": {"title": "By name", "publicationTitle": "Nature Communications"}},
+                {"key": "ABBR0002", "version": 2, "data": {"title": "By abbreviation", "journalAbbreviation": "Nat Commun"}},
+                {"key": "EISSN001", "version": 3, "data": {"title": "By eISSN", "ISSN": "2041-1723"}},
+                {"key": "BOTH0001", "version": 4, "data": {"title": "Print and electronic", "eISSN": "2198-3844", "publicationTitle": "Advanced Science"}},
+                {"key": "CLASH001", "version": 5, "data": {"title": "Same missing-ISSN title", "publicationTitle": "Shared Missing"}},
+            ]}), encoding="utf-8")
+            csv_file.write_text(
+                "Journal,Abbreviation,Impact Factor,JCR-zone,CAS-zone,ISSN,eISSN\n"
+                "Nature Communications,Nat Commun,18.1,Q1,1区,N/A,2041-1723\n"
+                "Advanced Science,Adv Sci,14.1,Q1,1区,N/A,2198-3844\n"
+                "Shared Missing,Shared Miss A,2.0,Q3,3区,N/A,\n"
+                "Shared Missing,Shared Miss B,9.0,Q1,1区,N/A,\n",
+                encoding="utf-8",
+            )
+            args = argparse.Namespace(
+                zotero_items=str(snapshot), journal_metrics=str(csv_file), metrics_year=2025,
+                source_label="reviewed-2025", library_type="user", library_id="1", output=str(output),
+            )
+            zlm.command_plan_metrics_backfill(args)
+            plan = zlm.load_json(output)
+            by_key = {action["item_key"]: action for action in plan["actions"]}
+            self.assertEqual(by_key["NAME0001"]["reason_codes"], ["unique-journal-name-match"])
+            self.assertEqual(by_key["NAME0001"]["metric"]["impact_factor"], 18.1)
+            self.assertEqual(by_key["NAME0001"]["metric"]["jcr_zone"], "Q1")
+            self.assertEqual(by_key["NAME0001"]["metric"]["cas_zone"], "1区")
+            self.assertEqual(by_key["ABBR0002"]["reason_codes"], ["unique-journal-name-match"])
+            self.assertEqual(by_key["ABBR0002"]["metric"]["impact_factor"], 18.1)
+            self.assertEqual(by_key["EISSN001"]["reason_codes"], ["unique-issn-match"])
+            self.assertEqual(by_key["EISSN001"]["metric"]["impact_factor"], 18.1)
+            self.assertEqual(by_key["BOTH0001"]["reason_codes"], ["unique-issn-match"])
+            self.assertEqual(by_key["BOTH0001"]["metric"]["impact_factor"], 14.1)
+            self.assertEqual(by_key["CLASH001"]["decision"], "skip")
+            self.assertEqual(by_key["CLASH001"]["reason_codes"], ["ambiguous-journal-name-match"])
+
+    def test_bundled_jcr_table_matches_journals_whose_issn_was_na(self) -> None:
+        # ISSN values below were checked against the Crossref journals API (title match)
+        # on 2026-11-19: 2041-1723, 2198-3844, 1476-4598, 2662-1347.
+        csv_file = Path(__file__).resolve().parents[2] / "literature-research" / "references" / "jcr_journals_2025.csv"
+        with tempfile.TemporaryDirectory() as directory:
+            tmp = Path(directory)
+            snapshot = tmp / "items.json"
+            output = tmp / "metrics-plan.json"
+            snapshot.write_text(json.dumps({"items": [
+                {"key": "NATCOMM1", "version": 1, "data": {"title": "Name only", "publicationTitle": "Nature Communications"}},
+                {"key": "NATCOMM2", "version": 2, "data": {"title": "eISSN", "eISSN": "2041-1723"}},
+                {"key": "ADVSCI01", "version": 3, "data": {"title": "Advanced", "journalAbbreviation": "Adv. Sci."}},
+                {"key": "MOLCAN01", "version": 4, "data": {"title": "Molecular", "publicationTitle": "Molecular Cancer"}},
+                {"key": "NATCAN01", "version": 5, "data": {"title": "Cancer", "publicationTitle": "Nature Cancer"}},
+            ]}), encoding="utf-8")
+            args = argparse.Namespace(
+                zotero_items=str(snapshot), journal_metrics=str(csv_file), metrics_year=2025,
+                source_label="jcr-2025", library_type="user", library_id="1", output=str(output),
+            )
+            zlm.command_plan_metrics_backfill(args)
+            plan = zlm.load_json(output)
+            by_key = {action["item_key"]: action for action in plan["actions"]}
+            self.assertEqual(by_key["NATCOMM1"]["decision"], "update")
+            self.assertEqual(by_key["NATCOMM1"]["metric"]["impact_factor"], 18.1)
+            self.assertEqual(by_key["NATCOMM1"]["metric"]["jcr_zone"], "Q1")
+            self.assertEqual(by_key["NATCOMM2"]["reason_codes"], ["unique-issn-match"])
+            self.assertEqual(by_key["NATCOMM2"]["metric"]["impact_factor"], 18.1)
+            self.assertEqual(by_key["ADVSCI01"]["metric"]["impact_factor"], 14.1)
+            self.assertEqual(by_key["MOLCAN01"]["metric"]["impact_factor"], 42.2)
+            self.assertEqual(by_key["NATCAN01"]["metric"]["impact_factor"], 28.0)
+
 
 class TestEasyscholarMetricMapping(unittest.TestCase):
     def test_maps_real_easyscholar_official_rank_fields(self) -> None:
