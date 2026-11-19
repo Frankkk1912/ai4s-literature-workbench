@@ -2,7 +2,7 @@
   "dxt_version": "0.1",
   "name": "literature-zotero-mcp",
   "display_name": "Literature Zotero MCP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A Zotero MCP for evidence workflows with auditable, read-only duplicate candidate detection.",
   "long_description": "Literature Zotero MCP provides Zotero Web API and desktop local API access for evidence workflows, including search, safe writes, citations, and read-only batch duplicate detection with persistent audit reports. Final duplicate merges remain in Zotero Desktop.",
   "author": {

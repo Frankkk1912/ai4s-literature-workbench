@@ -8,26 +8,7 @@ Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
 
 ## [Unreleased]
 
-### Changed
-
-- Install guide: use the release archive only when its version is the same or newer than `version` in `.codex-plugin/plugin.json` on main. If the release is older, or it has no `ai4s-literature-workbench-<version>.zip`, use the source route and say so. v0.1.0 does publish `ai4s-literature-workbench-0.1.0.zip`. Installing that zip through a host is still untested.
-- ChatGPT desktop is an install host. Try the Codex plugin commands when the `codex` CLI is available (unverified inside the app). Otherwise append the two servers from `.mcp.json` to `%USERPROFILE%\.codex\config.toml` (`~/.codex/config.toml` on Mac), after a backup, without dropping or duplicating entries. The file route was verified on Windows 11 with a source checkout. Skills are not loaded by that route. Mac, the plugin CLI, and archive `bundle/index.mjs` paths are unverified.
-- WorkBuddy's `~/.workbuddy/mcp.json` route was verified on Windows 11 (both servers, `setup_status`, `install_search_helper` installing uv 0.13.7, a PubMed search writing `report.md`). The marketplace route, Mac, and archive bundle paths stay unverified. CodeBuddy stays unverified.
-- The beginner prompt in `README.md` and `README_CN.md` names ChatGPT desktop and includes the raw `INSTALL.md` URL, for apps that cannot clone the repository.
-- `literature-research` now searches OpenAlex with PubMed by default. The API is free and needs no key; a configured contact email is sent only as the polite-pool `mailto` and is not stored in the search plan. Results merge on DOI and PMID. Europe PMC is left as a follow-up.
-- `report.md` is now a script-written search record (question, date, databases, exact queries, limits, hit/dedup/selected counts, and a selected-paper table). The agent no longer writes a bilingual mini-review at retrieval time. Synthesis belongs in `literature-writing`, or in a separate summary when the user asks for one.
-- Priority 2 and 3 are judged by relevance to the search question during the relevance review. The `AI4S:Priority:1-3` tag contract is unchanged.
-- Retrieval guidance no longer tells the agent to browse Web of Science or other campus databases. The supported Web of Science path is an official CSV/TSV export the user downloaded.
-
-### Removed
-
-- `database-browser-runtime/` (Playwright campus-network database browsing) and its CI, packaging, and install references. Open-access full text stays in `fulltext-runtime/`.
-- DeepSeek Harness packaging (`dsh-plugin/`, the release tarball, and the install route). How to put it back is in `docs/dev/removed-surfaces.md`.
-
-### Changed
-
-- README and README_CN: install by app (Claude Desktop `.mcpb`, a pasted prompt for the plugin hosts, Trae/Qoder by hand), what to expect before the first run, a symptom table and a plain FAQ, written separately in Chinese rather than translated. New `docs/getting-started.md` and `docs/getting-started_CN.md`; `onboarding.md` and `local-dashboard.md` moved to `docs/dev/`. `tests/readme-sync.test.mjs` fails when a README command is missing from `INSTALL.md`.
-- `docs/dev/release-checklist.md`: the automated and manual release gates, with the three numbers to record per beginner run.
+## [0.2.0] - 2026-11-19
 
 ### Added
 
@@ -40,7 +21,7 @@ Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
   within about 40 seconds and finishes in the background. `setup_status` offers it (action
   `install_helper`) and reports `search_helper.run`, the quoted command that replaces `uv run` in
   bash/zsh and PowerShell. The research, manager and setup skills ask once and use that command; the
-  official uv installer is now only the fallback. The workbench tool profile has 22 tools.
+  official uv installer is now only the fallback. The workbench tool profile has 22 tools, 12 of them read-only.
 - Zotero add-on 0.1.14: the update feed (`literature-metrics/update.json`) now carries a
   SHA-256 `update_hash`, and the release build fails when the feed does not describe the add-on
   it packages. Copies installed before 0.1.14 checked a retired repository and never updated;
@@ -57,11 +38,30 @@ Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
   against a stand-in for the documented protocol only.
 - `docs/dev/zotero-local-write-spike.md`: finding on an add-on write endpoint (not built).
 
+### Changed
+
+- Install guide: use the release archive only when its version is the same or newer than `version` in `.codex-plugin/plugin.json` on main. If the release is older, or it has no `ai4s-literature-workbench-<version>.zip`, use the source route and say so. v0.1.0 does publish `ai4s-literature-workbench-0.1.0.zip`. Installing that zip through a host is still untested.
+- ChatGPT desktop is an install host. Try the Codex plugin commands when the `codex` CLI is available (unverified inside the app). Otherwise append the two servers from `.mcp.json` to `%USERPROFILE%\.codex\config.toml` (`~/.codex/config.toml` on Mac), after a backup, without dropping or duplicating entries. The file route was verified on Windows 11 with a source checkout. Skills are not loaded by that route. Mac, the plugin CLI, and archive `bundle/index.mjs` paths are unverified.
+- WorkBuddy's `~/.workbuddy/mcp.json` route was verified on Windows 11 (both servers, `setup_status`, `install_search_helper` installing uv 0.13.7, a PubMed search writing `report.md`). The marketplace route, Mac, and archive bundle paths stay unverified. CodeBuddy stays unverified.
+- The beginner prompt in `README.md` and `README_CN.md` names ChatGPT desktop and includes the raw `INSTALL.md` URL, for apps that cannot clone the repository.
+- `literature-research` now searches OpenAlex with PubMed by default. The API is free and needs no key; a configured contact email is sent only as the polite-pool `mailto` and is not stored in the search plan. Results merge on DOI and PMID. Europe PMC is left as a follow-up.
+- `report.md` is now a script-written search record (question, date, databases, exact queries, limits, hit/dedup/selected counts, and a selected-paper table). The agent no longer writes a bilingual mini-review at retrieval time. Synthesis belongs in `literature-writing`, or in a separate summary when the user asks for one.
+- Priority 2 and 3 are judged by relevance to the search question during the relevance review. The `AI4S:Priority:1-3` tag contract is unchanged.
+- Retrieval guidance no longer tells the agent to browse Web of Science or other campus databases. The supported Web of Science path is an official CSV/TSV export the user downloaded.
+- README and README_CN: install by app (Claude Desktop `.mcpb`, a pasted prompt for the plugin hosts, Trae/Qoder by hand), what to expect before the first run, a symptom table and a plain FAQ, written separately in Chinese rather than translated. New `docs/getting-started.md` and `docs/getting-started_CN.md`; `onboarding.md` and `local-dashboard.md` moved to `docs/dev/`. `tests/readme-sync.test.mjs` fails when a README command is missing from `INSTALL.md`.
+- `docs/dev/release-checklist.md`: the automated and manual release gates, with the three numbers to record per beginner run.
+
+### Removed
+
+- `database-browser-runtime/` (Playwright campus-network database browsing) and its CI, packaging, and install references. Open-access full text stays in `fulltext-runtime/`.
+- DeepSeek Harness packaging (`dsh-plugin/`, the release tarball, and the install route). How to put it back is in `docs/dev/removed-surfaces.md`.
+
 ### Fixed
 
 - The add-on status reads where an add-on updates from, not where its file was saved, so a
   download from the browser is no longer reported as "not from this project".
 - `npm run package` no longer leaves an older `.xpi` in `dist/` for the release build to pick up.
+- Windows bootstrap no longer splits a checkout path on spaces or non-ASCII characters. `scripts/spawn-command.mjs` starts the program directly instead of joining arguments for a shell (PR #27).
 
 ## [0.1.0] - 2026-09-30
 

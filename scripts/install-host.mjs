@@ -84,7 +84,7 @@ const HOSTS = {
       const manifestDest = join(base, ".qoder-plugin", "plugin.json");
       const manifest = {
         name: "ai4s-literature-workbench",
-        version: "0.1.0",
+        version: "0.2.0",
         description: "Auditable literature retrieval, Zotero workflows, and evidence-traced writing.",
         displayName: "AI4S Literature Workbench",
         homepage: "https://github.com/Frankkk1912/ai4s-literature-workbench",
