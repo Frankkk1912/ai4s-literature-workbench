@@ -89,6 +89,39 @@ test("no skill sends a beginner to onboard.mjs, and none names an internal ID", 
 	}
 });
 
+test("INSTALL.md and install-manifest.json agree on the archive check and the Windows host results", () => {
+	const blob = JSON.stringify(manifest);
+	assert.equal(manifest.get_files.release_archive.status, "published");
+	assert.match(manifest.get_files.release_archive.note, /ai4s-literature-workbench-0\.1\.0\.zip/);
+	assert.match(manifest.get_files.release_archive.note, /\.codex-plugin\/plugin\.json/);
+	for (const phrase of [
+		"https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/.codex-plugin/plugin.json",
+		"ai4s-literature-workbench-0.1.0.zip",
+		"ChatGPT desktop",
+		"config.toml",
+		"Skills are not loaded by this route",
+		"uv 0.13.7",
+		"bundle/index.mjs",
+	]) {
+		assert.ok(install.includes(phrase), `INSTALL.md missing ${phrase}`);
+		assert.ok(blob.includes(phrase), `install-manifest.json missing ${phrase}`);
+	}
+	assert.equal(manifest.hosts["chatgpt-desktop"].routes.mcp_config.status, "verified");
+	assert.equal(manifest.hosts["chatgpt-desktop"].routes.mcp_config.verified_on, "Windows 11");
+	assert.equal(manifest.hosts["chatgpt-desktop"].routes.codex_plugin.status, "unverified");
+	assert.equal(manifest.hosts.workbuddy.routes.marketplace.status, "unverified");
+	assert.equal(manifest.hosts.workbuddy.routes.mcp_json.status, "verified");
+	assert.equal(manifest.hosts.workbuddy.routes.mcp_json.verified_on, "Windows 11");
+	assert.equal(manifest.hosts.codebuddy.status, "unverified");
+	const setup = read("skills/ai4s-setup/SKILL.md");
+	assert.match(setup, /ChatGPT desktop/);
+	assert.match(setup, /\.codex-plugin\/plugin\.json/);
+	assert.match(setup, /config\.toml/);
+	assert.match(setup, /https:\/\/raw\.githubusercontent\.com\/Frankkk1912\/ai4s-literature-workbench\/main\/INSTALL\.md/);
+	assert.doesNotMatch(setup, /blob\/main\/INSTALL\.md/);
+	assert.doesNotMatch(install, /Use the release archive whenever the releases page lists one/);
+});
+
 test("the setup skill follows the plan: INSTALL.md, setup_status, open_setup, launchers, a real search", () => {
 	const text = skill("ai4s-setup");
 	assert.match(text, /^name: ai4s-setup$/m);

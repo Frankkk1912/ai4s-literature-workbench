@@ -79,7 +79,7 @@ flowchart LR
 ## 开始使用
 
 ### 你需要什么
-- 一个 agent 应用：**Claude Desktop**、**Claude Code**、**Codex**，或 WorkBuddy、CodeBuddy、Trae、Qoder。
+- 一个 agent 应用：**Claude Desktop**、**Claude Code**、**Codex**、**ChatGPT 桌面版**，或 WorkBuddy、CodeBuddy、Trae、Qoder。
 - 如果想在 Zotero 里整理文献、看到期刊分区列，需要 **Zotero 桌面版**。
 - 一个浏览器，用来打开填写可选密钥的页面。
 
@@ -91,12 +91,12 @@ flowchart LR
 1. 打开[最新发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest)，下载 `ai4s-literature-zotero-<版本号>.mcpb`。
 2. 双击它，或把它拖进 Claude Desktop 窗口，在安装界面点确认。两个可选设置保持默认即可。
 
-**Claude Code、Codex、WorkBuddy、CodeBuddy**：把下面这段话发给应用：
-> 请帮我从 https://github.com/Frankkk1912/ai4s-literature-workbench.git 安装这个插件到当前应用。严格按该仓库里的 INSTALL.md 操作，不要自己添加步骤。装好后，用通俗的话告诉我现在能用什么、我自己还需要做什么。
+**Claude Code、Codex、ChatGPT 桌面版、WorkBuddy、CodeBuddy**：把下面这段话发给应用：
+> 请帮我从 https://github.com/Frankkk1912/ai4s-literature-workbench.git 安装这个插件到当前应用。严格按 INSTALL.md 操作；如果打不开仓库，就读 https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md。不要自己添加步骤。装好后，用通俗的话告诉我现在能用什么、我自己还需要做什么。
 
 **Trae、Qoder**：见下面“其他 agent 与手动安装”。
 
-开始之前：应用可能会请求访问 GitHub 或网络的权限，请选择**允许**，否则安装无法继续。WorkBuddy 与 CodeBuddy 目前还没有在真实电脑上测试过。
+开始之前：应用可能会请求访问 GitHub 或网络的权限，请选择**允许**，否则安装无法继续。已在一台真实的 Windows 11 电脑上试过：WorkBuddy 通过它的 MCP 配置文件安装，ChatGPT 桌面版也通过它的 MCP 配置文件安装（这条路径能连上工具，但不会加载技能）。还没有测试过的是：WorkBuddy 应用里的插件市场、CodeBuddy，以及 Mac 上的 ChatGPT 桌面版。
 
 ### 2. 首次设置
 agent 会运行 `ai4s-setup` 技能，用通俗的话告诉你：现在能用什么，哪些需要你处理。
@@ -147,6 +147,7 @@ claude plugin install ai4s-literature-workbench@ai4s-literature-workbench
 codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-workbench.git
 codex plugin add ai4s-literature-workbench@personal
 ```
+**ChatGPT 桌面版** — 把上面的安装说明发给应用。若要自己动手：本机有 `codex` 命令时用上面的 Codex 命令；否则按 INSTALL.md 里的 MCP 配置文件来做。配置文件这条路径不会加载技能。
 **Trae / Qoder** — 选择你所用应用对应的那一行。
 ```bash
 node scripts/install-host.mjs --host trae --target /path/to/project

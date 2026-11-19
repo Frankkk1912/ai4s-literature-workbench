@@ -20,11 +20,10 @@ them, the journal columns (IF / JCR / CAS) in Zotero.
 | Your app | What to do |
 | --- | --- |
 | **Claude Desktop** | Open the [latest release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest), download `ai4s-literature-zotero-<version>.mcpb`, and double-click it (or drag it onto the Claude Desktop window). Accept the install screen and leave both optional settings alone. This installs the Zotero tools only, not the skills or the full-text tools. |
-| **Claude Code, Codex, WorkBuddy, CodeBuddy** | Paste the install prompt from the [README](../README.md#1-install-pick-your-app) into the app. The agent follows [INSTALL.md](../INSTALL.md) and tells you what works and what needs you. |
+| **Claude Code, Codex, ChatGPT desktop, WorkBuddy, CodeBuddy** | Paste the install prompt from the [README](../README.md#1-install-pick-your-app) into the app. The agent follows [INSTALL.md](../INSTALL.md) and tells you what works and what needs you. |
 | **Trae, Qoder** | Follow "Other agents & manual install" in the [README](../README.md). |
 
-WorkBuddy and CodeBuddy have not been tested on a real machine yet; if they fail,
-the agent says which step failed.
+Tested on a real Windows 11 PC: WorkBuddy through its MCP file, and ChatGPT desktop through its MCP file (that route connects the tools and does not load the skills). Not tested yet: WorkBuddy's in-app marketplace, CodeBuddy, and ChatGPT desktop on a Mac. If a route fails, the agent says which step failed.
 
 ## Step 2: See what works
 

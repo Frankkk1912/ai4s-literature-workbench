@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "notes": "Machine-readable twin of INSTALL.md. Keep both in sync. status values: documented = commands taken from the repo README; unverified = taken from vendor docs or search results, never run on the host; planned = not available yet. Release assets (the plugin archive, the .mcpb, and the add-on) are built by .github/workflows/release.yml; a route that uses one is only usable once a published release lists it. first_run and keys describe the setup tools: setup_status (what works now) and open_setup (the masked key page); both are in the runtime bundle, the .mcpb and a source build.",
+  "notes": "Machine-readable twin of INSTALL.md. Keep both in sync. status values: documented = commands taken from the repo README; unverified = never run on that host or, when a host lists routes, on that route; verified = run on the named route and operating system; planned = not available yet; published = the release asset exists. published is not the same as verified on a host. When routes is present, each route has its own status; do not read the host status as covering every route. Release assets (the plugin archive, the .mcpb, and the add-on) are built by .github/workflows/release.yml. Use the plugin archive only when the latest release version is the same or newer than version in .codex-plugin/plugin.json on main and the zip is listed; otherwise use the source route and say so. first_run and keys describe the setup tools: setup_status (what works now) and open_setup (the masked key page); both are in the runtime bundle, the .mcpb and a source build.",
   "after_install": {
     "description": "Source route only. dist/ folders are build output and are not in git, so every route that installs from the repository must build once. Skip this when runtime/bundle/index.mjs exists (release archive).",
     "command": "node <plugin-root>/scripts/bootstrap.mjs",
@@ -51,16 +51,68 @@
         "restart Codex"
       ]
     },
+    "chatgpt-desktop": {
+      "label": "ChatGPT desktop",
+      "status": "verified",
+      "status_applies_to": "routes.mcp_config on Windows 11 only",
+      "note": "Codex-based host. The in-app agent may not be able to run codex plugin marketplace add. Try the Codex plugin route when the codex CLI is available; that route is unverified inside ChatGPT desktop. Otherwise append the two servers from .mcp.json to config.toml, using absolute paths. Windows: %USERPROFILE%\\.codex\\config.toml. Mac: ~/.codex/config.toml (unverified). Back up the file first, keep existing entries, and do not duplicate [mcp_servers.ai4s-literature-zotero] or [mcp_servers.ai4s-literature-fulltext]. Source args are runtime/dist/index.js and fulltext-runtime/dist/index.js, with an [mcp_servers.<name>.env] table. Verified on Windows 11 for that source shape with command node and LITERATURE_ZOTERO_MCP_TOOL_PROFILE=workbench. Also copy any other env keys .mcp.json lists (ZOTEUS_LOCAL and ZOTEUS_EMBEDDINGS today); those two were not recorded in the Windows check. Archive args use runtime/bundle/index.mjs and fulltext-runtime/bundle/index.mjs and are unverified on this host. Then the user restarts the app. Skills are not loaded by this route.",
+      "routes": {
+        "codex_plugin": {
+          "status": "unverified",
+          "steps": [
+            "codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-workbench.git",
+            "codex plugin add ai4s-literature-workbench@personal",
+            "after_install",
+            "restart ChatGPT desktop"
+          ]
+        },
+        "mcp_config": {
+          "status": "verified",
+          "verified_on": "Windows 11",
+          "paths": {
+            "windows": "%USERPROFILE%\\.codex\\config.toml",
+            "mac": "~/.codex/config.toml"
+          },
+          "steps": [
+            "back up config.toml",
+            "append the two servers from .mcp.json with absolute paths",
+            "keep existing entries and do not duplicate",
+            "restart ChatGPT desktop"
+          ],
+          "source_args": [
+            "<plugin-root>/runtime/dist/index.js",
+            "<plugin-root>/fulltext-runtime/dist/index.js"
+          ],
+          "archive_args": [
+            "<plugin-root>/runtime/bundle/index.mjs",
+            "<plugin-root>/fulltext-runtime/bundle/index.mjs"
+          ],
+          "archive_args_status": "unverified",
+          "covers": "Skills are not loaded by this route."
+        }
+      }
+    },
     "workbuddy": {
       "label": "WorkBuddy",
       "status": "unverified",
+      "status_applies_to": "routes.marketplace. The mcp.json route is separate.",
+      "note": "Marketplace route is unverified. The ~/.workbuddy/mcp.json fallback (no leading dot; %USERPROFILE%\\.workbuddy\\mcp.json on Windows) was verified on Windows 11: both servers load, setup_status works, install_search_helper installs uv 0.13.7, and a real PubMed search wrote report.md. Mac and the archive bundle/index.mjs paths were not part of that test.",
       "steps": [
-        "add the GitHub repository as a plugin marketplace through the WorkBuddy interface",
-        "install ai4s-literature-workbench",
+        "add the GitHub repository as a plugin marketplace through the WorkBuddy interface (unverified)",
+        "install ai4s-literature-workbench (unverified)",
         "after_install",
         "restart WorkBuddy"
       ],
-      "fallback": "Add the two MCP servers from .mcp.json to ~/.workbuddy/mcp.json (no leading dot before workbuddy), using absolute paths."
+      "fallback": "Add the two MCP servers from .mcp.json to ~/.workbuddy/mcp.json (no leading dot before workbuddy; %USERPROFILE%\\.workbuddy\\mcp.json on Windows), using absolute paths. Keep existing servers and do not duplicate names. Source entries use runtime/dist/index.js and fulltext-runtime/dist/index.js. A release archive uses runtime/bundle/index.mjs and fulltext-runtime/bundle/index.mjs (archive paths unverified on WorkBuddy).",
+      "routes": {
+        "marketplace": {
+          "status": "unverified"
+        },
+        "mcp_json": {
+          "status": "verified",
+          "verified_on": "Windows 11"
+        }
+      }
     },
     "codebuddy": {
       "label": "CodeBuddy",
@@ -106,15 +158,17 @@
   },
   "get_files": {
     "release_archive": {
-      "status": "planned",
+      "status": "published",
       "asset": "ai4s-literature-workbench-<version>.zip",
+      "published_example": "v0.1.0 publishes ai4s-literature-workbench-0.1.0.zip",
       "from": "https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest",
+      "version_check": "Read version from https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/.codex-plugin/plugin.json. The release version is the latest release tag without a leading v. Compare dotted numbers from the left; equal counts as current. Use this archive only when the release version is the same or newer and the zip is listed. If the release is older than main, or the zip is missing, use the source route and say which. Do not compare the archive's own plugin.json to the release.",
       "checksums": "SHA256SUMS.txt on the same page",
       "build_needed": false,
       "requires": "Node.js 22.13 or newer on the computer, except for Claude Desktop",
       "detect": "<plugin-root>/runtime/bundle/index.mjs exists",
       "keys": "Keys are entered through open_setup, or by double-clicking Setup AI4S.bat or Setup AI4S.command in the archive folder. scripts/onboard.mjs is not in the archive.",
-      "note": "Use the extracted folder wherever a host route names the GitHub address. Built and checked by CI; not yet tested through any host. If the latest release does not list the file, use the source route and say so.",
+      "note": "Use the extracted folder wherever a host route names the GitHub address. Read version from https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/.codex-plugin/plugin.json on main. v0.1.0 publishes ai4s-literature-workbench-0.1.0.zip. CI builds and checks the archive. Installing it through a host has not been tested. If the latest release's version is older than version in .codex-plugin/plugin.json on main, or the zip is not listed, use the source route and say so.",
       "launchers": "Setup AI4S.bat (Windows) and Setup AI4S.command (Mac) in the archive folder. Each runs: node runtime/bundle/index.mjs --setup. They need Node.js 22.13 or newer. On a Mac the first double-click may need right-click, Open."
     },
     "source": {

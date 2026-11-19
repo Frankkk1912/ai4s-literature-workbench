@@ -41,9 +41,21 @@ test("the bootstrap line in the README exists in INSTALL.md, and its script exis
 });
 
 test("the install prompt is the same in both languages' sources of truth", () => {
+	const raw = "https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INSTALL.md";
 	for (const name of READMES) {
 		assert.ok(read(name).includes("https://github.com/Frankkk1912/ai4s-literature-workbench.git"), `${name}: install address`);
 		assert.ok(read(name).includes("INSTALL.md"), `${name}: does not point at INSTALL.md`);
+		assert.ok(read(name).includes(raw), `${name}: raw INSTALL.md URL`);
+		assert.match(read(name), /ChatGPT/);
+	}
+	assert.match(read("docs/getting-started.md"), /ChatGPT desktop/);
+	assert.match(read("docs/getting-started_CN.md"), /ChatGPT/);
+	for (const name of [...READMES, "docs/getting-started.md", "docs/getting-started_CN.md"]) {
+		assert.doesNotMatch(
+			read(name),
+			/WorkBuddy and CodeBuddy have not been tested|WorkBuddy 与 CodeBuddy 目前还没有在真实电脑上测试过/,
+			`${name}: still says WorkBuddy was never tested`,
+		);
 	}
 });
 
