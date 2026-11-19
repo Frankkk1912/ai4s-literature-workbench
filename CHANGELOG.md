@@ -28,6 +28,15 @@ Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
 ### Added
 
 - `zotero_tag_manager` scans duplicate and unused Zotero tags, then merges, renames, or deletes them only after a confirmed plan hash. Item edits and the semantic vocabulary (loser folded into the winner's aliases) land in one receipt. Priority, Article Type, JCR, CAS, and untargeted user tags stay put.
+- The search helper no longer has to be installed by the user. A new tool, `install_search_helper`,
+  downloads the pinned `uv` 0.13.7 for the user's system from GitHub, checks it against a SHA-256 kept
+  in `runtime/src/lib/search-helper.ts`, and keeps it under the workbench's tools folder (per user;
+  `LOCALAPPDATA` on Windows). If the computer has no Python 3.10 or newer, uv fetches Python 3.12 into
+  its own per-user folder, with no `~/.local/bin` link and no Windows registry entry. The tool answers
+  within about 40 seconds and finishes in the background. `setup_status` offers it (action
+  `install_helper`) and reports `search_helper.run`, the quoted command that replaces `uv run` in
+  bash/zsh and PowerShell. The research, manager and setup skills ask once and use that command; the
+  official uv installer is now only the fallback. The workbench tool profile has 22 tools.
 - Zotero add-on 0.1.14: the update feed (`literature-metrics/update.json`) now carries a
   SHA-256 `update_hash`, and the release build fails when the feed does not describe the add-on
   it packages. Copies installed before 0.1.14 checked a retired repository and never updated;

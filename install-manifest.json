@@ -12,6 +12,7 @@
     "description": "Owns first-run: detects the app, follows the route for it in this file, calls setup_status, opens the key page only when a key is wanted, re-checks, and ends with a tiny real search.",
     "status_tool": "setup_status",
     "status_shape": "Three groups, works_now, needs_you and optional, each item with Chinese and English text. rendered.zh and rendered.en hold the text to show. Chinese is the default.",
+    "smoke_test_runner": "search_helper.run from setup_status (run.posix or run.powershell) replaces uv run; install_search_helper downloads the pinned helper when setup_status lists search under Needs you",
     "smoke_test": "uv run literature-research/scripts/literature_search.py review --question \"setup check\" --pubmed-query \"CRISPR base editing[Title]\" --limit 3 --top-n 3 --output <private-temp>/ai4s-setup-check"
   },
   "keys": {
