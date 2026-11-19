@@ -1,6 +1,6 @@
 # Migration from the parent repository
 
-This document is the D8 migration policy for `Frankkk1912/ai4s-literature-workbench` plus the M1 one-time hash archive. The hash tables below are a **one-time** baseline, not a daily gate.
+This document is the D8 migration policy for `Frankkk1912/ai4s-literature-workbench` plus the M1 one-time hash archive. The hash tables below are a **one-time** baseline, not a daily gate. `database-browser-runtime/` was removed after this archive was written; rows that name it describe that baseline, not the current tree.
 
 This repository is the future source of truth. The move is **one-way**: this checkout **no longer auto-syncs from the parent**. `node scripts/assemble-plugin.mjs check` does not read a parent checkout, does not store fixed source hashes, and does not fail when source text evolves.
 

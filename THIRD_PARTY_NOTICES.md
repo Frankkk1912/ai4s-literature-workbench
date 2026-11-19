@@ -8,8 +8,6 @@ third-party license texts are kept alongside each component:
   `runtime/licenses/`.
 - `fulltext-runtime/` — Fulltext MCP runtime. See its own notices file when
   present.
-- `database-browser-runtime/` — Playwright-based database browser MCP broker.
-  See its own notices file when present.
 - `literature-metrics/` — Zotero desktop plugin (XPI) source. See
   `literature-metrics/THIRD_PARTY_NOTICES.md` and
   `literature-metrics/LICENSE`.

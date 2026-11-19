@@ -15,14 +15,14 @@ prompt, and the goal of seeing the partition columns.
 | README commands, INSTALL.md and the manifests agree | `tests/readme-sync.test.mjs` |
 | Add-on update feed matches the packaged add-on | `npm run package` in `literature-metrics/`, `scripts/verify-release.mjs` |
 | Release assets build and pass `verify-release` | `Release assets` workflow (also as a dry run in `Workbench CI`) |
-| The DeepSeek Harness package is well formed, its servers start from its patch rows, and a pinned `dsh` installs it into a scratch profile | `scripts/verify-dsh-plugin.mjs` (inside `verify-release`) and `scripts/verify-dsh-install.mjs`, same workflows |
 | Secret scan | `gitleaks`, full history |
 
 ## 2. Manual (record each run on video)
 
 Clean machine, nothing installed: no Node, Git or uv. Start with Windows 11 and macOS.
-Order of hosts: WorkBuddy, then Codex and Claude Desktop, then DeepSeek Harness, then CodeBuddy and
-Claude Code. Trae and Qoder are best-effort.
+Order of hosts: WorkBuddy, then Codex and Claude Desktop, then CodeBuddy and
+Claude Code. Trae and Qoder are best-effort. DeepSeek Harness is not in this
+list; see [removed-surfaces.md](removed-surfaces.md).
 
 For each host and OS, with the beginner typing nothing:
 
@@ -46,7 +46,6 @@ in 10 minutes or less, for three beginners on the release candidate.
 
 - Download the release assets on a fresh machine and run `sha256sum -c SHA256SUMS.txt` (or `Get-FileHash`).
 - Check that `releases/latest/download/literature-metrics.xpi` downloads.
-- Check that `releases/latest/download/dsh-ai4s-literature-workbench.tgz` downloads. v0.1.0 does not include this file (that address 404s). `scripts/package-release.mjs` writes the versioned tarball and the fixed-name copy, and `.github/workflows/release.yml` uploads both. Do not publish a release only to add the file; the next tag that runs the workflow is what attaches it.
 - **First update check:** install an older add-on build, publish the next release, and confirm
   Zotero offers the update from the GitHub address in `update.json`. Zotero's documentation does not
   say whether a redirecting address is followed; this is the only way to know.

@@ -41,12 +41,6 @@
       "markers": ["package.json", "package-lock.json", "src/index.ts", "tsconfig.json"]
     },
     {
-      "id": "database-browser-runtime",
-      "path": "database-browser-runtime",
-      "kind": "mcp-runtime",
-      "markers": ["package.json", "package-lock.json", "src/index.ts", "tsconfig.json"]
-    },
-    {
       "id": "literature-metrics",
       "path": "literature-metrics",
       "kind": "zotero-xpi",
@@ -69,13 +63,6 @@
     },
     {
       "path": "fulltext-runtime",
-      "lockfile": "package-lock.json",
-      "build_entry": "src/index.ts",
-      "build": "npm run build",
-      "typecheck": "npm run typecheck"
-    },
-    {
-      "path": "database-browser-runtime",
       "lockfile": "package-lock.json",
       "build_entry": "src/index.ts",
       "build": "npm run build",

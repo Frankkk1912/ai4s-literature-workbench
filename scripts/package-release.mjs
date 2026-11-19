@@ -11,12 +11,6 @@
 //                                             bundles, and a .mcp.json that points at them
 //   ai4s-literature-zotero-<version>.mcpb     Claude Desktop bundle (validated and packed
 //                                             with the official mcpb CLI)
-//   dsh-ai4s-literature-workbench-<version>.tgz
-//                                             DeepSeek Harness plugin package (built by
-//                                             scripts/build-dsh-plugin.mjs)
-//   dsh-ai4s-literature-workbench.tgz         the same file under a fixed name, so the link
-//                                             .../releases/latest/download/dsh-ai4s-literature-workbench.tgz
-//                                             always gives the newest package
 //   literature-metrics-<xpi version>.xpi      the Zotero add-on
 //   literature-metrics.xpi                    the same file under a fixed name, so the link
 //                                             .../releases/latest/download/literature-metrics.xpi
@@ -145,8 +139,7 @@ for (const server of Object.values(mcp.mcpServers)) {
     return rewrites.get(arg);
   });
 }
-// database-browser-runtime is optional and needs a browser download, so it stays out of every default route.
-if (JSON.stringify(mcp).includes('database-browser')) fail('.mcp.json must not start database-browser-runtime by default.');
+if (JSON.stringify(mcp).includes('database-browser')) fail('.mcp.json must not start a database-browser runtime.');
 if (rewritten !== rewrites.size) fail(`.mcp.json no longer has the expected dist entries (rewrote ${rewritten} of ${rewrites.size}).`);
 writeFileSync(join(pluginRoot, '.mcp.json'), `${JSON.stringify(mcp, null, 2)}\n`);
 
@@ -178,16 +171,6 @@ if (args.skipMcpb) {
   run('npx', ['--yes', MCPB_PACKAGE, 'pack', mcpbRoot, mcpbPath]);
   assets.push(mcpbPath);
 }
-
-// --- DeepSeek Harness plugin package ---
-
-// build-dsh-plugin.mjs checks the package version, assembles a temporary folder and runs
-// npm pack; the tarball is then attached under its versioned name and a fixed name.
-const dshName = `dsh-ai4s-literature-workbench-${version}.tgz`;
-run('node', [join(repoRoot, 'scripts', 'build-dsh-plugin.mjs'), '--out', outDir]);
-if (!existsSync(join(outDir, dshName))) fail(`build-dsh-plugin did not write ${dshName}.`);
-cpSync(join(outDir, dshName), join(outDir, 'dsh-ai4s-literature-workbench.tgz'));
-assets.push(join(outDir, dshName), join(outDir, 'dsh-ai4s-literature-workbench.tgz'));
 
 // --- Zotero add-on ---
 
