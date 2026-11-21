@@ -24,7 +24,7 @@ This file is the only source of install steps. A step that is not here does not 
 | WorkBuddy | [WorkBuddy](#workbuddy) | no, on the `mcp.json` route |
 | CodeBuddy | [CodeBuddy](#codebuddy) | yes |
 | Trae, Qoder | [Trae and Qoder](#trae-and-qoder) | yes |
-| Claude desktop Chat | [Claude desktop Chat](#claude-desktop-chat) | yes via plugin upload; tools need a separate `.mcpb` |
+| Claude desktop Chat | [Claude desktop Chat](#claude-desktop-chat) | yes via plugin upload; tools need two separate `.mcpb` installs |
 
 ## Get the files
 
@@ -180,18 +180,19 @@ node scripts/install-host.mjs --host qoder --target <project-folder>
 
 https://claude.com/docs/plugins/platform-support
 
-This is a skills-only install in Chat, not a failed tool connection. Full-text tools are currently unavailable in Chat. For both tool servers, use the Code tab instead. To add Zotero tools to Chat, install the separate desktop extension below; uploading the zip is not enough.
+This is a skills-only install in Chat, not a failed tool connection. To add both tool servers, install the two separate desktop extensions below; uploading the zip is not enough.
 
-**2. Install the separate `.mcpb` desktop extension (unverified).** Installs the Zotero tools only, not the full-text tools. This is a separate extension install, not a `.mcpb` declared inside the uploaded plugin.
+**2. Install two separate `.mcpb` desktop extensions (both unverified live).** One provides Zotero tools; the other provides OA-first full-text fetch and PDF verification, with no Zotero credentials or institutional login. These are separate extension installs, not `.mcpb` bundles declared inside the uploaded plugin. CI builds and validates both.
 
-- Download `ai4s-literature-zotero-<version>.mcpb` from the release assets and check it against `SHA256SUMS.txt`. If it is not listed, say so and stop.
-- With a shell, open it so the install screen appears (unverified; relies on Claude Desktop being the app registered for `.mcpb`). Mac: `open <file>`. Windows: `start "" <file>`. With no shell, or if it does not open, hand the file to the user and say it is not installed until they open it (double-click, or drag it onto the Claude Desktop window).
-- The user leaves both settings alone (Zotero key empty, Zotero desktop connection `auto`) and presses Install. Nothing works until then.
-- It needs no separate Node.js because Claude Desktop ships its own. That Node version is unconfirmed and the bundle asks for 22.13 or newer. If the install screen refuses it or the tools do not start, say so; offer the user-only last resort below, or stop if they decline.
+- Download both `ai4s-literature-zotero-<version>.mcpb` and `ai4s-literature-fulltext-<version>.mcpb` from the release assets and check each against `SHA256SUMS.txt`. If either file is missing or not listed, say so and stop; do not use a file whose checksum differs.
+- With a shell, open each file so its install screen appears (unverified; relies on Claude Desktop being the app registered for `.mcpb`). Mac: `open <file>`. Windows: `start "" <file>`. With no shell, or if it does not open, hand each file to the user and say it is not installed until they open it (double-click, or drag it onto the Claude Desktop window).
+- For Zotero, the user leaves both optional settings alone (Zotero key empty, Zotero desktop connection `auto`) and presses Install. For fulltext, press Install; there are no required settings or keys, and storage paths and limits use automatic defaults. Nothing works until the user installs the extensions.
+- They need no separate Node.js because Claude Desktop ships its own. That Node version is unconfirmed and both bundles ask for 22.13 or newer. If the install screen refuses either or the tools do not start, say so; offer the user-only last resort below, or stop if they decline.
+- Restart Claude Desktop and check for `setup_status` and the six `fulltext_*` tools; call `fulltext_capabilities` before claiming fulltext is connected.
 
 **3. Last resort: user-managed config (unverified).** Only if the extension route fails and the user chooses it, give them this JSON to paste themselves. Never read, create, back up, or edit files under `~/Library/Application Support/Claude/` as an agent: this is protected on Mac and agent access was denied in the live test. Do not retry permission requests. Do not edit the Windows config on the user's behalf either.
 
-The user backs up `claude_desktop_config.json`, keeps existing servers, and adds only the missing Zotero entry. File: `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac), `%APPDATA%\Claude\claude_desktop_config.json` (Windows). Needs Node.js 22.13 or newer and an extracted archive. Replace `<absolute-node-path>` and `<plugin-root>` with real absolute paths. This fallback does not load skills or make full-text tools available.
+The user backs up `claude_desktop_config.json`, keeps existing servers, and adds only the missing entries for both servers. File: `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac), `%APPDATA%\Claude\claude_desktop_config.json` (Windows). Needs Node.js 22.13 or newer and an extracted archive. Replace `<absolute-node-path>` and `<plugin-root>` with real absolute paths. This fallback connects both tool servers but does not load skills. Use only the archive's env: the Zotero workbench profile, with no env overrides for fulltext.
 
 ```json
 {
@@ -200,12 +201,16 @@ The user backs up `claude_desktop_config.json`, keeps existing servers, and adds
       "command": "<absolute-node-path>",
       "args": ["<plugin-root>/runtime/bundle/index.mjs"],
       "env": { "LITERATURE_ZOTERO_MCP_TOOL_PROFILE": "workbench" }
+    },
+    "ai4s-literature-fulltext": {
+      "command": "<absolute-node-path>",
+      "args": ["<plugin-root>/fulltext-runtime/bundle/index.mjs"]
     }
   }
 }
 ```
 
-Ask the user to quit Claude Desktop completely and reopen it, then check for `setup_status`.
+Ask the user to quit Claude Desktop completely and reopen it, then check for `setup_status` and `fulltext_capabilities`.
 
 ## Check at the end
 

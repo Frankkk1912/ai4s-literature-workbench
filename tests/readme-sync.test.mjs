@@ -103,17 +103,22 @@ test("negative control: a URL glued to full-width punctuation is caught", () => 
 	assert.deepEqual(nonAsciiRightAfterUrl(`${glued.split("。")[0]}\n不要`), []);
 });
 
-test("the README's Claude Desktop route names the file the release builds", () => {
-	for (const name of READMES) assert.match(read(name), /ai4s-literature-zotero-<(version|版本号)>\.mcpb/);
-	assert.match(install, /ai4s-literature-zotero-<version>\.mcpb/);
-	assert.match(read("scripts/package-release.mjs"), /ai4s-literature-zotero-\$\{version\}\.mcpb/);
-	assert.ok(manifestText.includes(".mcpb"));
+test("the README's Claude Desktop route names both files the release builds", () => {
+	for (const server of ["zotero", "fulltext"]) {
+		assert.ok(read("README.md").includes(`ai4s-literature-${server}-<version>.mcpb`));
+		assert.ok(read("README_CN.md").includes(`ai4s-literature-${server}-<版本号>.mcpb`));
+		assert.ok(install.includes(`ai4s-literature-${server}-<version>.mcpb`));
+		assert.ok(read("scripts/package-release.mjs").includes(`ai4s-literature-${server}-\${version}.mcpb`));
+		assert.ok(manifestText.includes(`ai4s-literature-${server}-<version>.mcpb`));
+	}
 });
 
 test("READMEs and getting-started pages keep Claude desktop upload separate from tools", () => {
 	for (const file of [...READMES, "docs/getting-started.md", "docs/getting-started_CN.md"]) {
 		const text = read(file);
 		assert.match(text, /Upload plugin/);
+		assert.match(text, /ai4s-literature-fulltext-<(version|版本号)>\.mcpb/);
+		assert.doesNotMatch(text, /full.text tools are currently unavailable in Chat|currently has no full-text tools|Chat 暂无全文工具|暂无全文工具|use Code for both tool servers/i);
 		assert.match(text, /Add marketplace/);
 		assert.match(text, /\/reload-plugins/);
 		assert.ok(text.includes("~/Library/Application Support/Claude/"), `${file}: missing protected-config warning`);

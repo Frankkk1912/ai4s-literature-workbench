@@ -7,8 +7,9 @@
 //   3. the double-click launchers in the extracted archive run the bundle with --setup and
 //      exit 0 (scripts/verify-launchers.mjs); the archive still leaves out the
 //      developer-only scripts/onboard.mjs and scripts/bootstrap.mjs
-//   4. the .mcpb, extracted and started exactly as its manifest says, with an unset
-//      optional key passed as Claude Desktop passes it, lists the 22 workbench tools
+//   4. the Zotero .mcpb, started as its manifest says with an unset optional key,
+//      lists the 22 workbench tools; the fulltext .mcpb starts from an unrelated cwd
+//      and lists the exact six fulltext tools
 //
 //   node scripts/verify-release.mjs <release-dir>
 //
@@ -30,6 +31,17 @@ if (!releaseArg) {
 const releaseDir = resolve(releaseArg);
 const work = mkdtempSync(join(tmpdir(), 'ai4s-release-verify-'));
 const failures = [];
+const version = JSON.parse(readFileSync(join(repoRoot, '.claude-plugin', 'plugin.json'), 'utf8')).version;
+const zoteroMcpbName = `ai4s-literature-zotero-${version}.mcpb`;
+const fulltextMcpbName = `ai4s-literature-fulltext-${version}.mcpb`;
+const EXPECTED_FULLTEXT_TOOLS = [
+  'fulltext_access_status',
+  'fulltext_capabilities',
+  'fulltext_fetch_submit',
+  'fulltext_job_cancel',
+  'fulltext_job_status',
+  'fulltext_session_open',
+];
 
 function report(name, ok, detail = '') {
   process.stdout.write(`${ok ? 'PASS' : 'FAIL'}  ${name}\n`);
@@ -75,8 +87,13 @@ try {
       const actual = createHash('sha256').update(readFileSync(join(releaseDir, name))).digest('hex');
       if (actual !== hash) throw new Error(`${name}: SHA256SUMS.txt says ${hash}, file is ${actual}.`);
     }
-    for (const name of ['.zip', '.mcpb', '.xpi']) {
+    for (const name of ['.zip', '.xpi']) {
       if (![...listed].some((entry) => entry.endsWith(name))) throw new Error(`SHA256SUMS.txt has no ${name} entry.`);
+    }
+    for (const name of [zoteroMcpbName, fulltextMcpbName]) {
+      if (!listed.has(name) || !existsSync(join(releaseDir, name))) {
+        throw new Error(`Required asset ${name} must exist and be listed in SHA256SUMS.txt.`);
+      }
     }
   });
 
@@ -205,9 +222,9 @@ try {
   process.stdout.write(`${launcherRun.stdout.trimEnd().replace(/^/gm, '  [archive] ')}\n`);
   report('plugin archive launchers run the bundle with --setup', launcherRun.status === 0, launcherRun.stderr || 'see the [archive] lines above');
 
-  await check('.mcpb starts as its manifest says and lists the 22 workbench tools', async () => {
+  await check('Zotero .mcpb starts as its manifest says and lists the 22 workbench tools', async () => {
     const mcpbDir = join(work, 'mcpb');
-    extract(find(/\.mcpb$/), mcpbDir);
+    extract(join(releaseDir, zoteroMcpbName), mcpbDir);
     const manifest = JSON.parse(readFileSync(join(mcpbDir, 'manifest.json'), 'utf8'));
     // Substitute the way Claude Desktop does: defaults are filled in; an unset optional
     // value with no default stays as its literal ${user_config.x} text.
@@ -251,6 +268,63 @@ try {
     } catch (error) {
       throw new Error(`${error instanceof Error ? error.message : error}${stderr ? `\nserver stderr:\n${stderr.trim()}` : ''}`);
     } finally {
+      await client.close().catch(() => {});
+    }
+  });
+
+  await check('fulltext .mcpb starts as its manifest says from an unrelated cwd and lists six tools', async () => {
+    const mcpbDir = join(work, 'mcpb-fulltext');
+    extract(join(releaseDir, fulltextMcpbName), mcpbDir);
+    const manifest = JSON.parse(readFileSync(join(mcpbDir, 'manifest.json'), 'utf8'));
+    if (manifest.name !== 'ai4s-literature-fulltext' || manifest.version !== version) {
+      throw new Error('Fulltext manifest name or version does not match the release.');
+    }
+    const defaults = Object.fromEntries(
+      Object.entries(manifest.user_config ?? {}).filter(([, v]) => v.default !== undefined).map(([k, v]) => [k, v.default]),
+    );
+    const substitute = (text) => text
+      .replaceAll('${__dirname}', mcpbDir)
+      .replace(/\$\{user_config\.([^}]+)\}/g, (whole, key) => (key in defaults ? String(defaults[key]) : whole));
+    const { command, args = [], env = {} } = manifest.server.mcp_config;
+    const sdk = join(repoRoot, 'runtime', 'node_modules', '@modelcontextprotocol', 'sdk', 'dist', 'esm', 'client');
+    const { Client } = await import(pathToFileURL(join(sdk, 'index.js')).href);
+    const { StdioClientTransport } = await import(pathToFileURL(join(sdk, 'stdio.js')).href);
+    const home = join(work, 'fulltext-home');
+    const scratch = join(work, 'fulltext-scratch');
+    mkdirSync(home, { recursive: true });
+    mkdirSync(scratch, { recursive: true });
+    const childEnv = { ...process.env, HOME: home, USERPROFILE: home, APPDATA: join(home, 'AppData', 'Roaming'), LOCALAPPDATA: join(home, 'AppData', 'Local'), XDG_CONFIG_HOME: join(home, '.config') };
+    for (const key of Object.keys(childEnv)) if (/^(ZOTERO_|ZOTEUS_|LITERATURE_|NODE_PATH$|NODE_OPTIONS$)/.test(key)) delete childEnv[key];
+    for (const [key, value] of Object.entries(env)) childEnv[key] = substitute(value);
+    const transport = new StdioClientTransport({
+      command: command === 'node' ? process.execPath : command,
+      args: args.map(substitute),
+      cwd: scratch,
+      env: childEnv,
+      stderr: 'pipe',
+    });
+    let stderr = '';
+    transport.stderr?.on('data', (chunk) => { stderr += chunk; });
+    const client = new Client({ name: 'ai4s-fulltext-release-verify', version: '0.1.0' });
+    let timer;
+    try {
+      await Promise.race([
+        (async () => {
+          await client.connect(transport);
+          const { tools } = await client.listTools();
+          const actual = tools.map((tool) => tool.name).sort();
+          if (JSON.stringify(actual) !== JSON.stringify([...EXPECTED_FULLTEXT_TOOLS].sort())) {
+            throw new Error(`Expected six fulltext tools, got ${actual.join(', ')}.`);
+          }
+          const capabilities = await client.callTool({ name: 'fulltext_capabilities', arguments: {} });
+          if (capabilities.isError) throw new Error('fulltext_capabilities returned an error.');
+        })(),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Timed out after 60s.')), 60_000); }),
+      ]);
+    } catch (error) {
+      throw new Error(`${error instanceof Error ? error.message : error}${stderr ? `\nserver stderr:\n${stderr.trim()}` : ''}`);
+    } finally {
+      clearTimeout(timer);
       await client.close().catch(() => {});
     }
   });

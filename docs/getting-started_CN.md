@@ -17,7 +17,7 @@
 | 你用的应用 | 怎么做 |
 | --- | --- |
 | **Claude 桌面版 Code 标签** | 下载 release zip、核对哈希，在 **设置 → Plugins → Add → Upload plugin** 上传。Mac 上传已验证；修复后的 MCP 启动未做桌面验证，已发布 v0.2.0 zip 的相对 MCP 路径会启动失败。备选 **Add → Add marketplace** 填 `Frankkk1912/ai4s-literature-workbench`（未验证，源码需构建）。然后 `/reload-plugins` 或新开会话。这里 `/plugin` 只打开设置。见 [INSTALL.md](../INSTALL.md#claude-desktop-code-tab)。 |
-| **Claude 桌面版 Chat** | 上传同一个 zip 只获得四个技能（Mac 已验证）。Zotero 工具需另双击 `ai4s-literature-zotero-<版本号>.mcpb` 并点安装（未验证）。Chat 忽略插件内本地 MCP，暂无全文工具。禁止让 agent 改 `~/Library/Application Support/Claude/`；配置路线只供用户手动粘贴、作为最后备选。见 [INSTALL.md](../INSTALL.md#claude-desktop-chat)。 |
+| **Claude 桌面版 Chat** | 上传同一个 zip 只获得四个技能（Mac 已验证 v0.2.0）。Chat 忽略插件内本地 MCP，包括插件声明的 `.mcpb`，Code 会加载它们。再下载两个独立扩展 `ai4s-literature-zotero-<版本号>.mcpb` 和 `ai4s-literature-fulltext-<版本号>.mcpb`，逐个核对 `SHA256SUMS.txt`；缺少任一文件或校验不符就停止。逐个打开（Mac：`open <file>`；Windows：`start "" <file>`），或交给用户双击。Zotero 保持可选设置默认并点安装；fulltext 无必填设置或密钥，直接点安装。用户安装前工具不会生效。两者均由 CI 构建校验，未做真实 Chat 安装验证；使用 Desktop 内置 Node（版本未确认，要求 22.13+）。fulltext 提供 OA 优先全文拉取与 PDF 校验，不处理 Zotero 凭据或机构登录。禁止让 agent 改 `~/Library/Application Support/Claude/`；配置路线只供用户手动粘贴、作为最后备选。见 [INSTALL.md](../INSTALL.md#claude-desktop-chat)。 |
 | **终端 Claude Code、Codex、ChatGPT 桌面版、WorkBuddy、CodeBuddy** | 把 [README_CN](../README_CN.md#1-安装选你用的应用) 里的安装指令发给应用。agent 会按 [INSTALL.md](../INSTALL.md) 操作，并告诉你哪些已经能用、哪些需要你处理。 |
 | **Trae、Qoder** | 按 [README_CN](../README_CN.md) 里“其他 agent 与手动安装”操作。 |
 
@@ -25,7 +25,7 @@
 
 ## 第 2 步：看看现在能用什么
 
-只有技能的 Claude Chat 中，`ai4s-setup` 会说明限制并引导独立扩展安装；单纯重启不会增加插件内的本地工具。下文的检索步骤要求宿主能运行工具和命令。
+只有技能的 Claude Chat 中，`ai4s-setup` 会说明限制并引导安装两个独立扩展；单纯重启不会增加插件内的本地工具。下文的检索步骤要求宿主能运行工具和命令。
 
 让 agent 运行 `ai4s-setup` 技能，或者直接开始用。它会做一次状态检查，并分三组告诉你：**现在可用**、**需要你处理**、**可选**。如果它说“检索工具还没有连上”（My search tools are not connected yet），重启应用再问一次。
 

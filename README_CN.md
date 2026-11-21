@@ -127,9 +127,9 @@
 
 **Claude 桌面版 Code 标签**：从 [Latest Release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest) 下载 `ai4s-literature-workbench-<版本号>.zip`，核对 `SHA256SUMS.txt`，在 **设置 → Plugins → Add → Upload plugin** 上传。Mac 上已验证 v0.2.0 上传成功、识别四个技能和两个本地服务；该已发布 zip 的相对 MCP 路径会启动失败。本次路径修复尚未在桌面版验证，也不在该已发布产物中。备选（未验证）：**Add → Add marketplace**，填 `Frankkk1912/ai4s-literature-workbench`，源码安装后需构建一次。完成后 `/reload-plugins` 或新开会话。这里的 `/plugin` 只会打开插件设置，不执行终端安装命令。
 
-**Claude 桌面版 Chat**：上传同一个 zip **只能获得四个技能**（Mac 已验证）；Chat 忽略插件内的本地 MCP。Zotero 工具需另下载 `ai4s-literature-zotero-<版本号>.mcpb`，双击、保持两个可选设置默认、点 **安装**（扩展安装未验证）。**Chat 暂无全文工具**；需要两个工具服务请用 Code。不要让 Agent 编辑 `~/Library/Application Support/Claude/` 下的配置：Mac 保护此目录，实测拒绝访问。[INSTALL.md](INSTALL.md) 的配置路线仅供用户手动粘贴，作为最后备选。不要把密钥贴进聊天。
+**Claude 桌面版 Chat**：上传同一个 zip **只能获得四个技能**（Mac 已验证 v0.2.0）；Chat 忽略插件内的本地 MCP，包括插件声明的 `.mcpb`，Code 会加载它们。然后另下载**两个**扩展：`ai4s-literature-zotero-<版本号>.mcpb` 和 `ai4s-literature-fulltext-<版本号>.mcpb`，逐个核对 `SHA256SUMS.txt`，缺少任一文件或校验不符就停止。逐个打开（Mac：`open <file>`；Windows：`start "" <file>`），或交给用户双击。Zotero 保持两个可选设置默认、点 **安装**；fulltext 无必填设置或密钥，直接点 **安装**。用户安装前工具不会生效。两个扩展均由 CI 构建校验，尚未做真实 Chat 安装验证。fulltext 提供 OA 优先全文拉取与 PDF 校验，不处理 Zotero 凭据或机构登录。不要让 Agent 编辑 `~/Library/Application Support/Claude/` 下的配置：Mac 保护此目录，实测拒绝访问。[INSTALL.md](INSTALL.md) 的配置路线仅供用户手动粘贴，作为最后备选。不要把密钥贴进聊天。
 
-独立 `.mcpb` 使用 Claude Desktop 内置 Node.js（版本未验证，要求 ≥ 22.13）。上传的插件保存在 claude.ai 账号上，在 Chat、Cowork、Code 同步，但各入口的工具支持不同。
+两个独立 `.mcpb` 均使用 Claude Desktop 内置 Node.js（版本未验证，要求 ≥ 22.13）。上传的插件保存在 claude.ai 账号上，在 Chat、Cowork、Code 同步，但各入口的工具支持不同。
 
 **终端 Claude Code、Codex、ChatGPT、WorkBuddy 等客户端**：将以下指令原样发送给客户端即可：
 
@@ -145,7 +145,7 @@ https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INS
 
 ### 2. 首次初始化
 
-工具已连上时，Agent 会运行 `ai4s-setup`，汇报当前可用功能，只询问尚未配置的密钥及 Zotero 插件；三把密钥都已配置时，会提醒随时可以要求打开密钥页修改。全部可选。只有技能的 Claude Chat 会先说明限制并引导安装独立扩展，不会声称检索可用：
+工具已连上时，Agent 会运行 `ai4s-setup`，汇报当前可用功能，只询问尚未配置的密钥及 Zotero 插件；三把密钥都已配置时，会提醒随时可以要求打开密钥页修改。全部可选。只有技能的 Claude Chat 会先说明限制并引导安装两个独立扩展，不会声称检索可用：
 
 - **API 密钥非必需**：文献检索、排序和起草均可零配置使用。如需补充密钥，请在本地配置页填写，切勿直接发到聊天框。
 - **开启本地 Zotero 读取（免密钥）**：在 Zotero 中打开 **设置 → 高级**，勾选 **允许这台电脑上的其他应用与 Zotero 通信**。

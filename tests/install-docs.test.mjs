@@ -164,7 +164,7 @@ test("the setup skill is registered and ships in the plugin archive", () => {
 	assert.match(read("scripts/package-release.mjs"), /copyTree\(join\(repoRoot, 'skills'\)/);
 });
 
-test("Claude routes distinguish terminal, desktop Code and skills-only Chat", () => {
+test("Claude routes distinguish terminal, desktop Code and Chat's zip plus two extensions", () => {
 	const terminal = install.split("### Claude Code terminal\n")[1].split("### Claude desktop Code tab\n")[0];
 	const code = install.split("### Claude desktop Code tab\n")[1].split("### Codex\n")[0];
 	const chat = install.split("### Claude desktop Chat\n")[1].split("## Check at the end\n")[0];
@@ -177,7 +177,22 @@ test("Claude routes distinguish terminal, desktop Code and skills-only Chat", ()
 	assert.match(code, /MCP startup.*not yet verified/);
 	assert.match(chat, /all four skills/);
 	assert.match(chat, /Chat ignores plugin-local MCP/);
-	assert.match(chat, /Full-text tools are currently unavailable in Chat/);
+	assert.match(chat, /Install two separate/);
+	for (const server of ["zotero", "fulltext"]) {
+		assert.ok(chat.includes(`ai4s-literature-${server}-<version>.mcpb`));
+	}
+	assert.match(chat, /both unverified live/);
+	assert.match(chat, /If either file is missing or not listed/);
+	assert.match(chat, /fulltext_capabilities/);
+	assert.doesNotMatch(chat, /full.text tools are currently unavailable|Zotero tools only|does not.*make full-text tools available/i);
+	const fallback = JSON.parse(chat.match(/```json\n([\s\S]*?)```/)[1]).mcpServers;
+	assert.deepEqual(Object.keys(fallback).sort(), ["ai4s-literature-fulltext", "ai4s-literature-zotero"]);
+	assert.deepEqual(fallback["ai4s-literature-fulltext"].args, ["<plugin-root>/fulltext-runtime/bundle/index.mjs"]);
+	assert.equal(fallback["ai4s-literature-fulltext"].env, undefined);
+	assert.deepEqual(fallback["ai4s-literature-zotero"].env, { LITERATURE_ZOTERO_MCP_TOOL_PROFILE: "workbench" });
+	assert.deepEqual(manifest.hosts["claude-desktop"].routes.mcpb.assets, [
+		"ai4s-literature-zotero-<version>.mcpb", "ai4s-literature-fulltext-<version>.mcpb",
+	]);
 	assert.match(chat, /Never read, create, back up, or edit files under/);
 	assert.ok(chat.indexOf("**1. Upload") < chat.indexOf("**2. Install"));
 	assert.ok(chat.indexOf("**2. Install") < chat.indexOf("**3. Last resort"));
@@ -199,6 +214,9 @@ test("the setup skill recognizes Claude Chat before asking which app", () => {
 	assert.match(detect, /Never read or edit anything under/);
 	assert.match(detect, /Do not retry permission requests/);
 	assert.match(detect, /Do not run Steps 3–6/);
+	assert.match(detect, /ai4s-literature-fulltext-<version>\.mcpb/);
+	assert.match(detect, /no required settings/);
+	assert.match(detect, /not live-verified/);
 });
 
 test("key onboarding lists only missing keys and mentions how to change configured keys", () => {

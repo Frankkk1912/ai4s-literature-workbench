@@ -11,6 +11,8 @@
 //                                             bundles, and a .mcp.json that points at them
 //   ai4s-literature-zotero-<version>.mcpb     Claude Desktop bundle (validated and packed
 //                                             with the official mcpb CLI)
+//   ai4s-literature-fulltext-<version>.mcpb   standalone fulltext Claude Desktop bundle
+//                                             (validated and packed with the same CLI)
 //   literature-metrics-<xpi version>.xpi      the Zotero add-on
 //   literature-metrics.xpi                    the same file under a fixed name, so the link
 //                                             .../releases/latest/download/literature-metrics.xpi
@@ -161,7 +163,7 @@ if (isWindows) {
 }
 assets.push(zipPath);
 
-// --- Claude Desktop bundle ---
+// --- Claude Desktop bundles ---
 
 if (args.skipMcpb) {
   process.stdout.write('package-release: --skip-mcpb given, so no .mcpb was produced.\n');
@@ -179,6 +181,18 @@ if (args.skipMcpb) {
   run('npx', ['--yes', MCPB_PACKAGE, 'validate', mcpbRoot]);
   run('npx', ['--yes', MCPB_PACKAGE, 'pack', mcpbRoot, mcpbPath]);
   assets.push(mcpbPath);
+
+  const fulltextMcpbRoot = join(staging, 'mcpb-fulltext');
+  mkdirSync(join(fulltextMcpbRoot, 'server'), { recursive: true });
+  const fulltextManifest = readFileSync(join(repoRoot, 'release', 'mcpb-fulltext', 'manifest.json'), 'utf8').replaceAll('__VERSION__', version);
+  writeFileSync(join(fulltextMcpbRoot, 'manifest.json'), fulltextManifest);
+  cpSync(join(repoRoot, 'runtime', 'dxt', 'icon.png'), join(fulltextMcpbRoot, 'icon.png'));
+  // Copy the entire fulltext bundle, including its notices and any companion files.
+  copyTree(join(repoRoot, 'fulltext-runtime', 'bundle'), join(fulltextMcpbRoot, 'server'));
+  const fulltextMcpbPath = join(outDir, `ai4s-literature-fulltext-${version}.mcpb`);
+  run('npx', ['--yes', MCPB_PACKAGE, 'validate', fulltextMcpbRoot]);
+  run('npx', ['--yes', MCPB_PACKAGE, 'pack', fulltextMcpbRoot, fulltextMcpbPath]);
+  assets.push(fulltextMcpbPath);
 }
 
 // --- Zotero add-on ---

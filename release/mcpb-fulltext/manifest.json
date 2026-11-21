@@ -1,0 +1,34 @@
+{
+  "manifest_version": "0.3",
+  "name": "ai4s-literature-fulltext",
+  "display_name": "AI4S Literature Workbench: OA-first full-text fetch and PDF verification",
+  "version": "__VERSION__",
+  "description": "OA-first full-text fetch and PDF verification; no Zotero credentials or institutional login.",
+  "long_description": "The independent fulltext server of the AI4S Literature Workbench. It uses public HTTP/HTTPS OA routes (PMC lookup plus explicit candidate URLs), verifies main-article PDFs, and creates private hashed handoffs. It never handles Zotero credentials or institutional login. Storage paths, PDF size limits and HTTP timeouts use the server's automatic per-user defaults; no setup settings or keys are required.",
+  "author": {
+    "name": "Frank AI4S Skill contributors",
+    "url": "https://github.com/Frankkk1912"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Frankkk1912/ai4s-literature-workbench"
+  },
+  "homepage": "https://github.com/Frankkk1912/ai4s-literature-workbench",
+  "license": "MIT",
+  "keywords": ["fulltext", "open-access", "pdf", "literature", "research"],
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.mjs"]
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32"],
+    "runtimes": {
+      "node": ">=22.13.0"
+    }
+  }
+}

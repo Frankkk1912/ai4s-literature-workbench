@@ -66,16 +66,30 @@ If the tool is not in your tool list, go to Step 2. Otherwise go to Step 3.
    `INSTALL.md`. Skills are not loaded by that file route, so say so. If a
    step fails, go to the next route for that app without asking the user, and
    say which step failed. In Claude desktop Chat, follow the Chat section:
-   upload the zip for four skills, then double-click the separate `.mcpb` for
-   Zotero tools (unverified). Full-text tools are currently unavailable in Chat;
-   use the Code tab for both tool sets. Never read or edit anything under
+   upload the zip for four skills (verified on Mac with v0.2.0). Chat ignores
+   plugin-local MCP, including plugin-declared `.mcpb` bundles; Code loads them.
+   Then download both `ai4s-literature-zotero-<version>.mcpb` and
+   `ai4s-literature-fulltext-<version>.mcpb`, check each against `SHA256SUMS.txt`,
+   and stop if either file is missing, not listed, or has a different checksum.
+   Open each with `open <file>` on Mac or `start "" <file>` on Windows; otherwise
+   hand each file to the user to double-click. For Zotero leave optional settings
+   default and press Install; for fulltext press Install (no required settings
+   or keys; automatic per-user paths and safe limits). Nothing works until the
+   user installs them. Both are CI-built/validated, not live-verified. They use
+   Desktop's bundled Node (version unconfirmed; requires 22.13+). Fulltext is
+   OA-first fetch and PDF verification, with no Zotero credentials or institutional
+   login. Check for the six `fulltext_*` tools and call `fulltext_capabilities`
+   before claiming fulltext is connected. Never read or edit anything under
    `~/Library/Application Support/Claude/`: it is protected and agent access was
    denied. Do not retry permission requests. The config-file fallback is for
-   the user to paste manually, not for you to edit. In the desktop Code tab,
+   the user to paste manually, not for you to edit. It includes both archive
+   servers: `runtime/bundle/index.mjs` with only
+   `LITERATURE_ZOTERO_MCP_TOOL_PROFILE=workbench`, and
+   `fulltext-runtime/bundle/index.mjs` with no env overrides. In the desktop Code tab,
    `/plugin` opens Plugins settings: prefer Add → Upload plugin; Add → Add
    marketplace is unverified. Terminal `/plugin` install commands are not for
    that tab. Do not run Steps 3–6 or claim tools work until `setup_status` is
-   available; with skills only, explain the limit and give the extension step.
+   available; with skills only, explain the limit and give the two-extension step.
 4. After the restart, call `setup_status` again. If the tool is still missing,
    say: "My search tools are not connected yet", name the one step that did not
    work, give one next action, and stop. Do not report partial success.

@@ -1,5 +1,5 @@
-# Release assets: plugin archive with prebuilt bundles, Claude Desktop .mcpb,
-# Zotero XPI, and SHA256SUMS.txt.
+# Release assets: plugin archive with prebuilt bundles, two Claude Desktop
+# .mcpb files (Zotero and fulltext), Zotero XPI, and SHA256SUMS.txt.
 #
 # Pushing a tag like v0.1.0 runs this. The tag (without the "v") must equal the version in
 # .claude-plugin/plugin.json, or packaging stops. The publish job creates a DRAFT release,
@@ -75,7 +75,7 @@ jobs:
         working-directory: literature-metrics
         run: npm ci --no-audit --no-fund && npm run package
 
-      # Validates the manifest with the pinned mcpb CLI, then packs it.
+      # Validates and packs both desktop bundles with the pinned mcpb CLI.
       - name: Package release assets (tag build)
         if: startsWith(github.ref, 'refs/tags/v')
         run: node scripts/package-release.mjs --out release-out --version "${GITHUB_REF_NAME#v}"
