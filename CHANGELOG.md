@@ -8,6 +8,49 @@ Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-21
+
+### Added
+
+- A standalone Claude Desktop extension for the fulltext server, shipped as
+  `ai4s-literature-fulltext-<version>.mcpb`. Desktop Chat install is now: upload
+  the release zip for the four skills, then install both the Zotero and fulltext
+  `.mcpb` files (PR #32).
+- A CodeBuddy plugin manifest that starts MCP servers from
+  `${CODEBUDDY_PLUGIN_ROOT}`. Official docs list this host; a live install has
+  not been verified (PR #32).
+
+### Changed
+
+- INSTALL.md and the related README, getting-started, install-manifest, and
+  setup-skill pages were rewritten after three agent install runs (Claude Code,
+  ChatGPT desktop, and WorkBuddy). The guide now routes by the app the agent is
+  running in, falls through to the next route when a step fails, and lists only
+  missing keys (offer the local key page any time if all three are already set)
+  (PR #31, refined in PR #32).
+- Claude has three documented entry points: terminal Claude Code, the desktop
+  Code tab (upload the release zip), and desktop Chat (skills from the zip;
+  Zotero and fulltext tools from two separate `.mcpb` installs) (PR #32).
+- README wording on main: the client prompt line is now Claude Code Terminal,
+  ChatGPT, and WorkBuddy, with other hosts under "Others" / "其他"; the
+  "No Evidence, No Conclusion" line was removed.
+- The Zotero Desktop add-on (`literature-metrics`) version is aligned with
+  the workbench at 0.2.1. There are no functional changes in the add-on since
+  v0.2.0; this is a version and update-feed bump so the release asset and
+  auto-update feed stay in step.
+
+### Fixed
+
+- Claude plugin MCP servers now start from `${CLAUDE_PLUGIN_ROOT}` instead of
+  relative paths. Uploading the published v0.2.0 zip in the Claude desktop Code
+  tab failed with "Connection closed", because the servers launched with
+  `cwd: "."` in a scratch directory. Source entries still point at `dist`;
+  release packaging rewrites them to `bundle` (PR #32).
+- Codex marketplace install uses
+  `codex plugin add ai4s-literature-workbench@ai4s-literature-workbench`. The
+  previous `@personal` marketplace name was not registered, so plugin add
+  failed (PR #31).
+
 ## [0.2.0] - 2026-11-19
 
 ### Added

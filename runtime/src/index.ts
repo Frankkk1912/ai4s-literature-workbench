@@ -19,7 +19,7 @@ function flag(name: string): string | undefined {
   return next && !next.startsWith('--') ? next : '';
 }
 
-const VERSION = '0.2.0';
+const VERSION = '0.2.1';
 
 async function main(): Promise<void> {
   // The double-click launchers run this. It needs no Zotero connection, so it runs before one is made.
