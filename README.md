@@ -150,7 +150,7 @@ Nothing else needs manual installation. On your first search, the workbench asks
 
 Both separate `.mcpb` extensions use Claude Desktop's bundled Node.js (version unverified; requires ≥ 22.13). Uploaded plugins sync across Chat, Cowork and Code on the claude.ai account; tool support differs by entry point.
 
-**Terminal Claude Code, Codex, ChatGPT desktop, WorkBuddy**: Paste the following prompt verbatim into your client:
+**Claude Code Terminal, ChatGPT desktop, WorkBuddy**: Paste the following prompt verbatim into your client:
 
 ```text
 Please install the plugin from
@@ -160,7 +160,7 @@ https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INS
 Do not add steps of your own. When it's done, tell me in plain language what works now and what I need to do myself.
 ```
 
-**Trae, Qoder**: Follow the **Other agents & manual install** section below.
+**Others**: Follow the **Other agents & manual install** section below.
 
 If your client prompts for permission to access GitHub or the network, select **Allow** so the installation can complete.
 
@@ -296,7 +296,7 @@ Issues and pull requests are welcome.
 
 MIT, see `LICENSE`. © Frank AI4S Skill contributors.
 
-**No Evidence, No Conclusion.** A scientific claim traces back to saved evidence. The Zotero layer credits Oscar Devos's Zoteus (`https://github.com/oscardvs/zoteus`). Component credits are in `THIRD_PARTY_NOTICES.md`.
+The Zotero layer credits Oscar Devos's Zoteus (`https://github.com/oscardvs/zoteus`). Component credits are in `THIRD_PARTY_NOTICES.md`.
 
 ---
 

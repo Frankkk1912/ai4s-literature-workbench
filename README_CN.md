@@ -131,7 +131,7 @@
 
 两个独立 `.mcpb` 均使用 Claude Desktop 内置 Node.js（版本未验证，要求 ≥ 22.13）。上传的插件保存在 claude.ai 账号上，在 Chat、Cowork、Code 同步，但各入口的工具支持不同。
 
-**终端 Claude Code、Codex、ChatGPT、WorkBuddy 等客户端**：将以下指令原样发送给客户端即可：
+**Claude Code终端、ChatGPT、WorkBuddy 等桌面端**：将以下指令原样发送给客户端即可：
 
 ```text
 请帮我从
@@ -141,7 +141,7 @@ https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INS
 不要自己添加步骤。装好后，用通俗的话告诉我现在能用什么、我自己还需要做什么。
 ```
 
-**Trae、Qoder**：请参考下方「其他 Agent 与手动安装」折叠部分。
+**其他**：请参考下方「其他 Agent 与手动安装」折叠部分。
 
 ### 2. 首次初始化
 
