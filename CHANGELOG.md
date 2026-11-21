@@ -34,6 +34,10 @@ Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
 - README wording on main: the client prompt line is now Claude Code Terminal,
   ChatGPT, and WorkBuddy, with other hosts under "Others" / "其他"; the
   "No Evidence, No Conclusion" line was removed.
+- The Zotero Desktop add-on (`literature-metrics`) version is aligned with
+  the workbench at 0.2.1. There are no functional changes in the add-on since
+  v0.2.0; this is a version and update-feed bump so the release asset and
+  auto-update feed stay in step.
 
 ### Fixed
 
