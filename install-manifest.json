@@ -14,7 +14,7 @@
     "status_shape": "Three groups, works_now, needs_you and optional, each item with Chinese and English text. rendered.zh and rendered.en hold the text to show. Chinese is the default.",
     "smoke_test_runner": "search_helper.run from setup_status (run.posix or run.powershell) replaces uv run; install_search_helper downloads the pinned helper when setup_status lists search under Needs you",
     "smoke_test": "uv run literature-research/scripts/literature_search.py review --question \"setup check\" --pubmed-query \"CRISPR base editing[Title]\" --limit 3 --top-n 3 --output <private-temp>/ai4s-setup-check",
-    "finish": "After the end check, offer once: the key page (zotero, pubmed, easyscholar via open_setup) and the Zotero add-on at https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi (install by hand: Tools, Add-ons, gear menu, Install Add-on From File, restart Zotero). The partition columns need an EasyScholar key to fill in."
+    "finish": "After the end check, mention key onboarding once and offer the Zotero add-on at https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi (install by hand: Tools, Add-ons, gear menu, Install Add-on From File, restart Zotero). List only missing keys using setup_status.diagnostics.zotero_key_present, pubmed_key_present and easyscholar_key_present; never print diagnostics or key values. If all three are set, say: All keys are set; ask for the key page any time to change one. This counts as mentioning key onboarding. Do not guess when setup_status is unavailable. Ask once about missing keys and the add-on, not keys already set. The partition columns need an EasyScholar key to fill in."
   },
   "keys": {
     "rule": "Never in chat and never in a command or tool argument. Optional: search needs no key. Ask only for a key that unlocks something the user asked for.",
@@ -33,7 +33,7 @@
   },
   "hosts": {
     "claude-code": {
-      "label": "Claude Code",
+      "label": "Claude Code terminal",
       "status": "documented",
       "steps": [
         "claude plugin marketplace add Frankkk1912/ai4s-literature-workbench",
@@ -41,7 +41,37 @@
         "after_install",
         "restart Claude Code"
       ],
-      "note": "Includes the Claude desktop app's Code tab. This route loads the skills; do not replace it with the Claude Desktop .mcpb. If the claude command is not found or is blocked, ask the user to type /plugin marketplace add Frankkk1912/ai4s-literature-workbench and /plugin install ai4s-literature-workbench@ai4s-literature-workbench in the Claude Code prompt."
+      "note": "Terminal only. This route loads the skills; do not replace it with the Claude Desktop .mcpb. If the claude command is not found or is blocked, ask the user to type /plugin marketplace add Frankkk1912/ai4s-literature-workbench and /plugin install ai4s-literature-workbench@ai4s-literature-workbench in the terminal Claude Code prompt. The desktop Code tab uses a separate route."
+    },
+    "claude-desktop-code": {
+      "label": "Claude desktop Code tab",
+      "status": "unverified",
+      "status_applies_to": "MCP startup after the path fix; plugin upload and recognition are verified on Mac with v0.2.0",
+      "note": "/plugin opens Settings, Plugins; it does not execute terminal install commands. The published v0.2.0 zip has broken relative MCP paths; do not claim it contains this repository's fix. The Claude plugin config uses ${CLAUDE_PLUGIN_ROOT}; source points at dist, release packaging rewrites it to bundle.",
+      "routes": {
+        "upload_plugin": {
+          "status": "verified",
+          "verified_on": "Mac, v0.2.0: upload and recognition only, not MCP startup",
+          "asset": "ai4s-literature-workbench-<version>.zip",
+          "steps": [
+            "download the release zip and check SHA256SUMS.txt",
+            "Settings, Plugins, Add, Upload plugin; select the zip",
+            "/reload-plugins or start a new session",
+            "Check at the end"
+          ],
+          "mcp_startup_status": "unverified"
+        },
+        "marketplace": {
+          "status": "unverified",
+          "steps": [
+            "Settings, Plugins, Add, Add marketplace: Frankkk1912/ai4s-literature-workbench",
+            "install ai4s-literature-workbench",
+            "after_install",
+            "/reload-plugins or start a new session",
+            "Check at the end"
+          ]
+        }
+      }
     },
     "codex": {
       "label": "Codex",
@@ -148,37 +178,51 @@
       ]
     },
     "claude-desktop": {
-      "label": "Claude Desktop",
-      "status": "unverified",
-      "asset": "ai4s-literature-zotero-<version>.mcpb",
-      "steps": [
-        "download the .mcpb from the releases page",
-        "double-click it, or drag it onto the Claude Desktop window",
-        "leave the two optional settings as they are, or fill in the Zotero key in the masked field",
-        "restart Claude Desktop"
-      ],
-      "covers": "Zotero tools only. Not the three skills and not the full-text tools.",
-      "note": "Try routes.mcp_config first when Node 22.13+ is present and files can be written; otherwise routes.mcpb. Built and validated with the mcpb CLI by CI; not yet installed in Claude Desktop, and the Node version it ships is unconfirmed (the bundle asks for 22.13 or newer). If the releases page does not list the file, say so. The key page is also available through open_setup. Only for the Claude Desktop chat app. If the agent cannot click in the app it downloads the file, checks it against SHA256SUMS.txt, hands it over, and says it is not installed until the user opens it. This route has no literature-research skill, so the end check uses setup_status plus one read-only Zotero call such as zotero_search_items. With a shell, open the file for the user (open <file>.mcpb on Mac, start \"\" <file>.mcpb on Windows; unverified) so only the Install click is left. Never unpack it into Claude Desktop's folders or click Install for the user.",
+      "label": "Claude desktop Chat",
+      "status": "verified",
+      "status_applies_to": "routes.upload_plugin on Mac with v0.2.0: four skills visible and no MCP tools",
+      "covers": "Uploaded plugin: four skills only. Two separate .mcpb extensions: Zotero tools plus OA-first full-text fetch and PDF verification (both unverified live).",
+      "note": "Uploads are stored on the claude.ai account and sync across Chat, Cowork and Code. Chat ignores plugin-local MCP servers, including plugin-declared .mcpb bundles; Code loads them. The Zotero and fulltext standalone .mcpb desktop extensions are two separate installs; fulltext needs no Zotero credentials or institutional login. Never read, create, back up or edit files under ~/Library/Application Support/Claude/ as an agent: protected directory access was denied on Mac; do not retry permission requests. Never edit the Windows config on the user's behalf either.",
+      "platform_reference": "https://claude.com/docs/plugins/platform-support",
       "routes": {
+        "upload_plugin": {
+          "status": "verified",
+          "verified_on": "Mac, v0.2.0",
+          "asset": "ai4s-literature-workbench-<version>.zip",
+          "steps": [
+            "download the release zip and check SHA256SUMS.txt",
+            "Settings, Plugins, Add, Upload plugin; select the zip"
+          ],
+          "covers": "literature-research, literature-manager, literature-writing, ai4s-setup appear in the Chat / menu; no MCP tools"
+        },
+        "mcpb": {
+          "status": "unverified",
+          "assets": ["ai4s-literature-zotero-<version>.mcpb", "ai4s-literature-fulltext-<version>.mcpb"],
+          "steps": [
+            "download both separate .mcpb files and check each against SHA256SUMS.txt; stop if either is missing, not listed, or has a different checksum",
+            "open each file with open <file> on Mac or start \"\" <file> on Windows; otherwise hand each to the user to double-click or drag onto the Claude Desktop window",
+            "for Zotero leave both optional settings default (key empty, connection auto) and press Install; for fulltext press Install with no required settings or keys",
+            "nothing works until the user installs the extensions; restart Claude Desktop and check setup_status, the six fulltext tools, and fulltext_capabilities"
+          ],
+          "covers": "Zotero tools and six fulltext tools; no skills",
+          "note": "Both built and validated by CI, neither installed live. Use Claude Desktop's bundled Node (version unconfirmed; requires 22.13+). Fulltext has no user_config and keeps automatic per-user storage paths and safe limits. With a shell open each file for the user: open <file> on Mac, start \"\" <file> on Windows (unverified file association). Otherwise hand each over; neither is installed until the user opens it and clicks Install. Never unpack into app folders or approve Install. If no local search script can run, check setup_status plus zotero_search_items instead; do not claim PubMed works."
+        },
         "mcp_config": {
           "status": "unverified",
+          "user_only": true,
           "paths": {
             "mac": "~/Library/Application Support/Claude/claude_desktop_config.json",
             "windows": "%APPDATA%\\Claude\\claude_desktop_config.json"
           },
           "steps": [
+            "last resort only after the .mcpb route fails and the user chooses this",
             "need Node.js 22.13 or newer and the release archive extracted",
-            "back up claude_desktop_config.json",
-            "add ai4s-literature-zotero and ai4s-literature-fulltext under mcpServers with absolute paths to runtime/bundle/index.mjs and fulltext-runtime/bundle/index.mjs; env for zotero: LITERATURE_ZOTERO_MCP_TOOL_PROFILE=workbench only",
-            "keep existing servers, do not duplicate",
-            "quit and reopen Claude Desktop",
-            "if setup_status is missing, use the full path to node as command and restart once more"
+            "the user backs up claude_desktop_config.json themselves",
+            "give JSON for the user to paste themselves: both servers, absolute node path, runtime/bundle/index.mjs with env LITERATURE_ZOTERO_MCP_TOOL_PROFILE=workbench, and fulltext-runtime/bundle/index.mjs with no env overrides, matching the archive",
+            "the user keeps existing servers, does not duplicate, quits and reopens Claude Desktop",
+            "check for setup_status and fulltext_capabilities"
           ],
-          "covers": "Zotero and full-text tools. Not the three skills."
-        },
-        "mcpb": {
-          "status": "unverified",
-          "note": "One click left for the user (Install). With a shell, open the file for them."
+          "covers": "Unverified fallback for both Zotero and fulltext tools; no skills"
         }
       }
     }
@@ -191,7 +235,7 @@
       "version_check": "Read version from https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/.codex-plugin/plugin.json. The release version is the latest release tag without a leading v. Compare dotted numbers from the left; equal counts as current. Use this archive only when the release version is the same or newer and the zip is listed. If the release is older than main, or the zip is missing, use the source route and say which. Do not compare the archive's own plugin.json to the release. If the release page or API will not load, the tag is the redirect target of https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest, and the zip is listed when its name appears in SHA256SUMS.txt.",
       "checksums": "SHA256SUMS.txt on the same page",
       "build_needed": false,
-      "requires": "Node.js 22.13 or newer on the computer, except for Claude Desktop",
+      "requires": "Node.js 22.13 or newer to run archive tools; not needed for skills-only Chat upload or the separate Claude Desktop .mcpb",
       "detect": "<plugin-root>/runtime/bundle/index.mjs exists",
       "keys": "Keys are entered through open_setup, or by double-clicking Setup AI4S.bat or Setup AI4S.command in the archive folder. scripts/onboard.mjs is not in the archive.",
       "note": "Use the extracted folder wherever a host route names the GitHub address. Read version from https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/.codex-plugin/plugin.json on main. CI builds and checks the archive. If the latest release's version is older than version in .codex-plugin/plugin.json on main, or the zip is not listed, use the source route and say so.",
@@ -207,9 +251,9 @@
     }
   },
   "rules": [
-    "Route by the app you are running inside. The Claude desktop app's Code tab is Claude Code; the Claude Desktop route is only for the Claude Desktop chat app.",
+    "Route by app and entry point: claude-code is terminal only, claude-desktop-code is the desktop Code tab, claude-desktop is Chat. If plugin skills are visible but setup_status and zotero_* tools are absent and the host looks like Claude desktop Chat or cannot run commands, use the Chat skills-only route without asking which app. Ask only when genuinely unclear.",
     "When a step fails, go to the next route for that app without asking, and say which step failed. Stop only after every route failed.",
     "A fetch tool that only summarises a page is not enough: download the raw file or clone the repository.",
-    "Setup ends with an onboarding offer: tell the user the local key page (open_setup) and the Zotero add-on exist and ask which they want. Never press for a key, never skip the offer."
+    "Setup ends with an onboarding mention: offer only missing keys from setup_status and the Zotero add-on. When all keys are set say: All keys are set; ask for the key page any time to change one. Never press for a key, never skip the mention. Never modify protected Claude app config as an agent; the config route is user-managed and last resort only."
   ]
 }

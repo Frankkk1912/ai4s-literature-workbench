@@ -164,6 +164,75 @@ test("the setup skill is registered and ships in the plugin archive", () => {
 	assert.match(read("scripts/package-release.mjs"), /copyTree\(join\(repoRoot, 'skills'\)/);
 });
 
+test("Claude routes distinguish terminal, desktop Code and Chat's zip plus two extensions", () => {
+	const terminal = install.split("### Claude Code terminal\n")[1].split("### Claude desktop Code tab\n")[0];
+	const code = install.split("### Claude desktop Code tab\n")[1].split("### Codex\n")[0];
+	const chat = install.split("### Claude desktop Chat\n")[1].split("## Check at the end\n")[0];
+	assert.match(terminal, /claude plugin marketplace add Frankkk1912\/ai4s-literature-workbench/);
+	assert.match(terminal, /terminal Claude Code prompt/);
+	assert.match(code, /`\/plugin` opens Settings → Plugins/);
+	assert.match(code, /Add → Upload plugin/);
+	assert.match(code, /Alternative \(unverified\).*Add → Add marketplace/);
+	assert.match(code, /\/reload-plugins/);
+	assert.match(code, /MCP startup.*not yet verified/);
+	assert.match(chat, /all four skills/);
+	assert.match(chat, /Chat ignores plugin-local MCP/);
+	assert.match(chat, /Install two separate/);
+	for (const server of ["zotero", "fulltext"]) {
+		assert.ok(chat.includes(`ai4s-literature-${server}-<version>.mcpb`));
+	}
+	assert.match(chat, /both unverified live/);
+	assert.match(chat, /If either file is missing or not listed/);
+	assert.match(chat, /fulltext_capabilities/);
+	assert.doesNotMatch(chat, /full.text tools are currently unavailable|Zotero tools only|does not.*make full-text tools available/i);
+	const fallback = JSON.parse(chat.match(/```json\n([\s\S]*?)```/)[1]).mcpServers;
+	assert.deepEqual(Object.keys(fallback).sort(), ["ai4s-literature-fulltext", "ai4s-literature-zotero"]);
+	assert.deepEqual(fallback["ai4s-literature-fulltext"].args, ["<plugin-root>/fulltext-runtime/bundle/index.mjs"]);
+	assert.equal(fallback["ai4s-literature-fulltext"].env, undefined);
+	assert.deepEqual(fallback["ai4s-literature-zotero"].env, { LITERATURE_ZOTERO_MCP_TOOL_PROFILE: "workbench" });
+	assert.deepEqual(manifest.hosts["claude-desktop"].routes.mcpb.assets, [
+		"ai4s-literature-zotero-<version>.mcpb", "ai4s-literature-fulltext-<version>.mcpb",
+	]);
+	assert.match(chat, /Never read, create, back up, or edit files under/);
+	assert.ok(chat.indexOf("**1. Upload") < chat.indexOf("**2. Install"));
+	assert.ok(chat.indexOf("**2. Install") < chat.indexOf("**3. Last resort"));
+	assert.equal(manifest.hosts["claude-desktop-code"].routes.upload_plugin.status, "verified");
+	assert.equal(manifest.hosts["claude-desktop-code"].routes.upload_plugin.mcp_startup_status, "unverified");
+	assert.equal(manifest.hosts["claude-desktop-code"].routes.marketplace.status, "unverified");
+	assert.equal(manifest.hosts["claude-desktop"].routes.upload_plugin.status, "verified");
+	assert.equal(manifest.hosts["claude-desktop"].routes.mcpb.status, "unverified");
+	assert.equal(manifest.hosts["claude-desktop"].routes.mcp_config.user_only, true);
+});
+
+test("the setup skill recognizes Claude Chat before asking which app", () => {
+	const text = skill("ai4s-setup");
+	const detect = text.split("## Step 2:")[1].split("## Step 3:")[0];
+	assert.match(detect, /skills are visible but neither `setup_status` nor any `zotero_\*` tools/);
+	assert.match(detect, /host looks like Claude desktop Chat or cannot run commands/);
+	assert.match(detect, /Do not\n\s+ask which app/);
+	assert.match(detect, /Ask once only when the host is genuinely unclear/);
+	assert.match(detect, /Never read or edit anything under/);
+	assert.match(detect, /Do not retry permission requests/);
+	assert.match(detect, /Do not run Steps 3–6/);
+	assert.match(detect, /ai4s-literature-fulltext-<version>\.mcpb/);
+	assert.match(detect, /no required settings/);
+	assert.match(detect, /not live-verified/);
+});
+
+test("key onboarding lists only missing keys and mentions how to change configured keys", () => {
+	const allSet = "All keys are set; ask for the key page any time to change one.";
+	for (const text of [install, skill("ai4s-setup"), manifest.first_run.finish]) {
+		assert.ok(text.includes(allSet), "all-set onboarding reminder missing");
+		for (const flag of ["zotero_key_present", "pubmed_key_present", "easyscholar_key_present"]) {
+			assert.ok(text.includes(flag), `missing setup_status presence flag: ${flag}`);
+		}
+		assert.match(text, /only missing keys|only keys.*not configured/);
+	}
+	const template = install.split("3. Report in this shape:")[1].split("4. Use")[0];
+	assert.doesNotMatch(template, /Key page: Zotero key.*PubMed key.*EasyScholar key/);
+	assert.match(template, /only keys setup_status reports as not configured/);
+});
+
 test("install docs do not send people to the removed database browser or DeepSeek package", () => {
 	for (const text of [install, JSON.stringify(manifest), read("README.md"), read("README_CN.md")]) {
 		assert.doesNotMatch(text, /database-browser|database_browser|database_session|dsh-ai4s|DeepSeek Harness/);
