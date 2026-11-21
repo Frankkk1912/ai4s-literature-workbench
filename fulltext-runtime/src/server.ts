@@ -19,7 +19,7 @@ function errorResult(error: unknown) {
 
 export function createServer(broker: FulltextBroker): McpServer {
   const server = new McpServer(
-    { name: 'ai4s-literature-fulltext', version: '0.2.0' },
+    { name: 'ai4s-literature-fulltext', version: '0.2.1' },
     { capabilities: { tools: { listChanged: false } }, instructions: 'This MCP retrieves only public OA PDFs through legal HTTP routes, validates PDF bytes plus DOI-and-title identity, and emits compact hashed handoffs. It does not upload to Zotero, handle institutional credentials, start VPNs, bypass access controls, or return PDF bytes/full text in conversation. Submit an asynchronous job then poll its status.' },
   );
   server.registerTool('fulltext_capabilities', {

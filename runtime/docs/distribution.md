@@ -1,6 +1,6 @@
 # Distribution status
 
-`literature-zotero-mcp` 0.2.0 is a private, locally built derivative package.
+`literature-zotero-mcp` 0.2.1 is a private, locally built derivative package.
 Public npm, MCP Registry, GHCR, DXT release, and hosted deployment are disabled.
 
 Before enabling public distribution:

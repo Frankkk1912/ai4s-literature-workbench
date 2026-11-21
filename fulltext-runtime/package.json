@@ -1,6 +1,6 @@
 {
   "name": "literature-fulltext-runtime",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "An OA-first, verified-PDF MCP runtime for the AI4S Literature Workbench.",
   "keywords": [
