@@ -19,7 +19,7 @@ them, the journal columns (IF / JCR / CAS) in Zotero.
 
 | Your app | What to do |
 | --- | --- |
-| **Claude Desktop** | Open the [latest release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest), download `ai4s-literature-zotero-<version>.mcpb`, and double-click it (or drag it onto the Claude Desktop window). Accept the install screen and leave both optional settings alone. This installs the Zotero tools only, not the skills or the full-text tools. |
+| **Claude Desktop** | Open the [latest release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest), download `ai4s-literature-zotero-<version>.mcpb`, and double-click it (or drag it onto the Claude Desktop window). Accept the install screen and leave both optional settings alone. This installs the Zotero tools only, not the skills or the full-text tools. If your Claude Desktop agent can edit files, you can instead paste the install prompt below and it sets up both servers for you (untested). |
 | **Claude Code, Codex, ChatGPT desktop, WorkBuddy, CodeBuddy** | Paste the install prompt from the [README](../README.md#1-install-pick-your-app) into the app. The agent follows [INSTALL.md](../INSTALL.md) and tells you what works and what needs you. |
 | **Trae, Qoder** | Follow "Other agents & manual install" in the [README](../README.md). |
 
@@ -33,7 +33,7 @@ yet", restart the app and ask again.
 
 ## Step 3: Add what you want (all optional)
 
-When you want a key, the agent opens a page on your own computer. The page is already signed in,
+At the end of install the agent offers this step, so you can say yes to what you want and skip the rest. When you want a key, the agent opens a page on your own computer. The page is already signed in,
 explains why the key is useful, links to where you get it, and has a masked field. Paste the key
 there. The agent cannot see it, and it is never printed in chat.
 

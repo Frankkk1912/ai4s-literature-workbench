@@ -144,14 +144,16 @@ Nothing else needs manual installation. On your first search, the workbench asks
 
 ### 1. Installation (Choose Your Client)
 
-**Claude Desktop** *(Includes Zotero MCP tools only; skills and full-text tools are not bundled in the `.mcpb` package. This installation route has not yet been tested live in Claude Desktop.)*
+**Claude Desktop** *(Neither route has been tested live in Claude Desktop, and neither loads the skills.)*
 
-1. Open [Latest Release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest) and download `ai4s-literature-zotero-<version>.mcpb`.
-2. Double-click the file or drag it into the Claude Desktop window. Leave the two optional settings at their defaults, and **never paste API keys into chat**.
+- **Let the agent do it:** if your Claude Desktop agent can edit files, paste the install prompt below. It adds the Zotero and full-text servers to `claude_desktop_config.json` (needs Node.js ≥ 22.13) and asks you to quit and reopen the app.
+- **Manual `.mcpb` (Zotero tools only):**
+  1. Open [Latest Release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest) and download `ai4s-literature-zotero-<version>.mcpb`.
+  2. Double-click the file or drag it into the Claude Desktop window, leave the two optional settings at their defaults, and press **Install**. **Never paste API keys into chat.**
 
 *Note: The `.mcpb` package relies on Claude Desktop's bundled Node.js runtime (exact bundled version unverified; this package requires Node.js ≥ 22.13).*
 
-**Claude Code, ChatGPT desktop, WorkBuddy**: Paste the following prompt verbatim into your client:
+**Claude Code, Codex, ChatGPT desktop, WorkBuddy**: Paste the following prompt verbatim into your client:
 
 ```text
 Please install the plugin from
@@ -169,7 +171,7 @@ If your client prompts for permission to access GitHub or the network, select **
 
 ### 2. First Run
 
-The agent runs `ai4s-setup` and summarizes what is currently operational and what local setup remains:
+The agent runs `ai4s-setup`, summarizes what is currently operational and what local setup remains, and then offers the local key page and the Zotero add-on. Say yes to what you want, or skip it: search works without either.
 
 - **API keys are optional:** Search, ranking, and drafting work with zero keys. Add keys only through the local setup page, never in chat.
 - **Local Zotero read (keyless):** Enable **Settings → Advanced → Allow other applications on this computer to communicate with Zotero**.
@@ -223,7 +225,7 @@ claude plugin install ai4s-literature-workbench@ai4s-literature-workbench
 
 ```bash
 codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-workbench.git
-codex plugin add ai4s-literature-workbench@personal
+codex plugin add ai4s-literature-workbench@ai4s-literature-workbench
 ```
 
 **ChatGPT desktop**: Prefer the installation prompt above. For manual setup, use the Codex commands if the `codex` CLI is installed; otherwise follow the MCP configuration file route in [INSTALL.md](INSTALL.md) (note that the MCP file route does not load skills). Verified on Windows 11; not yet tested on macOS.

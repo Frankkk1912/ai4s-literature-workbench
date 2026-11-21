@@ -44,7 +44,8 @@ If the tool is not in your tool list, go to Step 2. Otherwise go to Step 3.
 
 1. Work out which app you are running in: Claude Code, Codex, ChatGPT desktop,
    Claude Desktop, WorkBuddy, CodeBuddy, or Trae/Qoder. ChatGPT desktop is the
-   desktop app, not the website. If you cannot tell, ask once.
+   desktop app, not the website. The Claude desktop app's Code tab is Claude
+   Code, not Claude Desktop. If you cannot tell, ask once.
 2. Open `INSTALL.md` in the plugin root (the folder with `INSTALL.md` and
    `install-manifest.json`; search for it, do not guess). If this install has
    only the skills and no `INSTALL.md`, say so and read
@@ -56,7 +57,9 @@ If the tool is not in your tool list, go to Step 2. Otherwise go to Step 3.
    say so. Run what you can yourself; ask the user only to approve a prompt
    or restart the app. ChatGPT desktop: try the Codex plugin route when the
    `codex` command exists; otherwise use the `config.toml` route in
-   `INSTALL.md`. Skills are not loaded by that file route, so say so.
+   `INSTALL.md`. Skills are not loaded by that file route, so say so. If a
+   step fails, go to the next route for that app without asking the user, and
+   say which step failed.
 4. After the restart, call `setup_status` again. If the tool is still missing,
    say: "My search tools are not connected yet", name the one step that did not
    work, give one next action, and stop. Do not report partial success.
@@ -86,7 +89,12 @@ Then call `setup_status` again. Only if it reports `failed` or `unsupported`,
 or the action is `ask_to_install`, offer the official installer from the link
 in the status text, after a yes.
 
-## Step 4: Add a key (only when wanted)
+## Step 4: Add a key (offer it every time)
+
+At the end of every setup, offer the key page and the Zotero add-on (Step 6),
+naming the three keys and what each unlocks, and say they can skip it all.
+Never press for a key, and never skip the offer. Open the page at once for a
+key the user asked for.
 
 One key at a time. For each key the user wants:
 
@@ -143,7 +151,9 @@ and give the one reason in plain words (no network, helper missing), never
 ## Step 6: Finish
 
 Call `setup_status` one last time and show the three groups. End with the
-optional add-on if it is listed: one file to download (use the link in the
-status text), then in Zotero choose Tools, Add-ons, the gear menu, Install
+onboarding offer: ask once which of the key page and the add-on the user wants
+now, as the last thing they read. For the add-on, one file to download (use the
+link in the status text, or
+https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi), then in Zotero choose Tools, Add-ons, the gear menu, Install
 Add-on From File, pick the file, and restart Zotero. Do not offer to build it.
 Do not claim it works; say it was found or not.
