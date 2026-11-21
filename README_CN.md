@@ -125,7 +125,7 @@
 
 ### 1. 安装（按客户端选择）
 
-**Claude Desktop**（两种方式都尚未在 Claude Desktop 上实测，且都不加载 Skill）
+**Claude Desktop**
 
 - **让 Agent 代劳**：如果你的 Claude Desktop 里的 Agent 能编辑文件，直接发送下方的安装指令。它会把 Zotero 与全文两个服务写入 `claude_desktop_config.json`（需要 Node.js ≥ 22.13），然后请你完全退出并重新打开应用。
 - **手动安装 `.mcpb`（仅 Zotero 工具）**：
@@ -134,7 +134,7 @@
 
 *注：`.mcpb` 包默认调用 Claude Desktop 内置的 Node.js（具体内置版本尚未逐一核验，本工具包要求 Node.js ≥ 22.13）。*
 
-**Claude Code、Codex、ChatGPT、WorkBuddy 等桌面端**：将以下指令原样发送给客户端即可：
+**Claude Code终端、ChatGPT、WorkBuddy 等桌面端**：将以下指令原样发送给客户端即可：
 
 ```text
 请帮我从
@@ -144,7 +144,7 @@ https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INS
 不要自己添加步骤。装好后，用通俗的话告诉我现在能用什么、我自己还需要做什么。
 ```
 
-**Trae、Qoder**：请参考下方「其他 Agent 与手动安装」折叠部分。
+**其他**：请参考下方「其他 Agent 与手动安装」折叠部分。
 
 ### 2. 首次初始化
 
