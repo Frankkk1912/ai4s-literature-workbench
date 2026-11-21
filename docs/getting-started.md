@@ -19,13 +19,16 @@ them, the journal columns (IF / JCR / CAS) in Zotero.
 
 | Your app | What to do |
 | --- | --- |
-| **Claude Desktop** | Open the [latest release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest), download `ai4s-literature-zotero-<version>.mcpb`, and double-click it (or drag it onto the Claude Desktop window). Accept the install screen and leave both optional settings alone. This installs the Zotero tools only, not the skills or the full-text tools. If your Claude Desktop agent can edit files, you can instead paste the install prompt below and it sets up both servers for you (untested). |
-| **Claude Code, Codex, ChatGPT desktop, WorkBuddy, CodeBuddy** | Paste the install prompt from the [README](../README.md#1-install-pick-your-app) into the app. The agent follows [INSTALL.md](../INSTALL.md) and tells you what works and what needs you. |
+| **Claude desktop Code tab** | Download the release zip, check its checksum, then choose **Settings → Plugins → Add → Upload plugin**. Mac upload is verified; fixed MCP startup is not yet desktop-verified, and the published v0.2.0 zip has broken relative MCP paths. **Add → Add marketplace** with `Frankkk1912/ai4s-literature-workbench` is an unverified source alternative that needs a build. Then `/reload-plugins` or start a new session. `/plugin` opens settings here. See [INSTALL.md](../INSTALL.md#claude-desktop-code-tab). |
+| **Claude desktop Chat** | Upload the same zip for four skills only (verified on Mac). Separately double-click `ai4s-literature-zotero-<version>.mcpb` and click Install for Zotero tools (unverified). Chat ignores plugin-local MCP and currently has no full-text tools. Never let an agent edit `~/Library/Application Support/Claude/`; manual config is a user-only last resort. See [INSTALL.md](../INSTALL.md#claude-desktop-chat). |
+| **Terminal Claude Code, Codex, ChatGPT desktop, WorkBuddy, CodeBuddy** | Paste the install prompt from the [README](../README.md#1-install-pick-your-app) into the app. The agent follows [INSTALL.md](../INSTALL.md) and tells you what works and what needs you. |
 | **Trae, Qoder** | Follow "Other agents & manual install" in the [README](../README.md). |
 
 Tested on a real Windows 11 PC: WorkBuddy through its MCP file, and ChatGPT desktop through its MCP file (that route connects the tools and does not load the skills). Not tested yet: WorkBuddy's in-app marketplace, CodeBuddy, and ChatGPT desktop on a Mac. If a route fails, the agent says which step failed.
 
 ## Step 2: See what works
+
+In skills-only Claude Chat, `ai4s-setup` explains the limitation and the separate extension step; restarting alone will not add plugin-local tools. The search steps below require a host that can run tools and commands.
 
 Ask the agent to run the `ai4s-setup` skill, or just start. It calls a status check and shows three
 groups: **Works now**, **Needs you**, **Optional**. If it says "My search tools are not connected
@@ -33,7 +36,7 @@ yet", restart the app and ask again.
 
 ## Step 3: Add what you want (all optional)
 
-At the end of install the agent offers this step, so you can say yes to what you want and skip the rest. When you want a key, the agent opens a page on your own computer. The page is already signed in,
+At the end of install the agent offers only missing keys and the add-on. If all keys are set, it reminds you that you can ask for the key page to change one. You can skip it all. When you want a key, the agent opens a page on your own computer. The page is already signed in,
 explains why the key is useful, links to where you get it, and has a masked field. Paste the key
 there. The agent cannot see it, and it is never printed in chat.
 

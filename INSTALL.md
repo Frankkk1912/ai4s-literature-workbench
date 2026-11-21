@@ -5,7 +5,7 @@ This file is the only source of install steps. A step that is not here does not 
 ## Rules
 
 1. Run what you can yourself. The user only approves prompts, restarts the app, or clicks where this file says. Tell them up front that you may ask to reach GitHub or the network and that they should choose Allow.
-2. Use the route for the app you are running inside (table below). The Claude desktop app's Code tab is Claude Code. If you cannot tell which app you are in, ask once.
+2. Use the route for the app and entry point below. Claude Code terminal, the desktop Code tab, and desktop Chat have different install steps. If the plugin's skills are visible but `setup_status` and `zotero_*` tools are absent, and this looks like Claude desktop Chat or cannot run commands, use the Chat route without asking which app. Ask once only when the host is genuinely unclear.
 3. When a step fails, go to the next route for that app without asking, and say which step failed and why. Ask only when a step needs the user. If every route fails, name the last failed step and stop.
 4. Never ask for a key in chat and never put one in a command, a file or a tool argument. Keys are optional and search works without any. Keys go only through `open_setup` (see "Onboarding").
 5. Do not approve a prompt for the user (for example Claude Desktop's Install screen), and do not unpack or edit anything this file does not name.
@@ -17,13 +17,14 @@ This file is the only source of install steps. A step that is not here does not 
 
 | You are in | Route | Skills loaded |
 | --- | --- | --- |
-| Claude Code (CLI or the desktop app's Code tab) | [Claude Code](#claude-code) | yes |
+| Claude Code terminal | [Claude Code terminal](#claude-code-terminal) | yes |
+| Claude desktop Code tab | [Claude desktop Code tab](#claude-desktop-code-tab) | yes |
 | Codex | [Codex](#codex) | yes |
 | ChatGPT desktop | [ChatGPT desktop](#chatgpt-desktop) | no, on the config file route |
 | WorkBuddy | [WorkBuddy](#workbuddy) | no, on the `mcp.json` route |
 | CodeBuddy | [CodeBuddy](#codebuddy) | yes |
 | Trae, Qoder | [Trae and Qoder](#trae-and-qoder) | yes |
-| Claude Desktop chat app | [Claude Desktop](#claude-desktop) | no |
+| Claude desktop Chat | [Claude desktop Chat](#claude-desktop-chat) | yes via plugin upload; tools need a separate `.mcpb` |
 
 ## Get the files
 
@@ -48,20 +49,20 @@ Run it with `node`, never with `.ps1` or `.sh` files.
 
 **Which one you have:** `<plugin-root>/runtime/bundle/index.mjs` exists means archive, so nothing needs building.
 
-**Node.js.** Archive and source both need Node.js 22.13 or newer (check `node --version`), except the Claude Desktop `.mcpb`. If it is missing or older, say "I need Node.js, a free standard tool, installed first", give https://nodejs.org/ (current LTS), and re-run once it is installed.
+**Node.js.** Running archive or source tools needs Node.js 22.13 or newer (check `node --version`), except the Claude Desktop `.mcpb`. Uploading the zip for skills-only Chat does not need Node.js. If it is missing or older, say "I need Node.js, a free standard tool, installed first", give https://nodejs.org/ (current LTS), and re-run once it is installed.
 
 ## Routes
 
 Where a route names the GitHub address, an extracted archive folder can stand in for it. Only the `marketplace add` call has been seen to accept a local folder (Codex), so if the app rejects the folder, say so and use source.
 
-### Claude Code
+### Claude Code terminal
 
 ```text
 claude plugin marketplace add Frankkk1912/ai4s-literature-workbench
 claude plugin install ai4s-literature-workbench@ai4s-literature-workbench
 ```
 
-If the `claude` command is not found or is blocked, ask the user to type these in the Claude Code prompt, one at a time. Do not switch to the Claude Desktop `.mcpb`, which has no skills.
+If the `claude` command is not found or is blocked, ask the user to type these in the terminal Claude Code prompt, one at a time. These `/plugin` install commands are for the terminal, not the desktop Code tab. Do not switch to the Claude Desktop `.mcpb`, which has no skills.
 
 ```text
 /plugin marketplace add Frankkk1912/ai4s-literature-workbench
@@ -69,6 +70,14 @@ If the `claude` command is not found or is blocked, ask the user to type these i
 ```
 
 Then build once (source only) and restart Claude Code.
+
+### Claude desktop Code tab
+
+In this tab, `/plugin` opens Settings → Plugins; it does not execute the terminal install commands.
+
+1. Prefer the release zip from "Get the files": download `ai4s-literature-workbench-<version>.zip` and check its checksum. In Settings → Plugins, choose Add → Upload plugin and select the zip. Upload and recognition of both local servers and all four skills are verified on Mac with v0.2.0. That published zip's relative MCP paths fail to start; MCP startup with this repository's path fix is not yet verified in the desktop app. Do not claim the published asset already contains the fix.
+2. Alternative (unverified): choose Add → Add marketplace and enter `Frankkk1912/ai4s-literature-workbench`, then install the plugin. Build once for this GitHub source route.
+3. Run `/reload-plugins` or start a new session, then run "Check at the end". The plugin uses `${CLAUDE_PLUGIN_ROOT}` for both servers, so the session's working folder need not be the plugin folder.
 
 ### Codex
 
@@ -165,42 +174,38 @@ node scripts/install-host.mjs --host trae --target <project-folder>
 node scripts/install-host.mjs --host qoder --target <project-folder>
 ```
 
-### Claude Desktop
+### Claude desktop Chat
 
-Only for the Claude Desktop chat app. Both routes are unverified. Try in order and say which you used. Neither loads the skills.
+**1. Upload the plugin for skills.** Download and check the release zip as above, then choose Settings → Plugins → Add → Upload plugin. Verified on Mac with v0.2.0: all four skills (`literature-research`, `literature-manager`, `literature-writing`, `ai4s-setup`) appear in Chat's `/` menu, but no MCP tools appear. Plugin uploads are stored on the claude.ai account and sync across Chat, Cowork and Code. Chat ignores plugin-local MCP servers, including plugin-declared `.mcpb` bundles; Code loads them. See the official platform matrix:
 
-**1. Config file (no clicks).** Needs Node.js 22.13 or newer and the extracted archive (the servers run from `bundle/index.mjs`). Installs the Zotero and the full-text tools.
+https://claude.com/docs/plugins/platform-support
 
-- File: `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac), `%APPDATA%\Claude\claude_desktop_config.json` (Windows). Create it if missing and say so.
-- Copy it to `claude_desktop_config.json.bak` first. If that exists, pick a new name and tell the user.
-- Add the entries below under `mcpServers`. Keep existing entries. If a name is present, do not add it again. Absolute paths; forward slashes are fine on Windows.
+This is a skills-only install in Chat, not a failed tool connection. Full-text tools are currently unavailable in Chat. For both tool servers, use the Code tab instead. To add Zotero tools to Chat, install the separate desktop extension below; uploading the zip is not enough.
+
+**2. Install the separate `.mcpb` desktop extension (unverified).** Installs the Zotero tools only, not the full-text tools. This is a separate extension install, not a `.mcpb` declared inside the uploaded plugin.
+
+- Download `ai4s-literature-zotero-<version>.mcpb` from the release assets and check it against `SHA256SUMS.txt`. If it is not listed, say so and stop.
+- With a shell, open it so the install screen appears (unverified; relies on Claude Desktop being the app registered for `.mcpb`). Mac: `open <file>`. Windows: `start "" <file>`. With no shell, or if it does not open, hand the file to the user and say it is not installed until they open it (double-click, or drag it onto the Claude Desktop window).
+- The user leaves both settings alone (Zotero key empty, Zotero desktop connection `auto`) and presses Install. Nothing works until then.
+- It needs no separate Node.js because Claude Desktop ships its own. That Node version is unconfirmed and the bundle asks for 22.13 or newer. If the install screen refuses it or the tools do not start, say so; offer the user-only last resort below, or stop if they decline.
+
+**3. Last resort: user-managed config (unverified).** Only if the extension route fails and the user chooses it, give them this JSON to paste themselves. Never read, create, back up, or edit files under `~/Library/Application Support/Claude/` as an agent: this is protected on Mac and agent access was denied in the live test. Do not retry permission requests. Do not edit the Windows config on the user's behalf either.
+
+The user backs up `claude_desktop_config.json`, keeps existing servers, and adds only the missing Zotero entry. File: `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac), `%APPDATA%\Claude\claude_desktop_config.json` (Windows). Needs Node.js 22.13 or newer and an extracted archive. Replace `<absolute-node-path>` and `<plugin-root>` with real absolute paths. This fallback does not load skills or make full-text tools available.
 
 ```json
 {
   "mcpServers": {
     "ai4s-literature-zotero": {
-      "command": "node",
+      "command": "<absolute-node-path>",
       "args": ["<plugin-root>/runtime/bundle/index.mjs"],
       "env": { "LITERATURE_ZOTERO_MCP_TOOL_PROFILE": "workbench" }
-    },
-    "ai4s-literature-fulltext": {
-      "command": "node",
-      "args": ["<plugin-root>/fulltext-runtime/bundle/index.mjs"]
     }
   }
 }
 ```
 
-- Ask the user to quit Claude Desktop completely and reopen it.
-- If `setup_status` is still missing, the app probably cannot find `node`. Put the full path (`which node` on Mac, `where node` on Windows) in `command` for both entries, for example `"command": "/usr/local/bin/node"`, and ask for one more restart.
-- If a server still does not start, say so and use route 2.
-
-**2. `.mcpb` bundle (the user clicks Install once).** Installs the Zotero tools only, not the full-text tools.
-
-- Download `ai4s-literature-zotero-<version>.mcpb` from the release assets and check it against `SHA256SUMS.txt`. If it is not listed, say so and stop.
-- With a shell, open it so the install screen appears (unverified; relies on Claude Desktop being the app registered for `.mcpb`). Mac: `open <file>`. Windows: `start "" <file>`. With no shell, or if it does not open, hand the file to the user and say it is not installed until they open it (double-click, or drag it onto the Claude Desktop window).
-- The user leaves both settings alone (Zotero key empty, Zotero desktop connection `auto`) and presses Install. Nothing works until then.
-- It needs no separate Node.js because Claude Desktop ships its own. That Node version is unconfirmed and the bundle asks for 22.13 or newer. If the install screen refuses it or the tools do not start, say so and stop.
+Ask the user to quit Claude Desktop completely and reopen it, then check for `setup_status`.
 
 ## Check at the end
 
@@ -213,7 +218,7 @@ Only for the Claude Desktop chat app. Both routes are unverified. Try in order a
 
    Show the first titles from the selected-paper table in `report.md`. If it fails, say the search did not run and give the one reason in plain words.
 
-   Routes without skills (ChatGPT desktop, WorkBuddy and Claude Desktop file routes, the `.mcpb`) have no `literature-research/` in the host. Run it from the archive or clone if one is on disk. If not, call `zotero_search_items` with a short query instead and show the result; if Zotero desktop is not running, say that is what the user must do. Say which check you ran. Do not say PubMed search works unless the real search ran.
+   Config-only routes (ChatGPT desktop, WorkBuddy, user-managed Claude config) and a standalone `.mcpb` install do not load `literature-research/`. Run it from the archive or clone if one is on disk. If not, call `zotero_search_items` with a short query instead and show the result; if Zotero desktop is not running, say that is what the user must do. Say which check you ran. Do not say PubMed search works unless the real search ran.
 3. Report in this shape:
 
    ```text
@@ -222,15 +227,17 @@ Only for the Claude Desktop chat app. Both routes are unverified. Try in order a
    Needs you (<count>)
      <one line each: what, and the single action>
    Optional (I can set these up now)
-     Key page: Zotero key (save papers into Zotero), PubMed key (faster search), EasyScholar key (journal ratings)
+     Key page: <only keys setup_status reports as not configured, with what each unlocks>
+     <if all three are set instead: All keys are set; ask for the key page any time to change one.>
      Journal partition columns in Zotero: install the add-on (one file)
    ```
 
-4. Offer the onboarding (next section) in the same message, ask once which the user wants, and wait. Do not end with only the report.
+4. Use `setup_status.diagnostics` presence flags (`zotero_key_present`, `pubmed_key_present`, `easyscholar_key_present`) to select only missing keys for the Key page line; do not infer a missing key from a local Zotero save option or a pending restart. Never print diagnostics or key values. If all three are configured, replace that line with exactly: "All keys are set; ask for the key page any time to change one." This counts as mentioning key onboarding. If status is unavailable, do not guess which keys are missing.
+5. Offer the onboarding (next section) in the same message. Ask once about missing keys and the add-on, not keys already set, and wait. Do not end with only the report.
 
 ## Onboarding
 
-Both parts are optional. Never press for either, but always offer them once after the check, because a user who is not told will not find them.
+Both parts are optional. Mention them once after the check, because a user who is not told will not find them. Offer only keys that `setup_status` reports as missing; when all are set, use the all-keys sentence above instead of asking to configure them again. Still offer the add-on. Never press for either.
 
 **Key page.** Each key unlocks one thing: Zotero (save papers into Zotero), PubMed (faster PubMed search), EasyScholar (journal ratings in reports).
 

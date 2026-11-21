@@ -110,6 +110,20 @@ test("the README's Claude Desktop route names the file the release builds", () =
 	assert.ok(manifestText.includes(".mcpb"));
 });
 
+test("READMEs and getting-started pages keep Claude desktop upload separate from tools", () => {
+	for (const file of [...READMES, "docs/getting-started.md", "docs/getting-started_CN.md"]) {
+		const text = read(file);
+		assert.match(text, /Upload plugin/);
+		assert.match(text, /Add marketplace/);
+		assert.match(text, /\/reload-plugins/);
+		assert.ok(text.includes("~/Library/Application Support/Claude/"), `${file}: missing protected-config warning`);
+		assert.doesNotMatch(text, /if your Claude Desktop agent can edit files|如果你的 Claude Desktop 里的 [Aa]gent 能编辑文件/);
+		for (const block of text.matchAll(/```[^\n]*\n([\s\S]*?)```/g)) {
+			assert.doesNotMatch(block[1], /\[[^\]]+\]\(https?:\/\//, `${file}: Markdown link inside a code block`);
+		}
+	}
+});
+
 test("every relative link in the README and the getting-started pages points at a file that exists", () => {
 	const files = [...READMES, "docs/getting-started.md", "docs/getting-started_CN.md"];
 	for (const file of files) {

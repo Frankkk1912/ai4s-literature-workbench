@@ -144,16 +144,13 @@ Nothing else needs manual installation. On your first search, the workbench asks
 
 ### 1. Installation (Choose Your Client)
 
-**Claude Desktop** *(Neither route has been tested live in Claude Desktop, and neither loads the skills.)*
+**Claude desktop Code tab:** Download `ai4s-literature-workbench-<version>.zip` from [Latest Release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest), check `SHA256SUMS.txt`, then choose **Settings → Plugins → Add → Upload plugin**. Upload and recognition of four skills and two local servers were verified on Mac with v0.2.0; that published zip has broken relative MCP paths. MCP startup with the path fix is not yet desktop-verified or in that published asset. Alternative (unverified): **Add → Add marketplace**, enter `Frankkk1912/ai4s-literature-workbench`, and build the source once. Then `/reload-plugins` or start a new session. In this tab, `/plugin` opens Plugins settings, not the terminal installer.
 
-- **Let the agent do it:** if your Claude Desktop agent can edit files, paste the install prompt below. It adds the Zotero and full-text servers to `claude_desktop_config.json` (needs Node.js ≥ 22.13) and asks you to quit and reopen the app.
-- **Manual `.mcpb` (Zotero tools only):**
-  1. Open [Latest Release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest) and download `ai4s-literature-zotero-<version>.mcpb`.
-  2. Double-click the file or drag it into the Claude Desktop window, leave the two optional settings at their defaults, and press **Install**. **Never paste API keys into chat.**
+**Claude desktop Chat:** Upload the same zip for **four skills only** (verified on Mac); Chat ignores plugin-local MCP servers. For Zotero tools, separately download `ai4s-literature-zotero-<version>.mcpb`, double-click it, leave both optional settings alone and press **Install** (extension install unverified). **Full-text tools are currently unavailable in Chat.** Use Code for both tool servers. Never ask an agent to edit files under `~/Library/Application Support/Claude/`: Mac protects that directory and agent access was denied. Manual config is a user-only last resort in [INSTALL.md](INSTALL.md). Never paste API keys into chat.
 
-*Note: The `.mcpb` package relies on Claude Desktop's bundled Node.js runtime (exact bundled version unverified; this package requires Node.js ≥ 22.13).*
+The separate `.mcpb` uses Claude Desktop's Node.js (version unverified; requires ≥ 22.13). Uploaded plugins sync across Chat, Cowork and Code on the claude.ai account; tool support differs by entry point.
 
-**Claude Code, Codex, ChatGPT desktop, WorkBuddy**: Paste the following prompt verbatim into your client:
+**Terminal Claude Code, Codex, ChatGPT desktop, WorkBuddy**: Paste the following prompt verbatim into your client:
 
 ```text
 Please install the plugin from
@@ -167,11 +164,11 @@ Do not add steps of your own. When it's done, tell me in plain language what wor
 
 If your client prompts for permission to access GitHub or the network, select **Allow** so the installation can complete.
 
-> **Verification status:** Tested on Windows 11 via MCP configuration files for both WorkBuddy and ChatGPT desktop (note that the ChatGPT MCP file route connects tools without loading skills). Not yet verified: WorkBuddy's in-app marketplace, CodeBuddy, ChatGPT desktop on macOS, Claude Desktop, and the Codex plugin command inside ChatGPT desktop.
+> **Verification status:** Tested on Windows 11 via MCP configuration files for both WorkBuddy and ChatGPT desktop (note that the ChatGPT MCP file route connects tools without loading skills). Mac Claude plugin upload and four Chat skills are verified; fixed MCP startup in desktop Code, desktop Add marketplace, and the separate `.mcpb` install remain unverified. Also unverified: WorkBuddy's in-app marketplace, CodeBuddy, ChatGPT desktop on macOS, and the Codex plugin command inside ChatGPT desktop.
 
 ### 2. First Run
 
-The agent runs `ai4s-setup`, summarizes what is currently operational and what local setup remains, and then offers the local key page and the Zotero add-on. Say yes to what you want, or skip it: search works without either.
+Where tools are connected, the agent runs `ai4s-setup`, reports what works and offers only missing keys plus the Zotero add-on. If all keys are set, it says you can ask for the key page to change one. All are optional. In skills-only Claude Chat, setup explains the limitation and guides the separate extension install instead of claiming search works.
 
 - **API keys are optional:** Search, ranking, and drafting work with zero keys. Add keys only through the local setup page, never in chat.
 - **Local Zotero read (keyless):** Enable **Settings → Advanced → Allow other applications on this computer to communicate with Zotero**.
@@ -214,7 +211,7 @@ node scripts/bootstrap.mjs
 
 Use the exact same three commands on Windows. Invoke the script directly via `node`; do not use `.ps1` or `.sh` wrappers.
 
-**Claude Code**
+**Claude Code terminal** (type `/plugin` install commands only in the terminal, not the desktop Code tab)
 
 ```bash
 claude plugin marketplace add Frankkk1912/ai4s-literature-workbench
@@ -254,7 +251,7 @@ node scripts/install-host.mjs --host qoder --target /path/to/project
 ```text
 ai4s-literature-workbench/
 ├── .claude-plugin/            # Claude Code marketplace and plugin manifest
-├── .codebuddy-plugin/         # CodeBuddy marketplace manifest
+├── .codebuddy-plugin/         # CodeBuddy marketplace and plugin manifest
 ├── .codex-plugin/             # Codex manifest and marketplace
 ├── docs/                      # Setup and component guides
 ├── release/launchers/         # Setup AI4S.bat and Setup AI4S.command

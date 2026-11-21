@@ -18,7 +18,7 @@ import { spawnCommand } from './spawn-command.mjs';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -110,6 +110,79 @@ try {
     }
     if (existsSync(join(pluginDir, 'database-browser-runtime'))) throw new Error('The archive must not include database-browser-runtime.');
     if (existsSync(join(pluginDir, 'dsh-plugin'))) throw new Error('The archive must not include dsh-plugin.');
+  });
+
+  await check('Claude and CodeBuddy plugin MCP configs launch archive bundles from a scratch session', async () => {
+    const sdk = join(repoRoot, 'runtime', 'node_modules', '@modelcontextprotocol', 'sdk', 'dist', 'esm', 'client');
+    const { Client } = await import(pathToFileURL(join(sdk, 'index.js')).href);
+    const { StdioClientTransport } = await import(pathToFileURL(join(sdk, 'stdio.js')).href);
+    const scratch = join(work, 'scratch-session');
+    const home = join(work, 'plugin-home');
+    mkdirSync(scratch, { recursive: true });
+    mkdirSync(home, { recursive: true });
+    const env = { ...process.env, HOME: home, USERPROFILE: home, APPDATA: join(home, 'AppData', 'Roaming'), LOCALAPPDATA: join(home, 'AppData', 'Local'), XDG_CONFIG_HOME: join(home, '.config') };
+    for (const key of Object.keys(env)) if (/^(ZOTERO_|ZOTEUS_|LITERATURE_|PUBMED_|EASYSCHOLAR_|NODE_PATH$|NODE_OPTIONS$)/.test(key)) delete env[key];
+    const projectServers = JSON.parse(readFileSync(join(pluginDir, '.mcp.json'), 'utf8')).mcpServers;
+    for (const [host, variable] of [
+      ['claude', '${CLAUDE_PLUGIN_ROOT}'],
+      ['codebuddy', '${CODEBUDDY_PLUGIN_ROOT}'],
+    ]) {
+      const manifest = JSON.parse(readFileSync(join(pluginDir, `.${host}-plugin`, 'plugin.json'), 'utf8'));
+      const servers = manifest.mcpServers;
+      if (JSON.stringify(Object.keys(servers).sort()) !== JSON.stringify(Object.keys(projectServers).sort())) {
+        throw new Error(`${host}: plugin MCP server names differ from .mcp.json.`);
+      }
+      const expand = (value) => value.replaceAll(variable, pluginDir);
+      for (const [name, server] of Object.entries(servers)) {
+        const expectedEntry = projectServers[name].args[0].replace(/^\./, variable);
+        if (server.command !== 'node' || server.cwd !== variable || server.args.length !== 1 || server.args[0] !== expectedEntry || !expectedEntry.endsWith('/bundle/index.mjs')) {
+          throw new Error(`${host}/${name}: expected plugin-root bundle args and cwd, got ${JSON.stringify(server)}.`);
+        }
+        for (const path of [expand(server.cwd), ...server.args.map(expand)]) {
+          const rel = relative(pluginDir, path);
+          if (!isAbsolute(path) || isAbsolute(rel) || rel.startsWith('..') || !existsSync(path)) {
+            throw new Error(`${host}/${name}: ${path} is not an absolute path inside the archive.`);
+          }
+        }
+        // Launch a wrapper from an unrelated cwd, then apply the host-expanded MCP
+        // config exactly. An accidental ./ entry reproduces the desktop failure.
+        const transport = new StdioClientTransport({
+          command: process.execPath,
+          args: ['-e', `
+            const { spawn } = require('node:child_process');
+            const child = spawn(process.execPath, ${JSON.stringify(server.args.map(expand))}, {
+              cwd: ${JSON.stringify(expand(server.cwd))}, stdio: 'inherit'
+            });
+            child.on('error', (error) => { console.error(error); process.exit(1); });
+            child.on('exit', (code) => process.exit(code ?? 1));
+            process.on('SIGTERM', () => child.kill());
+          `],
+          cwd: scratch,
+          env: { ...env, ...server.env, ZOTEUS_LOCAL: 'off' },
+          stderr: 'pipe',
+        });
+        let stderr = '';
+        transport.stderr?.on('data', (chunk) => { stderr += chunk; });
+        const client = new Client({ name: 'ai4s-plugin-path-verify', version: '0.1.0' });
+        let timer;
+        try {
+          await Promise.race([
+            (async () => {
+              await client.connect(transport);
+              const { tools } = await client.listTools();
+              const expected = name.endsWith('-zotero') ? 'setup_status' : 'fulltext_capabilities';
+              if (!tools.some((tool) => tool.name === expected)) throw new Error(`${host}/${name}: ${expected} missing.`);
+            })(),
+            new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${host}/${name}: timed out.`)), 60_000); }),
+          ]);
+        } catch (error) {
+          throw new Error(`${error.message}\n${stderr}`);
+        } finally {
+          clearTimeout(timer);
+          await client.close().catch(() => {});
+        }
+      }
+    }
   });
 
   const bundleRun = spawnCommand(process.execPath, [join(repoRoot, 'scripts', 'verify-bundles.mjs'), '--plugin-dir', pluginDir], { encoding: 'utf8' });

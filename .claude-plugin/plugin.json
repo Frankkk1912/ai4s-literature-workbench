@@ -9,6 +9,23 @@
   "homepage": "https://github.com/Frankkk1912/ai4s-literature-workbench",
   "repository": "https://github.com/Frankkk1912/ai4s-literature-workbench",
   "license": "MIT",
+  "mcpServers": {
+    "ai4s-literature-zotero": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/runtime/dist/index.js"],
+      "cwd": "${CLAUDE_PLUGIN_ROOT}",
+      "env": {
+        "LITERATURE_ZOTERO_MCP_TOOL_PROFILE": "workbench",
+        "ZOTEUS_LOCAL": "auto",
+        "ZOTEUS_EMBEDDINGS": "off"
+      }
+    },
+    "ai4s-literature-fulltext": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/fulltext-runtime/dist/index.js"],
+      "cwd": "${CLAUDE_PLUGIN_ROOT}"
+    }
+  },
   "keywords": [
     "literature",
     "zotero",

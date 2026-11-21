@@ -127,23 +127,30 @@ for (const file of [
   cpSync(join(repoRoot, file), join(pluginRoot, file));
 }
 
-// The archive's .mcp.json runs the bundles instead of dist/ folders that do not exist here.
-const mcp = readJson('.mcp.json');
-const rewrites = new Map([
-  ['./runtime/dist/index.js', './runtime/bundle/index.mjs'],
-  ['./fulltext-runtime/dist/index.js', './fulltext-runtime/bundle/index.mjs'],
-]);
-let rewritten = 0;
-for (const server of Object.values(mcp.mcpServers)) {
-  server.args = server.args.map((arg) => {
-    if (!rewrites.has(arg)) return arg;
-    rewritten += 1;
-    return rewrites.get(arg);
-  });
+// Rewrite every host's source entries to bundles. Keep the root .mcp.json relative
+// for other hosts; Claude and CodeBuddy expand their own plugin-root variables.
+for (const [file, prefix] of [
+  ['.mcp.json', '.'],
+  ['.claude-plugin/plugin.json', '${CLAUDE_PLUGIN_ROOT}'],
+  ['.codebuddy-plugin/plugin.json', '${CODEBUDDY_PLUGIN_ROOT}'],
+]) {
+  const config = readJson(file);
+  const rewrites = new Map([
+    [`${prefix}/runtime/dist/index.js`, `${prefix}/runtime/bundle/index.mjs`],
+    [`${prefix}/fulltext-runtime/dist/index.js`, `${prefix}/fulltext-runtime/bundle/index.mjs`],
+  ]);
+  let rewritten = 0;
+  for (const server of Object.values(config.mcpServers)) {
+    server.args = server.args.map((arg) => {
+      if (!rewrites.has(arg)) return arg;
+      rewritten += 1;
+      return rewrites.get(arg);
+    });
+  }
+  if (JSON.stringify(config).includes('database-browser')) fail(`${file} must not start a database-browser runtime.`);
+  if (rewritten !== rewrites.size) fail(`${file} no longer has the expected dist entries (rewrote ${rewritten} of ${rewrites.size}).`);
+  writeFileSync(join(pluginRoot, file), `${JSON.stringify(config, null, 2)}\n`);
 }
-if (JSON.stringify(mcp).includes('database-browser')) fail('.mcp.json must not start a database-browser runtime.');
-if (rewritten !== rewrites.size) fail(`.mcp.json no longer has the expected dist entries (rewrote ${rewritten} of ${rewrites.size}).`);
-writeFileSync(join(pluginRoot, '.mcp.json'), `${JSON.stringify(mcp, null, 2)}\n`);
 
 const zipPath = join(outDir, `${pluginName}.zip`);
 if (isWindows) {
