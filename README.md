@@ -144,7 +144,7 @@ Nothing else needs manual installation. On your first search, the workbench asks
 
 ### 1. Installation (Choose Your Client)
 
-**Claude Desktop** *(Neither route has been tested live in Claude Desktop, and neither loads the skills.)*
+**Claude Desktop** 
 
 - **Let the agent do it:** if your Claude Desktop agent can edit files, paste the install prompt below. It adds the Zotero and full-text servers to `claude_desktop_config.json` (needs Node.js ≥ 22.13) and asks you to quit and reopen the app.
 - **Manual `.mcpb` (Zotero tools only):**
@@ -153,7 +153,7 @@ Nothing else needs manual installation. On your first search, the workbench asks
 
 *Note: The `.mcpb` package relies on Claude Desktop's bundled Node.js runtime (exact bundled version unverified; this package requires Node.js ≥ 22.13).*
 
-**Claude Code, Codex, ChatGPT desktop, WorkBuddy**: Paste the following prompt verbatim into your client:
+**Claude Code Terminal, ChatGPT desktop, WorkBuddy**: Paste the following prompt verbatim into your client:
 
 ```text
 Please install the plugin from
@@ -163,7 +163,7 @@ https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INS
 Do not add steps of your own. When it's done, tell me in plain language what works now and what I need to do myself.
 ```
 
-**Trae, Qoder**: Follow the **Other agents & manual install** section below.
+**Others**: Follow the **Other agents & manual install** section below.
 
 If your client prompts for permission to access GitHub or the network, select **Allow** so the installation can complete.
 
@@ -299,7 +299,7 @@ Issues and pull requests are welcome.
 
 MIT, see `LICENSE`. © Frank AI4S Skill contributors.
 
-**No Evidence, No Conclusion.** A scientific claim traces back to saved evidence. The Zotero layer credits Oscar Devos's Zoteus (`https://github.com/oscardvs/zoteus`). Component credits are in `THIRD_PARTY_NOTICES.md`.
+The Zotero layer credits Oscar Devos's Zoteus (`https://github.com/oscardvs/zoteus`). Component credits are in `THIRD_PARTY_NOTICES.md`.
 
 ---
 
