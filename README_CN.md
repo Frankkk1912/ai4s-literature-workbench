@@ -125,14 +125,16 @@
 
 ### 1. 安装（按客户端选择）
 
-**Claude Desktop**
+**Claude Desktop**（两种方式都尚未在 Claude Desktop 上实测，且都不加载 Skill）
 
-1. 前往 [Latest Release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest)，下载 `ai4s-literature-zotero-<版本号>.mcpb`。
-2. 双击文件或直接拖入 Claude Desktop 窗口。两个可选设置保持默认即可，**不要将任何 API 密钥粘贴到对话窗口中**。
+- **让 Agent 代劳**：如果你的 Claude Desktop 里的 Agent 能编辑文件，直接发送下方的安装指令。它会把 Zotero 与全文两个服务写入 `claude_desktop_config.json`（需要 Node.js ≥ 22.13），然后请你完全退出并重新打开应用。
+- **手动安装 `.mcpb`（仅 Zotero 工具）**：
+  1. 前往 [Latest Release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest)，下载 `ai4s-literature-zotero-<版本号>.mcpb`。
+  2. 双击文件或直接拖入 Claude Desktop 窗口，两个可选设置保持默认，点击 **安装**。**不要将任何 API 密钥粘贴到对话窗口中**。
 
 *注：`.mcpb` 包默认调用 Claude Desktop 内置的 Node.js（具体内置版本尚未逐一核验，本工具包要求 Node.js ≥ 22.13）。*
 
-**Claude Code、ChatGPT、WorkBuddy 等桌面端**：将以下指令原样发送给客户端即可：
+**Claude Code、Codex、ChatGPT、WorkBuddy 等桌面端**：将以下指令原样发送给客户端即可：
 
 ```text
 请帮我从
@@ -146,7 +148,7 @@ https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INS
 
 ### 2. 首次初始化
 
-安装完成后，Agent 会自动运行 `ai4s-setup`，向你汇报当前已就绪的功能和待完成的本地配置：
+安装完成后，Agent 会自动运行 `ai4s-setup`，向你汇报当前已就绪的功能和待完成的本地配置，并询问是否现在打开本地密钥页、安装 Zotero 插件。需要就答应，不需要可以跳过，检索照常可用：
 
 - **API 密钥非必需**：文献检索、排序和起草均可零配置使用。如需补充密钥，请在本地配置页填写，切勿直接发到聊天框。
 - **开启本地 Zotero 读取（免密钥）**：在 Zotero 中打开 **设置 → 高级**，勾选 **允许这台电脑上的其他应用与 Zotero 通信**。
@@ -196,7 +198,7 @@ claude plugin install ai4s-literature-workbench@ai4s-literature-workbench
 
 ```bash
 codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-workbench.git
-codex plugin add ai4s-literature-workbench@personal
+codex plugin add ai4s-literature-workbench@ai4s-literature-workbench
 ```
 
 **ChatGPT 桌面版**：优先采用上方「发送安装指令」的方式。若需手动配置，本机已安装 `codex` CLI 时可直接复用上述 Codex 命令；否则请参照 [INSTALL.md](INSTALL.md) 配置 MCP 文件（注意：仅通过 MCP 配置文件接入不会自动加载 Skill）。该路径已在 Windows 11 验证，macOS 尚未实测。

@@ -92,11 +92,9 @@ test("no skill sends a beginner to onboard.mjs, and none names an internal ID", 
 test("INSTALL.md and install-manifest.json agree on the archive check and the Windows host results", () => {
 	const blob = JSON.stringify(manifest);
 	assert.equal(manifest.get_files.release_archive.status, "published");
-	assert.match(manifest.get_files.release_archive.note, /ai4s-literature-workbench-0\.1\.0\.zip/);
 	assert.match(manifest.get_files.release_archive.note, /\.codex-plugin\/plugin\.json/);
 	for (const phrase of [
 		"https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/.codex-plugin/plugin.json",
-		"ai4s-literature-workbench-0.1.0.zip",
 		"ChatGPT desktop",
 		"config.toml",
 		"Skills are not loaded by this route",

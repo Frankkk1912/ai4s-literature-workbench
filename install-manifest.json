@@ -13,7 +13,8 @@
     "status_tool": "setup_status",
     "status_shape": "Three groups, works_now, needs_you and optional, each item with Chinese and English text. rendered.zh and rendered.en hold the text to show. Chinese is the default.",
     "smoke_test_runner": "search_helper.run from setup_status (run.posix or run.powershell) replaces uv run; install_search_helper downloads the pinned helper when setup_status lists search under Needs you",
-    "smoke_test": "uv run literature-research/scripts/literature_search.py review --question \"setup check\" --pubmed-query \"CRISPR base editing[Title]\" --limit 3 --top-n 3 --output <private-temp>/ai4s-setup-check"
+    "smoke_test": "uv run literature-research/scripts/literature_search.py review --question \"setup check\" --pubmed-query \"CRISPR base editing[Title]\" --limit 3 --top-n 3 --output <private-temp>/ai4s-setup-check",
+    "finish": "After the end check, offer once: the key page (zotero, pubmed, easyscholar via open_setup) and the Zotero add-on at https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/literature-metrics.xpi (install by hand: Tools, Add-ons, gear menu, Install Add-on From File, restart Zotero). The partition columns need an EasyScholar key to fill in."
   },
   "keys": {
     "rule": "Never in chat and never in a command or tool argument. Optional: search needs no key. Ask only for a key that unlocks something the user asked for.",
@@ -39,32 +40,35 @@
         "claude plugin install ai4s-literature-workbench@ai4s-literature-workbench",
         "after_install",
         "restart Claude Code"
-      ]
+      ],
+      "note": "Includes the Claude desktop app's Code tab. This route loads the skills; do not replace it with the Claude Desktop .mcpb. If the claude command is not found or is blocked, ask the user to type /plugin marketplace add Frankkk1912/ai4s-literature-workbench and /plugin install ai4s-literature-workbench@ai4s-literature-workbench in the Claude Code prompt."
     },
     "codex": {
       "label": "Codex",
       "status": "documented",
       "steps": [
         "codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-workbench.git",
-        "codex plugin add ai4s-literature-workbench@personal",
+        "codex plugin add ai4s-literature-workbench@ai4s-literature-workbench",
         "after_install",
         "restart Codex"
-      ]
+      ],
+      "note": "The text after @ is the marketplace name Codex registered. In a ChatGPT desktop run it was ai4s-literature-workbench (from .claude-plugin/marketplace.json); @personal, the name in .codex-plugin/marketplace.json, was not found. If plugin add says not found, read the name from codex plugin marketplace list. If it still fails, use the config.toml route (~/.codex/config.toml)."
     },
     "chatgpt-desktop": {
       "label": "ChatGPT desktop",
       "status": "verified",
       "status_applies_to": "routes.mcp_config on Windows 11 only",
-      "note": "Codex-based host. The in-app agent may not be able to run codex plugin marketplace add. Try the Codex plugin route when the codex CLI is available; that route is unverified inside ChatGPT desktop. Otherwise append the two servers from .mcp.json to config.toml, using absolute paths. Windows: %USERPROFILE%\\.codex\\config.toml. Mac: ~/.codex/config.toml (unverified). Back up the file first, keep existing entries, and do not duplicate [mcp_servers.ai4s-literature-zotero] or [mcp_servers.ai4s-literature-fulltext]. Source args are runtime/dist/index.js and fulltext-runtime/dist/index.js, with an [mcp_servers.<name>.env] table. Verified on Windows 11 for that source shape with command node and LITERATURE_ZOTERO_MCP_TOOL_PROFILE=workbench. Also copy any other env keys .mcp.json lists (ZOTEUS_LOCAL and ZOTEUS_EMBEDDINGS today); those two were not recorded in the Windows check. Archive args use runtime/bundle/index.mjs and fulltext-runtime/bundle/index.mjs and are unverified on this host. Then the user restarts the app. Skills are not loaded by this route.",
+      "note": "Codex-based host. The in-app agent may not be able to run codex plugin marketplace add. Try the Codex plugin route when the codex CLI is available; that route is unverified inside ChatGPT desktop. Otherwise append the two servers from .mcp.json to config.toml, using absolute paths. Windows: %USERPROFILE%\\.codex\\config.toml. Mac: ~/.codex/config.toml (unverified). Back up the file first, keep existing entries, and do not duplicate [mcp_servers.ai4s-literature-zotero] or [mcp_servers.ai4s-literature-fulltext]. Source args are runtime/dist/index.js and fulltext-runtime/dist/index.js, with an [mcp_servers.<name>.env] table. Verified on Windows 11 for that source shape with command node and LITERATURE_ZOTERO_MCP_TOOL_PROFILE=workbench. Archive args use runtime/bundle/index.mjs and fulltext-runtime/bundle/index.mjs and are unverified on this host. Then the user restarts the app. Skills are not loaded by this route.",
       "routes": {
         "codex_plugin": {
           "status": "unverified",
           "steps": [
             "codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-workbench.git",
-            "codex plugin add ai4s-literature-workbench@personal",
+            "codex plugin add ai4s-literature-workbench@ai4s-literature-workbench",
             "after_install",
             "restart ChatGPT desktop"
-          ]
+          ],
+          "note": "marketplace add worked in one ChatGPT desktop run; plugin add failed under @personal. Use @ai4s-literature-workbench. The full install is not confirmed. On any failure go straight to routes.mcp_config."
         },
         "mcp_config": {
           "status": "verified",
@@ -112,7 +116,8 @@
           "status": "verified",
           "verified_on": "Windows 11"
         }
-      }
+      },
+      "restart_note": "In one run, restarting WorkBuddy did not switch on the two new custom servers in mcp.json: setup_status stayed missing although both servers started and listed their tools when run by hand (archive bundle/index.mjs paths). If setup_status is still missing after the restart, check mcp.json and node, then ask the user to enable or trust ai4s-literature-zotero and ai4s-literature-fulltext in WorkBuddy's connector settings (menu names unconfirmed). Do not report anything as working until the end check passes."
     },
     "codebuddy": {
       "label": "CodeBuddy",
@@ -153,23 +158,45 @@
         "restart Claude Desktop"
       ],
       "covers": "Zotero tools only. Not the three skills and not the full-text tools.",
-      "note": "Built and validated with the mcpb CLI by CI; not yet installed in Claude Desktop, and the Node version it ships is unconfirmed (the bundle asks for 22.13 or newer). If the releases page does not list the file, say so. The key page is also available through open_setup."
+      "note": "Try routes.mcp_config first when Node 22.13+ is present and files can be written; otherwise routes.mcpb. Built and validated with the mcpb CLI by CI; not yet installed in Claude Desktop, and the Node version it ships is unconfirmed (the bundle asks for 22.13 or newer). If the releases page does not list the file, say so. The key page is also available through open_setup. Only for the Claude Desktop chat app. If the agent cannot click in the app it downloads the file, checks it against SHA256SUMS.txt, hands it over, and says it is not installed until the user opens it. This route has no literature-research skill, so the end check uses setup_status plus one read-only Zotero call such as zotero_search_items. With a shell, open the file for the user (open <file>.mcpb on Mac, start \"\" <file>.mcpb on Windows; unverified) so only the Install click is left. Never unpack it into Claude Desktop's folders or click Install for the user.",
+      "routes": {
+        "mcp_config": {
+          "status": "unverified",
+          "paths": {
+            "mac": "~/Library/Application Support/Claude/claude_desktop_config.json",
+            "windows": "%APPDATA%\\Claude\\claude_desktop_config.json"
+          },
+          "steps": [
+            "need Node.js 22.13 or newer and the release archive extracted",
+            "back up claude_desktop_config.json",
+            "add ai4s-literature-zotero and ai4s-literature-fulltext under mcpServers with absolute paths to runtime/bundle/index.mjs and fulltext-runtime/bundle/index.mjs; env for zotero: LITERATURE_ZOTERO_MCP_TOOL_PROFILE=workbench only",
+            "keep existing servers, do not duplicate",
+            "quit and reopen Claude Desktop",
+            "if setup_status is missing, use the full path to node as command and restart once more"
+          ],
+          "covers": "Zotero and full-text tools. Not the three skills."
+        },
+        "mcpb": {
+          "status": "unverified",
+          "note": "One click left for the user (Install). With a shell, open the file for them."
+        }
+      }
     }
   },
   "get_files": {
     "release_archive": {
       "status": "published",
       "asset": "ai4s-literature-workbench-<version>.zip",
-      "published_example": "v0.1.0 publishes ai4s-literature-workbench-0.1.0.zip",
       "from": "https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest",
-      "version_check": "Read version from https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/.codex-plugin/plugin.json. The release version is the latest release tag without a leading v. Compare dotted numbers from the left; equal counts as current. Use this archive only when the release version is the same or newer and the zip is listed. If the release is older than main, or the zip is missing, use the source route and say which. Do not compare the archive's own plugin.json to the release.",
+      "version_check": "Read version from https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/.codex-plugin/plugin.json. The release version is the latest release tag without a leading v. Compare dotted numbers from the left; equal counts as current. Use this archive only when the release version is the same or newer and the zip is listed. If the release is older than main, or the zip is missing, use the source route and say which. Do not compare the archive's own plugin.json to the release. If the release page or API will not load, the tag is the redirect target of https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest, and the zip is listed when its name appears in SHA256SUMS.txt.",
       "checksums": "SHA256SUMS.txt on the same page",
       "build_needed": false,
       "requires": "Node.js 22.13 or newer on the computer, except for Claude Desktop",
       "detect": "<plugin-root>/runtime/bundle/index.mjs exists",
       "keys": "Keys are entered through open_setup, or by double-clicking Setup AI4S.bat or Setup AI4S.command in the archive folder. scripts/onboard.mjs is not in the archive.",
-      "note": "Use the extracted folder wherever a host route names the GitHub address. Read version from https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/.codex-plugin/plugin.json on main. v0.1.0 publishes ai4s-literature-workbench-0.1.0.zip. CI builds and checks the archive. Installing it through a host has not been tested. If the latest release's version is older than version in .codex-plugin/plugin.json on main, or the zip is not listed, use the source route and say so.",
-      "launchers": "Setup AI4S.bat (Windows) and Setup AI4S.command (Mac) in the archive folder. Each runs: node runtime/bundle/index.mjs --setup. They need Node.js 22.13 or newer. On a Mac the first double-click may need right-click, Open."
+      "note": "Use the extracted folder wherever a host route names the GitHub address. Read version from https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/.codex-plugin/plugin.json on main. CI builds and checks the archive. If the latest release's version is older than version in .codex-plugin/plugin.json on main, or the zip is not listed, use the source route and say so.",
+      "launchers": "Setup AI4S.bat (Windows) and Setup AI4S.command (Mac) in the archive folder. Each runs: node runtime/bundle/index.mjs --setup. They need Node.js 22.13 or newer. On a Mac the first double-click may need right-click, Open.",
+      "direct_download": "https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest/download/<file>, for when the release page or API will not load. Check the file against SHA256SUMS.txt before use."
     },
     "source": {
       "status": "documented",
@@ -178,5 +205,11 @@
       "requires": "Node.js 22.13 or newer",
       "locate_plugin_root": "The folder that contains scripts/bootstrap.mjs and .mcp.json. Search for it; do not guess."
     }
-  }
+  },
+  "rules": [
+    "Route by the app you are running inside. The Claude desktop app's Code tab is Claude Code; the Claude Desktop route is only for the Claude Desktop chat app.",
+    "When a step fails, go to the next route for that app without asking, and say which step failed. Stop only after every route failed.",
+    "A fetch tool that only summarises a page is not enough: download the raw file or clone the repository.",
+    "Setup ends with an onboarding offer: tell the user the local key page (open_setup) and the Zotero add-on exist and ask which they want. Never press for a key, never skip the offer."
+  ]
 }

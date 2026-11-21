@@ -16,7 +16,7 @@
 
 | 你用的应用 | 怎么做 |
 | --- | --- |
-| **Claude Desktop** | 打开[最新发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest)，下载 `ai4s-literature-zotero-<版本号>.mcpb`，双击它（或拖进 Claude Desktop 窗口）。在安装界面点确认，两个可选设置保持默认。这样装上的只有 Zotero 工具，不含技能和全文工具。 |
+| **Claude Desktop** | 打开[最新发布页](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest)，下载 `ai4s-literature-zotero-<版本号>.mcpb`，双击它（或拖进 Claude Desktop 窗口）。在安装界面点确认，两个可选设置保持默认。这样装上的只有 Zotero 工具，不含技能和全文工具。如果你的 Claude Desktop 里的 agent 能编辑文件，也可以改为发送下面的安装指令，让它帮你配置两个服务（尚未实测）。 |
 | **Claude Code、Codex、ChatGPT 桌面版、WorkBuddy、CodeBuddy** | 把 [README_CN](../README_CN.md#1-安装选你用的应用) 里的安装指令发给应用。agent 会按 [INSTALL.md](../INSTALL.md) 操作，并告诉你哪些已经能用、哪些需要你处理。 |
 | **Trae、Qoder** | 按 [README_CN](../README_CN.md) 里“其他 agent 与手动安装”操作。 |
 
@@ -28,7 +28,7 @@
 
 ## 第 3 步：按需添加（全部可选）
 
-需要密钥时，agent 会在你自己的电脑上打开一个页面。页面已经完成配对，会说明这个密钥有什么用、给出申请链接，并提供一个隐藏输入的框。把密钥贴到这里：agent 看不到它，聊天里也不会显示它。
+安装结束时 agent 会主动问你要不要做这一步，需要的就答应，其余可以跳过。需要密钥时，agent 会在你自己的电脑上打开一个页面。页面已经完成配对，会说明这个密钥有什么用、给出申请链接，并提供一个隐藏输入的框。把密钥贴到这里：agent 看不到它，聊天里也不会显示它。
 
 | 你想要 | 你需要 | 在哪里设置 |
 | --- | --- | --- |
