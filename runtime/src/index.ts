@@ -23,7 +23,9 @@ function flag(name: string): string | undefined {
   return next && !next.startsWith('--') ? next : '';
 }
 
-const VERSION = '0.2.1';
+import { SERVER_VERSION } from './lib/server-identity.js';
+
+const VERSION = SERVER_VERSION;
 
 async function main(): Promise<void> {
   // The double-click launchers run this. It needs no Zotero connection, so it runs before one is made.

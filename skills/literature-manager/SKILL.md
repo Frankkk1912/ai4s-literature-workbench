@@ -28,11 +28,26 @@ afterwards and continue only if `setup_status` answers.
 
 If it answers, read the `zotero_read` and `zotero_save` items. Reading the
 library works through the Zotero desktop app without a key; saving needs a
-Zotero key. When the task writes and `zotero_save` is under Needs you, say so in
+Zotero Key. When the task writes and `zotero_save` is under Needs you, say so in
 plain words and use the `ai4s-setup` skill to open the masked key page; never
 ask for the key in chat. A key saved after the app started takes effect after a
 restart. Never say "not configured". Do not write to Zotero until
 `zotero_save` is under Works now.
+
+Trust the status fields instead of probing. `zotero_whoami` reports
+`write_channel` (a write-capable Zotero key and/or Zotero 10 desktop saving),
+`profile`, `read_only`, `hidden_tools`, and the server identity
+(`ai4s-literature-zotero` plus version); `setup_status` renders the same facts
+as the three groups. Read them; do not test-write Zotero to find out what you
+can do, and do not guess whether a merge or a save is possible.
+
+Keep reads small and answers shorter. `zotero_search_items` and
+`zotero_get_item` return concise projections by default; ask for
+`response_format: "detailed"` only when the next step needs the full record
+(a write's `version`, `collections`, or `tags`). Do not paste long tool
+output or JSON back into the conversation: summarize the rows that matter,
+and page with `start`/`limit` when `totalResults` exceeds one page. A simple
+lookup needs one search call and one sentence, not the full workflow.
 
 The scripts below need the search helper too. If the `search` item is under
 Needs you, ask once in plain words, and after a yes call
@@ -49,6 +64,23 @@ error, the script's message carries the fix: export the organization's root
 certificate as a PEM file and set `SSL_CERT_FILE` or `REQUESTS_CA_BUNDLE`.
 Never suggest disabling verification; `LITERATURE_TLS_INSECURE=1` exists only
 as an explicit, loudly warned override for trusted-network troubleshooting. Do not add the helper to PATH or install another copy.
+
+## One-step entries that already exist
+
+Do not wrap these in a longer flow or rebuild them with scripts:
+
+- **Journal metrics backfill**: `zotero_backfill_metrics` with a collection key
+  or item keys. The default mode is a no-write dry run; apply only after Frank
+  approves the exact `plan_hash`.
+- **Duplicate cleanup**: `zotero_find_duplicates` (read-only audit) then
+  `zotero_apply_dedupe_plan` with the plan Frank confirmed. Final merges still
+  happen only through that reviewed plan, never ad hoc.
+- **Backfilling a PMID onto an existing item**: fetch the item with
+  `zotero_get_item` (`response_format: "detailed"`), append one
+  `PMID: <number>` line to `extra` while keeping every existing Extra line,
+  then call `zotero_update_item` with `dry_run: true` and write only after Frank
+  approves the diff. Never import a second copy of a paper that already exists
+  just to carry its PMID.
 
 ## Overview
 Use this skill to connect saved literature evidence with Frank's Zotero library

@@ -97,3 +97,32 @@ test("the page script takes the code out of the address bar before it does anyth
 	assert.deepEqual(stores, ["localStorage?.setItem(LANG_STORE_KEY, value)"]);
 	assert.doesNotMatch(source, /sessionStorage|document\.cookie\s*=/);
 });
+
+test("the page explains the self-check groups, the network check, and hidden tools in plain words", () => {
+	const html = readFileSync(new URL("../runtime/src/public/onboarding/index.html", import.meta.url), "utf8");
+	for (const id of ["self-check-help", "self-check-summary", "self-check-text"]) {
+		assert.ok(html.includes(`id="${id}"`), `index.html is missing #${id}`);
+	}
+	const source = readFileSync(new URL("../runtime/src/public/onboarding/app.js", import.meta.url), "utf8");
+	// Both languages exist for the two new nodes, and the page's own no-network
+	// promise stays untouched: only the agent's self-check probes the network.
+	for (const id of ["#self-check-summary", "#self-check-text"]) {
+		const at = source.indexOf(`'${id}'`);
+		assert.ok(at > 0, `app.js STATIC_TEXT is missing ${id}`);
+		const block = source.slice(at, source.indexOf("],", at));
+		assert.match(block, /现在可用|需要你处理|可选/, `${id}: Chinese text missing`);
+		assert.match(block, /Works now|Needs you|Optional/, `${id}: English text missing`);
+	}
+	const note = source.split("'#status-note'")[1].split("],")[0];
+	assert.match(note, /读取状态不代表执行连接测试/);
+	assert.match(note, /does not test any connection/);
+});
+
+test("the self-check explanation names the three groups and says search waits for the network", () => {
+	const source = readFileSync(new URL("../runtime/src/public/onboarding/app.js", import.meta.url), "utf8");
+	const text = source.split("'#self-check-text'")[1].split("],")[0];
+	// The groups are explained in plain words, not by field names.
+	assert.doesNotMatch(text, /diagnostics|probe_network|hidden_tools/);
+	assert.match(text, /隐藏了哪些工具|which tools the current setup hides/);
+	assert.match(text, /不带密钥的只读小请求|key-free, read-only/);
+});

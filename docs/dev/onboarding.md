@@ -45,7 +45,7 @@ copied out of a terminal. Two tools in the `workbench` profile:
 
 | Tool | What it does |
 | --- | --- |
-| `setup_status` | Read-only. Reports capabilities in three groups (works now, needs you, optional) in Chinese and English, Chinese by default. Reads settings on this computer and tests no key. Never returns a key. |
+| `setup_status` | Read-only. Reports capabilities in three groups (works now, needs you, optional) in Chinese and English, Chinese by default. Reads settings on this computer and, by default, makes one key-free, read-only network probe per endpoint the workbench actually uses (Zotero Web API, PubMed, Europe PMC, EasyScholar, and optional OpenAlex; pass `probe_network: false` to skip). Also reports this server's identity (name `ai4s-literature-zotero`, version, install route), the active tool profile, whether the process is read-only, the write channel, and the tools hidden by the current profile. When a required endpoint fails, online search is moved to Needs you rather than reported as available. Never returns a key. |
 | `open_setup` | Starts the wizard on `127.0.0.1` with a random port and opens the default browser on it. `keys` names the keys to offer, one at a time, each with a reason, a link and Skip. Returns `opened`, a plain `url`, and `fallback_code` only when the browser could not be opened. |
 
 `node runtime/bundle/index.mjs --setup` (the double-click launchers run this)

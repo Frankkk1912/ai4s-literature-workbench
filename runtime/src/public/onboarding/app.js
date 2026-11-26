@@ -743,6 +743,16 @@ const STATIC_TEXT = [
   ['#refresh-status', '刷新状态', 'Refresh'],
   ['#status-title', '配置状态', 'Configuration status'],
   ['#status-note', '读取状态不代表执行连接测试。', 'Reading the status does not test any connection.'],
+  [
+    '#self-check-summary',
+    '“现在可用 / 需要你处理 / 可选”是怎么来的？',
+    'Where do “Works now / Needs you / Optional” come from?',
+  ],
+  [
+    '#self-check-text',
+    '助手运行一次自检，把现状分成三组：现在可用（马上就能做）、需要你处理（需要你点一个链接、粘贴一个密钥或重启应用）、可选（不填也不影响检索）。自检还会向 Zotero、PubMed、Europe PMC、EasyScholar 各发一个不带密钥的只读小请求来确认联网正常——哪个必测服务不通，联网检索在恢复前就不算可用。它也会说明当前配置下隐藏了哪些工具。这个页面本身只读取本机设置，不做联网测试。',
+    'The assistant runs a self-check that sorts things into three groups: Works now (ready at once), Needs you (you click a link, paste a key, or restart the app), and Optional (search works without them). The self-check also sends one key-free, read-only little request to Zotero, PubMed, Europe PMC and EasyScholar to confirm the network — while a required service is unreachable, online search does not count as available. It also explains which tools the current setup hides. This page itself only reads local settings; it performs no network test.',
+  ],
   ['#refresh-dashboard', '刷新状态', 'Refresh'],
   ['#lang-toggle', 'English', '中文'],
 ];

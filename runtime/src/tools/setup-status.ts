@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { ToolDefinition } from '../registry/registry.js';
 import { ok } from '../registry/registry.js';
 import { CAPABILITY_IDS, buildSetupStatus, gatherFacts } from '../lib/setup-status.js';
+import { serverIdentity } from '../lib/server-identity.js';
 import { currentSearchHelperInstall, probeSearchHelper } from '../lib/search-helper.js';
 import { probeNetworkEndpoints } from '../lib/net-probe.js';
 import { tlsInsecureEnabled } from '../lib/tls.js';
@@ -53,6 +54,11 @@ const setupStatus: ToolDefinition = {
       probes,
       hiddenTools: ctx.hiddenTools ?? [],
       tlsInsecure: tlsInsecureEnabled(process.env),
+      identity: {
+        server: serverIdentity(process.env),
+        profile: ctx.config.toolProfile ?? 'full',
+        readOnly: ctx.config.readOnly ?? false,
+      },
     });
     return ok({ ...status }, status.rendered[status.language]);
   },

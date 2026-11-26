@@ -179,6 +179,17 @@ button:disabled {
 .dashboard-note {
   margin-top: 6px;
 }
+.self-check-help {
+  margin-top: 10px;
+}
+.self-check-help summary {
+  cursor: pointer;
+  color: #33544a;
+  font-size: 0.9rem;
+}
+.self-check-help[open] summary {
+  margin-bottom: 4px;
+}
 .dashboard-section + .dashboard-section {
   margin-top: 12px;
 }

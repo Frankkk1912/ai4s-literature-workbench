@@ -7,6 +7,7 @@ import { WebApiClient } from './api/web-client.js';
 import { LocalApiClient } from './api/local-client.js';
 import { LocalWebClient } from './api/local-writer.js';
 import { probeCapabilities } from './router/capabilities.js';
+import { SERVER_VERSION } from './lib/server-identity.js';
 import { LibraryRouter } from './router/library-router.js';
 import { SchemaService } from './schema/schema-service.js';
 import { join } from 'node:path';
@@ -21,8 +22,6 @@ import { registerResources } from './resources/index.js';
 import { registerPrompts } from './prompts/index.js';
 import { tools } from './tools/index.js';
 import type { HiddenToolInfo, HiddenToolReason } from './lib/tool-profiles.js';
-
-const VERSION = '0.2.1';
 
 export interface ContextOverrides {
   /** Per-user Zotero API key (multi-tenant); defaults to config.apiKey. */
@@ -161,7 +160,7 @@ export async function buildContext(config: ZoteusConfig, overrides: ContextOverr
 /** Create a fresh McpServer bound to a (possibly per-user) ToolContext. */
 export function createServer(ctx: ToolContext): McpServer {
   const server = new McpServer(
-    { name: 'literature-zotero-mcp', version: VERSION },
+    { name: 'literature-zotero-mcp', version: SERVER_VERSION },
     {
       capabilities: {
         tools: { listChanged: true },
@@ -169,7 +168,7 @@ export function createServer(ctx: ToolContext): McpServer {
         prompts: { listChanged: true },
       },
       instructions:
-        'Literature Zotero MCP exposes your Zotero library for auditable evidence workflows. Call setup_status first in a new session to learn what works now and what needs the user; when a key is wanted, call open_setup so the user pastes it into a local page, never into chat. Then call zotero_whoami to resolve identity. Prefer zotero_search_items for discovery, zotero_list_collections to find a collection key, zotero_get_item for full records, and zotero_find_duplicates for read-only batch duplicate detection. Apply standalone import and existing-collection metrics plans only after their explicit review gates. The low-risk project-sync path may automatically apply available EasyScholar metrics for new create/reuse actions while preserving user Extra and unrelated tags. For Agent tags, call zotero_semantic_tag_context before zotero_apply_semantic_tags; the latter is an explicitly user-enabled automatic workflow that writes only AI4S:Semantic tags and optionally removes Zotero automatic tags while saving a plan and receipt. To merge, rename, or retire duplicate or unused tags, call zotero_tag_manager: scan, plan, dry-run, then apply with the confirmed plan hash so item tags and the semantic vocabulary stay together. Generate AI Summary metadata only after an explicit user request: call zotero_ai_summary_context, write one Chinese sentence by default using only each returned title and abstract, then call zotero_apply_ai_summaries; never run this during import, project sync, metrics, tags, or report updates. Call tools sequentially rather than in large parallel batches — Zotero rate-limits, and parallel or very long calls can time out.',
+        'Literature Zotero MCP exposes your Zotero library for auditable evidence workflows. Call setup_status first in a new session to learn what works now and what needs the user; when a key is wanted, call open_setup so the user pastes it into a local page, never into chat. Then call zotero_whoami to resolve identity. Prefer zotero_search_items for discovery, zotero_list_collections to find a collection key, zotero_get_item for one item (concise by default; pass response_format: "detailed" when you need the full record before a write), and zotero_find_duplicates for read-only batch duplicate detection. Apply standalone import and existing-collection metrics plans only after their explicit review gates. The low-risk project-sync path may automatically apply available EasyScholar metrics for new create/reuse actions while preserving user Extra and unrelated tags. For Agent tags, call zotero_semantic_tag_context before zotero_apply_semantic_tags; the latter is an explicitly user-enabled automatic workflow that writes only AI4S:Semantic tags and optionally removes Zotero automatic tags while saving a plan and receipt. To merge, rename, or retire duplicate or unused tags, call zotero_tag_manager: scan, plan, dry-run, then apply with the confirmed plan hash so item tags and the semantic vocabulary stay together. Generate AI Summary metadata only after an explicit user request: call zotero_ai_summary_context, write one Chinese sentence by default using only each returned title and abstract, then call zotero_apply_ai_summaries; never run this during import, project sync, metrics, tags, or report updates. Call tools sequentially rather than in large parallel batches — Zotero rate-limits, and parallel or very long calls can time out.',
     },
   );
   registerAllTools(server, selectActiveTools(ctx.config), ctx);

@@ -128,6 +128,58 @@ describe('setup_status tool', () => {
     expect(result.content[0]!.text).toContain('LITERATURE_ZOTERO_MCP_TOOL_PROFILE 设为 full');
   });
 
+  it('says which tool server answered, with its profile, read-only switch, and write channel', async () => {
+    const result = await setupStatus.handler(
+      {},
+      ctx({ config: { apiKey: undefined, toolProfile: 'workbench', readOnly: true } }),
+    );
+    const body = result.structuredContent as {
+      server: { name: string; version: string; install: string };
+      profile: string;
+      read_only: boolean;
+      write_channel: Record<string, boolean>;
+    };
+    expect(body.server.name).toBe('ai4s-literature-zotero');
+    expect(body.server.version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(['plugin', 'desktop_extension', 'unknown']).toContain(body.server.install);
+    expect(body.profile).toBe('workbench');
+    expect(body.read_only).toBe(true);
+    expect(body.write_channel).toEqual({ cloud_key: false, local_desktop: false, read_only: true });
+  });
+
+  it('does not call online search available when a required endpoint fails', async () => {
+    netProbe.calls = 0;
+    netProbe.summary = {
+      checked: true,
+      ok: false,
+      results: [
+        {
+          name: 'Zotero Web API',
+          url: 'https://api.zotero.org/schema',
+          optional: false,
+          dns: false,
+          tls: null,
+          ms: 6000,
+          http_status: null,
+          error_class: 'timeout',
+          error: 'no answer within 6s',
+        },
+      ],
+    };
+    const result = await setupStatus.handler({}, ctx());
+    expect(netProbe.calls).toBe(1);
+    const body = result.structuredContent as {
+      works_now: Array<{ id: string }>;
+      needs_you: Array<{ id: string }>;
+      summary: { zh: string; en: string };
+    };
+    expect(body.works_now.map((item) => item.id)).not.toContain('search');
+    expect(body.needs_you.map((item) => item.id)).toContain('search');
+    expect(body.summary.zh).not.toContain('可以开始用了');
+    expect(body.summary.en).not.toContain('You can start now');
+    expect(result.content[0]!.text).toContain('联网检索暂不可用');
+  });
+
   it('warns in the rendered text when the insecure TLS override is on', async () => {
     vi.stubEnv('LITERATURE_TLS_INSECURE', '1');
     const result = await setupStatus.handler({}, ctx());

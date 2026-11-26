@@ -61,6 +61,10 @@
           </div>
           <button id="refresh-dashboard" class="secondary" type="button">刷新状态</button>
         </div>
+        <details id="self-check-help" class="self-check-help">
+          <summary id="self-check-summary">“现在可用 / 需要你处理 / 可选”是怎么来的？</summary>
+          <p id="self-check-text" class="dashboard-note">助手运行一次自检，把现状分成三组：现在可用（马上就能做）、需要你处理（需要你点一个链接、粘贴一个密钥或重启应用）、可选（不填也不影响检索）。自检还会向 Zotero、PubMed、Europe PMC、EasyScholar 各发一个不带密钥的只读小请求来确认联网正常——哪个必测服务不通，联网检索在恢复前就不算可用。它也会说明当前配置下隐藏了哪些工具。这个页面本身只读取本机设置，不做联网测试。</p>
+        </details>
         <p id="dashboard-status" class="result" role="status"></p>
         <div id="dashboard-root" class="dashboard-root"></div>
       </section>

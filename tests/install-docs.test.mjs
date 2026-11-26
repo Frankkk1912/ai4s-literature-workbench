@@ -238,3 +238,23 @@ test("install docs do not send people to the removed database browser or DeepSee
 		assert.doesNotMatch(text, /database-browser|database_browser|database_session|dsh-ai4s|DeepSeek Harness/);
 	}
 });
+
+test("the docs and the setup skill name the current server and the retired duplicate extension", () => {
+	for (const text of [install, skill("ai4s-setup")]) {
+		assert.ok(text.includes("ai4s-literature-zotero"), "current server name missing");
+		assert.ok(text.includes("literature-zotero-mcp"), "retired extension name missing");
+		assert.match(text, /Literature Zotero MCP/, "retired display name missing");
+		// The agent never removes the old extension itself, and never touches the
+		// protected host directory.
+		assert.match(text, /never read or edit files under|Never read or edit anything under/);
+	}
+	assert.match(install, /## Duplicate Zotero tool sets/);
+	const section = install.split("## Duplicate Zotero tool sets")[1].split("## Check at the end")[0];
+	assert.match(section, /Settings → Extensions/);
+	assert.match(section, /restart Claude Desktop/);
+	assert.match(section, /Only the retired `literature-zotero-mcp` goes/);
+	// The end-of-install check sends the agent to that section when it sees both sets.
+	const check = install.split("## Check at the end")[1];
+	assert.match(check, /Duplicate Zotero tool sets/);
+	assert.match(check, /do not report online search under Works now/);
+});
