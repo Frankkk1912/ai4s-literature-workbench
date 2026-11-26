@@ -51,11 +51,20 @@ batch collection key, scanned first) into a reviewable, hashed merge plan.
 - Clusters whose recommended master is outside the batch get an
   add-master-to-collection step first, so the batch does not lose the work when
   in-scope copies are merged away.
-- Apply only saves the plan file under the MCP data directory and validates its
-  `plan_hash`; it never writes Zotero. Executing the merge needs Zotero native
-  merge, so apply returns `needs_plugin` / `native_merge_required` instead of
-  falling back to trashing items. `zotero_trash_items` and `zotero_delete_items`
-  are not part of the workbench profile.
+- Apply requires the user-approved `expected_plan_hash`, saves and validates the
+  plan file, then sends a `native-merge` job through the desktop plugin jobs
+  channel. Zotero shows a confirmation dialog listing every cluster (master,
+  merge-ins, add-to-collection step); only after the user agrees does the plugin
+  run `Zotero.Items.merge` natively, moving merged-away items to the trash
+  (recoverable; never a permanent delete). Apply returns `complete`,
+  `rejected` (the user declined in Zotero), or `failed` (per-cluster errors in
+  the receipt). Execution is restricted to the smoke-test collection
+  `AI4S-smoke-sync-20261126` (`334VW86H`); apply refuses any other batch
+  collection, and the plugin enforces the same guard again. If the desktop
+  plugin is not running, apply fails clearly; a timed-out apply leaves the job
+  pending and a retry reuses it. Never fall back to trashing items by hand.
+  `zotero_trash_items` and `zotero_delete_items` are not part of the workbench
+  profile.
 
 ## Evidence import-plan workflow
 

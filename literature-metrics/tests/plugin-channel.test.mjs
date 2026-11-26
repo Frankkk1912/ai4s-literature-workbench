@@ -9,6 +9,7 @@ const source = (name) => readFileSync(new URL(`../${name}`, import.meta.url), "u
 function moduleContext() {
   const scope = vm.createContext({});
   vm.runInContext(source("src/ai-summaries.js"), scope);
+  vm.runInContext(source("src/native-merge.js"), scope);
   vm.runInContext(source("src/plugin-channel.js"), scope);
   return scope.LiteraturePluginChannel;
 }
@@ -290,6 +291,14 @@ function bootstrapHarness(options = {}) {
     ...(options.globals || {}),
   };
   const Services = { scriptloader: { loadSubScript(uri, target) {
+    if (uri.endsWith("native-merge.js")) {
+      // bootstrap.js must load the merge executor into the same scope before
+      // plugin-channel.js, whose createDesktop binds the same-scope var.
+      target.LiteratureNativeMerge = { createDesktop: () => ({
+        validatePlan: () => {},
+        execute: async () => ({ status: "rejected", error: "not wired in harness", clusters: [] }),
+      }) };
+    }
     if (uri.endsWith("plugin-channel.js")) {
       if (options.channelLoadError) throw new Error(options.channelLoadError);
       target.LiteraturePluginChannel = { createDesktop: (args) => {
@@ -425,14 +434,304 @@ test("loadSubScript-style loading keeps globalThis separate from the scope", () 
 test("the channel export lives on the loadSubScript scope, not on globalThis", () => {
   const scope = {};
   const otherGlobal = loadSubScriptLike(source("src/ai-summaries.js"), scope);
+  loadSubScriptLike(source("src/native-merge.js"), scope);
   loadSubScriptLike(source("src/plugin-channel.js"), scope);
   assert.ok(scope.LiteraturePluginChannel, "the export must land on the loadSubScript scope");
   assert.equal(otherGlobal.LiteraturePluginChannel, undefined, "switching back to a globalThis export must fail this test");
   assert.equal(otherGlobal.LiteratureAiSummaries, undefined, "ai-summaries must also be a scope binding");
+  assert.equal(otherGlobal.LiteratureNativeMerge, undefined, "native-merge must also be a scope binding");
+  assert.ok(scope.LiteratureNativeMerge, "the native-merge export must land on the loadSubScript scope");
   const { create, createDesktop, planHash } = scope.LiteraturePluginChannel;
   assert.equal(typeof create, "function");
   assert.equal(typeof createDesktop, "function");
   assert.equal(typeof planHash, "function");
   const job = ping();
   assert.equal(planHash(job), job.plan_hash, "planHash keeps the SHA-256 contract via the same-scope LiteratureAiSummaries");
+});
+
+// ---- native-merge jobs: the channel drives the real merge executor ----
+
+function moduleScope() {
+  const scope = vm.createContext({});
+  vm.runInContext(source("src/ai-summaries.js"), scope);
+  vm.runInContext(source("src/native-merge.js"), scope);
+  vm.runInContext(source("src/plugin-channel.js"), scope);
+  return scope;
+}
+
+function nativeMergeJob(payload, fields = {}) {
+  const job = { schema_version: 1, job_id: randomUUID(), job_type: "native-merge", created_at: new Date().toISOString(), payload };
+  job.plan_hash = createHash("sha256").update(JSON.stringify([job.schema_version, job.job_id, job.job_type, job.created_at, job.payload])).digest("hex");
+  // Tampering fields are applied after the computed hash so they really take effect.
+  return { ...job, ...fields };
+}
+
+function guardPlan(scope, { collectionKey = "334VW86H" } = {}) {
+  const cluster = (id, masterKey, mergeKeys, preSteps) => ({
+    cluster_id: id, confidence: "high", reasons: ["same-doi"],
+    master_key: masterKey, master_title: "Smoke " + id, master_version: 3,
+    merge_keys: mergeKeys, master_outside_scope: preSteps.length > 0, pre_steps: preSteps,
+    item_versions: [masterKey, ...mergeKeys].map((key) => ({ key, version: 3 })),
+    keep: {
+      attachments: { keys: [], policy: "kept" }, notes: { keys: [], policy: "kept" },
+      tags: { union: [], policy: "unioned" }, collections: { union: [collectionKey], policy: "unioned" },
+      relations: { existing: [], dc_replaces_after_merge: mergeKeys, policy: "recorded" },
+    },
+    trash: { keys: mergeKeys, destination: "trash", recoverable: true, permanent_delete: false, policy: "trash only" },
+    verification: { keys_checked: 1 + mergeKeys.length, version_changes: [], scope_membership: [] },
+  });
+  const plan = {
+    schema_version: "1.0.0", plan_type: "zotero-dedupe-plan",
+    plan_id: "dedupe-plan-smoke", created_at: "2026-11-26T00:00:00.000Z", plan_hash: "",
+    source: { kind: "collection_scan", collection_key: collectionKey },
+    library: { type: "user", id: 12345 },
+    batch_selector: { collection_key: collectionKey },
+    policy: {
+      zotero_writes: false, needs_plugin: true, native_merge_required: true,
+      merged_items_destination: "trash", recoverable: true, permanent_delete: false,
+    },
+    cluster_count: 2,
+    clusters: [
+      cluster("duplicate-0001", "SMOKE001", ["SMOKE002"], []),
+      cluster("duplicate-0002", "OUTSIDE1", ["SMOKE003"], [{
+        step: "add_master_to_collection", item_key: "OUTSIDE1", collection_key: collectionKey,
+        already_satisfied: false, reason: "The recommended master is outside the batch collection.",
+      }]),
+    ],
+  };
+  plan.plan_hash = scope.LiteratureNativeMerge.canonicalPlanHash(plan);
+  return plan;
+}
+
+function mergeFixture(scope, { agrees = true, plan = null } = {}) {
+  const records = new Map();
+  const writes = [];
+  const prompts = [];
+  const merges = [];
+  const items = new Map();
+  for (const key of ["SMOKE001", "SMOKE002", "SMOKE003", "OUTSIDE1"]) {
+    items.set(key, {
+      key, addedTo: [], saved: 0,
+      addToCollection(collectionKey) { items.get(key).addedTo.push(collectionKey); },
+      async saveTx() { items.get(key).saved += 1; },
+    });
+  }
+  const usePlan = plan ?? guardPlan(scope);
+  const Zotero = {
+    Libraries: { userLibraryID: 1 },
+    Groups: { get: () => null },
+    Items: {
+      getByLibraryAndKey: (libraryID, key) => (libraryID === 1 ? items.get(key) : null),
+      merge: async (master, others) => { merges.push([master.key, others.map((other) => other.key)]); },
+    },
+  };
+  const files = {
+    initialize: async () => {},
+    list: async () => [...records.keys()],
+    read: async (name) => records.get(name) || null,
+    write: async (name, value) => { records.set(name, value); writes.push({ name, value }); },
+    remove: async (name) => { records.delete(name); },
+    readPlan: async () => usePlan,
+  };
+  const channel = scope.LiteraturePluginChannel.create({ files,
+    confirm: async (title, text) => { prompts.push({ title, text }); return agrees; },
+    merge: scope.LiteratureNativeMerge.createDesktop({ Zotero, log: () => {} }),
+    schedule: () => 1, cancel() {}, log: () => {},
+  });
+  return { channel, records, writes, prompts, merges, items, plan: usePlan,
+    add: (job) => records.set(`${job.job_id}.job.json`, job) };
+}
+
+test("a native-merge job runs the real executor and writes a per-cluster completed receipt", async () => {
+  const scope = moduleScope();
+  const f = mergeFixture(scope);
+  const job = nativeMergeJob({ plan_path: "/data/dedupe-plans/dedupe-plan-smoke.json", plan_hash: f.plan.plan_hash, collection_key: "334VW86H" });
+  f.add(job);
+  await f.channel.start();
+  const receipt = f.records.get(`${job.job_id}.ack.json`);
+  assert.equal(receipt.status, "completed");
+  assert.equal(receipt.plan_hash, job.plan_hash);
+  assert.equal(f.prompts.length, 1);
+  assert.match(f.prompts[0].title, /native merge/);
+  assert.match(f.prompts[0].text, /keep master SMOKE001.*merge in SMOKE002/s);
+  assert.match(f.prompts[0].text, /add the master to the collection first/);
+  assert.equal(JSON.stringify(f.merges), JSON.stringify([["SMOKE001", ["SMOKE002"]], ["OUTSIDE1", ["SMOKE003"]]]));
+  assert.equal(f.items.get("OUTSIDE1").addedTo.join(","), "334VW86H", "only the guard collection is added");
+  assert.equal(f.items.get("SMOKE001").addedTo.length, 0);
+  assert.equal(JSON.stringify(receipt.clusters.map((entry) => entry.status)), JSON.stringify(["success", "success"]));
+  assert.equal(receipt.clusters[1].added_to_collection, true);
+  assert.equal(receipt.clusters[0].added_to_collection, false);
+  // Crash-safe progress: an accepted receipt was written after the first cluster.
+  const accepted = f.writes.filter((write) => write.name.endsWith(".ack.json") && write.value.status === "accepted");
+  assert.equal(accepted.length, 2);
+  assert.equal(accepted[0].value.clusters.length, 1);
+  assert.equal(f.records.has(`${job.job_id}.claim.json`), false, "the claim is cleared with the receipt");
+  await f.channel.stop();
+});
+
+test("declining the native-merge dialog writes rejected and makes zero Zotero writes", async () => {
+  const scope = moduleScope();
+  const f = mergeFixture(scope, { agrees: false });
+  const job = nativeMergeJob({ plan_path: "/data/dedupe-plans/dedupe-plan-smoke.json", plan_hash: f.plan.plan_hash, collection_key: "334VW86H" });
+  f.add(job);
+  await f.channel.start();
+  const receipt = f.records.get(`${job.job_id}.ack.json`);
+  assert.equal(receipt.status, "rejected");
+  assert.match(receipt.error, /declined/);
+  assert.equal(f.merges.length, 0, "Zotero.Items.merge is never called");
+  for (const item of f.items.values()) {
+    assert.equal(item.addedTo.length, 0, "no master is added to any collection");
+    assert.equal(item.saved, 0, "no item is saved");
+  }
+  await f.channel.stop();
+});
+
+test("a tampered native-merge job hash is rejected without reading the plan or showing a dialog", async () => {
+  const scope = moduleScope();
+  const f = mergeFixture(scope);
+  const job = nativeMergeJob({ plan_path: "/data/dedupe-plans/dedupe-plan-smoke.json", plan_hash: f.plan.plan_hash, collection_key: "334VW86H" },
+    { plan_hash: "0".repeat(64) });
+  f.add(job);
+  await f.channel.start();
+  const receipt = f.records.get(`${job.job_id}.ack.json`);
+  assert.equal(receipt.status, "rejected");
+  assert.match(receipt.error, /plan_hash mismatch/);
+  assert.equal(f.prompts.length, 0);
+  assert.equal(f.merges.length, 0);
+  assert.equal(f.records.has(`${job.job_id}.claim.json`), false, "invalid jobs are never claimed");
+  await f.channel.stop();
+});
+
+test("a plan for any collection other than the smoke-test collection is refused", async () => {
+  const scope = moduleScope();
+  const otherPlan = guardPlan(scope, { collectionKey: "PLANCOL1" });
+  const f = mergeFixture(scope, { plan: otherPlan });
+  const job = nativeMergeJob({ plan_path: "/data/dedupe-plans/dedupe-plan-other.json", plan_hash: otherPlan.plan_hash, collection_key: "PLANCOL1" });
+  f.add(job);
+  await f.channel.start();
+  const receipt = f.records.get(`${job.job_id}.ack.json`);
+  assert.equal(receipt.status, "rejected");
+  assert.match(receipt.error, /only allowed for the test collection AI4S-smoke-sync-20261126 \(334VW86H\)/);
+  assert.equal(f.prompts.length, 0, "no dialog for a refused plan");
+  assert.equal(f.merges.length, 0);
+  await f.channel.stop();
+});
+
+test("a job whose payload hash differs from the plan file is refused before the dialog", async () => {
+  const scope = moduleScope();
+  const f = mergeFixture(scope);
+  const job = nativeMergeJob({ plan_path: "/data/dedupe-plans/dedupe-plan-smoke.json", plan_hash: "sha256:" + "0".repeat(64), collection_key: "334VW86H" });
+  f.add(job);
+  await f.channel.start();
+  const receipt = f.records.get(`${job.job_id}.ack.json`);
+  assert.equal(receipt.status, "rejected");
+  assert.match(receipt.error, /does not match the plan file/);
+  assert.equal(f.prompts.length, 0);
+  assert.equal(f.merges.length, 0);
+  await f.channel.stop();
+});
+
+test("an interrupted job resumes from its accepted receipt and never re-merges a finished cluster", async () => {
+  const scope = moduleScope();
+  const f = mergeFixture(scope);
+  const job = nativeMergeJob({ plan_path: "/data/dedupe-plans/dedupe-plan-smoke.json", plan_hash: f.plan.plan_hash, collection_key: "334VW86H" });
+  // Simulate a crash after the first cluster: the accepted receipt survives.
+  f.records.set(`${job.job_id}.ack.json`, {
+    job_id: job.job_id, plan_hash: job.plan_hash, status: "accepted", finished_at: new Date().toISOString(),
+    clusters: [{ cluster_id: "duplicate-0001", status: "success", master_key: "SMOKE001", merged_keys: ["SMOKE002"], added_to_collection: false }],
+  });
+  f.add(job);
+  await f.channel.start();
+  const receipt = f.records.get(`${job.job_id}.ack.json`);
+  assert.equal(receipt.status, "completed");
+  assert.equal(JSON.stringify(f.merges), JSON.stringify([["OUTSIDE1", ["SMOKE003"]]]), "only the unfinished cluster is merged");
+  assert.equal(JSON.stringify(receipt.clusters.map((entry) => entry.status)), JSON.stringify(["skipped", "success"]));
+  assert.match(f.prompts[0].text, /already merged in an earlier run: skipped/);
+  await f.channel.stop();
+});
+
+test("the desktop adapter refuses plan paths outside dedupe-plans, symlinks, and oversized plan files", async () => {
+  const paths = posix;
+  const home = "/test-home";
+  const root = paths.join(home, "Library", "Application Support", "literature-zotero-mcp", "plugin-jobs");
+  const records = new Map();
+  let symlink = false;
+  let symlinkTarget = null;
+  let planSize = 200;
+  const Components = { interfaces: { nsIFile: {} }, classes: { "@mozilla.org/file/local;1": { createInstance: () => ({
+    path: "",
+    initWithPath(target) { this.path = target; },
+    isSymlink() { return symlink && this.path === symlinkTarget; },
+  }) } } };
+  const IOUtils = {
+    async makeDirectory() {},
+    async stat(path) { return { type: path === root ? "directory" : "regular", size: path.includes(".job.json") ? 200 : planSize }; },
+    async exists(path) { return records.has(path); },
+    async getChildren() { return [...records.keys()]; },
+    async readJSON(path) { return records.get(path); },
+    async writeJSON(path, value, options) { assert.equal(options.mode, "create"); records.set(path, value); },
+    async setPermissions() {},
+    async move(from, to) { records.set(to, records.get(from)); records.delete(from); },
+    async remove(path) { records.delete(path); },
+  };
+  const scope = moduleScope();
+  const plan = guardPlan(scope);
+  const zoteroItems = new Map();
+  for (const key of ["SMOKE001", "SMOKE002", "SMOKE003", "OUTSIDE1"]) {
+    zoteroItems.set(key, {
+      key,
+      addToCollection() {},
+      async saveTx() {},
+    });
+  }
+  const channel = scope.LiteraturePluginChannel.createDesktop({
+    Zotero: {
+      isMac: true, getMainWindow: () => ({}), logError() {},
+      Libraries: { userLibraryID: 1 },
+      Groups: { get: () => null },
+      Items: {
+        getByLibraryAndKey: (libraryID, key) => (libraryID === 1 ? zoteroItems.get(key) : null),
+        merge: async () => {},
+      },
+    },
+    Services: { env: { get: () => "" }, dirsvc: { get: () => ({ path: home }) },
+      uuid: { generateUUID: randomUUID }, prompt: { confirm: () => true } },
+    Components, IOUtils, PathUtils: { join: paths.join, filename: paths.basename, parent: paths.dirname, normalize: paths.normalize },
+    schedule: () => 1, cancel() {},
+  });
+  await channel.start();
+  const planDir = paths.join(home, "Library", "Application Support", "literature-zotero-mcp", "dedupe-plans");
+  const planPath = paths.join(planDir, "dedupe-plan-smoke.json");
+  records.set(planPath, plan);
+
+  const outside = nativeMergeJob({ plan_path: paths.join(home, "elsewhere", "plan.json"), plan_hash: plan.plan_hash, collection_key: "334VW86H" });
+  records.set(paths.join(root, `${outside.job_id}.job.json`), outside);
+  await channel.scan();
+  assert.match(String(records.get(paths.join(root, `${outside.job_id}.ack.json`)).error), /Unsafe dedupe plan path/);
+
+  const inside = nativeMergeJob({ plan_path: planPath, plan_hash: plan.plan_hash, collection_key: "334VW86H" });
+  records.set(paths.join(root, `${inside.job_id}.job.json`), inside);
+  records.delete(paths.join(root, `${outside.job_id}.job.json`));
+  await channel.scan();
+  assert.equal(records.get(paths.join(root, `${inside.job_id}.ack.json`)).status, "completed", "a plan inside dedupe-plans with a plain filename is accepted");
+
+  const symlinked = nativeMergeJob({ plan_path: planPath, plan_hash: plan.plan_hash, collection_key: "334VW86H" });
+  records.set(paths.join(root, `${symlinked.job_id}.job.json`), symlinked);
+  records.delete(paths.join(root, `${inside.job_id}.job.json`));
+  records.delete(paths.join(root, `${inside.job_id}.ack.json`));
+  symlink = true;
+  symlinkTarget = planPath;
+  await channel.scan();
+  assert.match(String(records.get(paths.join(root, `${symlinked.job_id}.ack.json`)).error), /symlink/);
+
+  const huge = nativeMergeJob({ plan_path: planPath, plan_hash: plan.plan_hash, collection_key: "334VW86H" });
+  records.set(paths.join(root, `${huge.job_id}.job.json`), huge);
+  records.delete(paths.join(root, `${symlinked.job_id}.job.json`));
+  records.delete(paths.join(root, `${symlinked.job_id}.ack.json`));
+  symlink = false;
+  planSize = 1048577;
+  await channel.scan();
+  assert.match(String(records.get(paths.join(root, `${huge.job_id}.ack.json`)).error), /Unsafe dedupe plan file/);
+
+  await channel.stop();
 });

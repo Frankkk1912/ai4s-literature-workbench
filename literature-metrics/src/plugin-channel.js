@@ -5,23 +5,39 @@ var LiteraturePluginChannel = (function () {
   "use strict";
   const ID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
   const HASH = /^[a-f0-9]{64}$/;
+  const PLAN_HASH = /^sha256:[a-f0-9]{64}$/;
+  const ZOTERO_KEY = /^[A-Z0-9]{8}$/;
+  // Channel files stay small: a receipt may carry per-cluster merge results, nothing more.
+  const MAX_CHANNEL_FILE_BYTES = 32768;
+  const CREATED_AT = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
+  // A dedupe plan must stay readable and small: it is the merge worklist, not a dump.
+  const MAX_PLAN_FILE_BYTES = 1048576;
 
   function planHash(job) {
-    // Same-scope binding: ai-summaries.js is loaded into the same loadSubScript
-    // scope before this file, so the var above is visible without globalThis.
-    return LiteratureAiSummaries.sha256(JSON.stringify([
+    // Same-scope binding: native-merge.js is loaded into the same loadSubScript
+    // scope before this file, so the var above is visible without globalThis. Its
+    // raw-text sha256 stays byte-identical to the Node runtime's crypto hash even
+    // if a payload (unlike ping's) ever contains unusual whitespace.
+    return LiteratureNativeMerge.sha256Hex(JSON.stringify([
       job.schema_version, job.job_id, job.job_type, job.created_at, job.payload,
     ]));
   }
 
-  // Only the empty ping payload is allowed: no keys, item data, or arbitrary commands.
+  // Only known job types with pinned payloads are allowed: ping stays empty, and
+  // native-merge only names a plan file, its hash, and the batch collection key.
   function valid(job, id) {
-    return job && Object.keys(job).sort().join(",") === "created_at,job_id,job_type,payload,plan_hash,schema_version"
-      && job.schema_version === 1 && job.job_id === id && job.job_type === "ping"
-      && typeof job.created_at === "string" && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(job.created_at)
-      && Number.isFinite(Date.parse(job.created_at)) && job.payload && typeof job.payload === "object"
-      && !Array.isArray(job.payload) && Object.keys(job.payload).length === 0
-      && HASH.test(job.plan_hash) && planHash(job) === job.plan_hash;
+    if (!job || Object.keys(job).sort().join(",") !== "created_at,job_id,job_type,payload,plan_hash,schema_version"
+      || job.schema_version !== 1 || job.job_id !== id
+      || (job.job_type !== "ping" && job.job_type !== "native-merge")
+      || typeof job.created_at !== "string" || !CREATED_AT.test(job.created_at)
+      || !Number.isFinite(Date.parse(job.created_at)) || !job.payload || typeof job.payload !== "object"
+      || Array.isArray(job.payload) || !HASH.test(job.plan_hash) || planHash(job) !== job.plan_hash) return false;
+    if (job.job_type === "ping") return Object.keys(job.payload).length === 0;
+    const payload = job.payload;
+    return Object.keys(payload).sort().join(",") === "collection_key,plan_hash,plan_path"
+      && typeof payload.plan_path === "string" && payload.plan_path.length > 0 && payload.plan_path.length <= 512
+      && !payload.plan_path.includes("\0")
+      && PLAN_HASH.test(payload.plan_hash) && ZOTERO_KEY.test(payload.collection_key);
   }
 
   // Real symlinks must always be refused, but the real-Gecko pitfall where
@@ -38,11 +54,37 @@ var LiteraturePluginChannel = (function () {
     }
   }
 
-  function create({ files, confirm, schedule, cancel, log, now = () => new Date().toISOString() }) {
+  function create({ files, confirm, merge, schedule, cancel, log, now = () => new Date().toISOString() }) {
     let running = false;
     let timer = null;
     let scanning = null;
     const claims = new Set();
+    // Run one native-merge job through the executor. Any setup/validation throw
+    // becomes a failed receipt that still records the clusters already merged
+    // (the last accepted progress receipt), so a retry never re-merges them.
+    async function runNativeMerge(job, id, ackName, existing) {
+      if (!merge) return { status: "rejected", error: "Native merge is not available in this channel build.", clusters: [] };
+      try {
+        const plan = await files.readPlan(job.payload.plan_path);
+        const result = await merge.execute(plan, {
+          existing,
+          expectedPlanHash: job.payload.plan_hash,
+          confirm,
+          log,
+          onProgress: async (clusters) => {
+            if (!running) return;
+            await files.write(ackName, { job_id: id, plan_hash: job.plan_hash, status: "accepted", finished_at: now(), clusters });
+          },
+        });
+        return { status: result.status, error: result.error, clusters: result.clusters && result.clusters.length ? result.clusters : [] };
+      }
+      catch (error) {
+        const preserved = await files.read(ackName).catch(() => null);
+        const clusters = preserved && preserved.status === "accepted" && Array.isArray(preserved.clusters)
+          ? preserved.clusters : [];
+        return { status: "failed", error: (error && error.message) || String(error), clusters };
+      }
+    }
     async function scanOnce() {
       await files.write("presence.json", { schema_version: 1, updated_at: now() });
       for (const name of await files.list()) {
@@ -61,7 +103,8 @@ var LiteraturePluginChannel = (function () {
           if (existing && (existing.job_id !== id || existing.plan_hash !== job.plan_hash
             || existing.status !== "accepted")) continue;
           let status = "rejected";
-          let error = "Invalid ping job or plan_hash mismatch.";
+          let error = "Invalid channel job or plan_hash mismatch.";
+          let clusters = null;
           const claimName = `${id}.claim.json`;
           const needsClaim = valid(job, id);
           if (needsClaim) {
@@ -70,21 +113,29 @@ var LiteraturePluginChannel = (function () {
             // user decides, instead of failing on a stale presence file.
             claims.add(claimName);
             await files.write(claimName, { schema_version: 1, job_id: id, plan_hash: job.plan_hash, claimed_at: now() });
-          }
-          if (needsClaim) {
-            const agreed = await confirm("Workbench connectivity test", "This is a connectivity test and will not change items. Allow this ping?");
-            if (!running) break;
-            status = agreed ? "completed" : "rejected";
-            error = agreed ? undefined : "User declined connectivity test.";
+            if (job.job_type === "ping") {
+              const agreed = await confirm("Workbench connectivity test", "This is a connectivity test and will not change items. Allow this ping?");
+              if (!running) break;
+              status = agreed ? "completed" : "rejected";
+              error = agreed ? undefined : "User declined connectivity test.";
+            }
+            else {
+              const result = await runNativeMerge(job, id, ackName, existing);
+              if (!running) break;
+              status = result.status;
+              error = result.error;
+              clusters = result.clusters && result.clusters.length ? result.clusters : null;
+            }
           }
           if (!running) break;
-          await files.write(ackName, { job_id: id, plan_hash: job.plan_hash, status, finished_at: now(), ...(error ? { error } : {}) });
+          await files.write(ackName, { job_id: id, plan_hash: job.plan_hash, status, finished_at: now(),
+            ...(error ? { error } : {}), ...(clusters ? { clusters } : {}) });
           if (needsClaim) {
             claims.delete(claimName);
             await files.remove(claimName);
           }
         }
-        catch { log("Could not process a workbench ping file."); }
+        catch { log("Could not process a workbench job file."); }
       }
     }
     function scan() {
@@ -146,8 +197,25 @@ var LiteraturePluginChannel = (function () {
         if (!await IOUtils.exists(target)) return null;
         refuseSymlink(Components, target);
         const info = await IOUtils.stat(target);
-        if (info.type !== "regular" || info.size > 4096) throw new Error("Unsafe channel file.");
+        if (info.type !== "regular" || info.size > MAX_CHANNEL_FILE_BYTES) throw new Error("Unsafe channel file.");
         return IOUtils.readJSON(target);
+      },
+      // A native-merge job names a dedupe plan saved by the MCP runtime. Only a
+      // plan directly inside <dataDir>/dedupe-plans, with a plain .json filename,
+      // is ever read — never an arbitrary path, symlink, or oversized file.
+      async readPlan(planPath) {
+        if (typeof planPath !== "string" || !planPath) throw new Error("Unsafe dedupe plan path.");
+        const normalized = PathUtils.normalize(planPath);
+        const plansRoot = PathUtils.normalize(PathUtils.join(dataDir, "dedupe-plans"));
+        if (PathUtils.parent(normalized) !== plansRoot
+          || !/^[A-Za-z0-9._-]+\.json$/.test(PathUtils.filename(normalized))) {
+          throw new Error("Unsafe dedupe plan path: plans must live directly in " + plansRoot + ".");
+        }
+        refuseSymlink(Components, normalized);
+        if (!await IOUtils.exists(normalized)) throw new Error("Dedupe plan not found: " + normalized + ".");
+        const info = await IOUtils.stat(normalized);
+        if (info.type !== "regular" || info.size > MAX_PLAN_FILE_BYTES) throw new Error("Unsafe dedupe plan file.");
+        return IOUtils.readJSON(normalized);
       },
       async write(name, value) {
         await directory();
@@ -163,6 +231,9 @@ var LiteraturePluginChannel = (function () {
     return create({ files, schedule, cancel,
       confirm: (title, text) => Services.prompt.confirm(Zotero.getMainWindow(), title, text),
       log: (message) => Zotero.logError(message),
+      // Same-scope binding: native-merge.js is loadSubScript-ed into the same
+      // scope before this file, so the var above is visible without globalThis.
+      merge: LiteratureNativeMerge.createDesktop({ Zotero, log: (message) => Zotero.logError(message) }),
     });
   }
   return Object.freeze({ create, createDesktop, planHash });

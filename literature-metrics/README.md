@@ -116,13 +116,16 @@ held. The item context menu provides the same commands under **Set Priority**.
 After each batch, a progress popup reports updated, unchanged, read-only
 skipped, and failed counts.
 
-## Workbench job channel (ping only)
+## Workbench job channel (ping and native-merge)
 
 The add-on polls `<dataDir>/plugin-jobs/` every two seconds for workbench jobs,
-asks for confirmation in Zotero, and writes a matching acknowledgement; `ping`
-is only a connectivity test and never changes items. This channel is only for
-workbench jobs and does not replace the Zotero 10 local write API. It opens no
-HTTP endpoint and stores no Zotero, EasyScholar, or other API keys.
+asks for confirmation in Zotero, and writes a matching acknowledgement. Two job
+types exist: `ping` is only a connectivity test and never changes items, and
+`native-merge` executes an approved dedupe plan through Zotero's own
+`Zotero.Items.merge` after an explicit confirmation dialog (see below). This
+channel is only for workbench jobs and does not replace the Zotero 10 local
+write API. It opens no HTTP endpoint and stores no Zotero, EasyScholar, or
+other API keys.
 
 The channel is optional at startup: the metrics runtime starts first and
 independently, and only then does the add-on load the channel module inside a
@@ -145,29 +148,60 @@ Custom installations must launch Zotero and the runtime with the same
 `defaultDataDir`). Tests inject a temporary dataDir.
 
 Each `<job_id>.job.json` contains `schema_version: 1`, a UUID-v4 `job_id`,
-`job_type: "ping"`, ISO `created_at`, empty `payload: {}`, and `plan_hash`.
-The hash is lowercase SHA-256 of
+`job_type` (`"ping"` or `"native-merge"`), ISO `created_at`, a pinned
+`payload`, and `plan_hash`. The hash is lowercase SHA-256 of
 `JSON.stringify([schema_version, job_id, job_type, created_at, payload])` in
-that order; it checks integrity, not authentication. Extra fields and nonempty
-payloads are rejected. `<job_id>.ack.json` contains `job_id`, matching
-`plan_hash`, `status` (`accepted`, `rejected`, `completed`, or `failed`),
-`finished_at`, and `error` for rejection/failure. This ping implementation
-writes only `completed` or `rejected`. Terminal receipts are not replayed.
+that order; it checks integrity, not authentication. Extra fields and any other
+payload are rejected. A ping payload must be empty. A native-merge payload is
+exactly `{ plan_path, plan_hash, collection_key }`: the saved dedupe plan file,
+its `sha256:` plan hash, and the batch collection key.
+`<job_id>.ack.json` contains `job_id`, matching `plan_hash`, `status`
+(`accepted`, `rejected`, `completed`, or `failed`), `finished_at`, `error` for
+rejection/failure, and — for native-merge — a `clusters` array with one result
+per cluster: `cluster_id`, `status` (`success`/`failed`/`skipped`), the final
+`master_key`, the `merged_keys`, `added_to_collection`, and `error` on
+failure. The ping implementation writes only `completed` or `rejected`.
+Terminal receipts are never replayed or overwritten.
 
 The internal runtime helper `createPluginChannel(dataDir)` in
 `runtime/src/features/plugin-channel/index.ts` exposes `createPingJob()`,
-`listUnfinishedJobs()`, `readAck(job)`, and `waitForAck(job, timeoutMs)`; no MCP
-tool is added. The plugin creates an owner-private jobs directory and refreshes
-`presence.json` on every scan. Before showing the confirmation dialog it writes
-a `<job_id>.claim.json` marker and removes it together with the acknowledgement:
+`createNativeMergeJob(payload)`, `findNativeMergeJob(payload)`,
+`listUnfinishedJobs()`, `readAck(job)`, and `waitForAck(job, timeoutMs)`; the
+MCP side calls these from `zotero_apply_dedupe_plan` `mode: "apply"`. The plugin
+creates an owner-private jobs directory and refreshes `presence.json` on every
+scan. Before showing the confirmation dialog it writes a
+`<job_id>.claim.json` marker and removes it together with the acknowledgement:
 the modal dialog blocks Zotero's event loop, so the heartbeat pauses, and a
 claimed job keeps `waitForAck` waiting instead of failing on a stale heartbeat.
 A missing directory, or an absent/stale heartbeat with no outstanding claim,
 still gives an immediate desktop-unavailable error. `waitForAck` defaults to 30
 seconds (maximum 120 seconds), then reports a pending confirmation timeout
-without removing the job. Shutdown cancels polling, withdraws claims, and
-removes presence. No library content belongs in these files; the ping payload
-must stay empty.
+without removing the job; a native-merge apply reuses the still-pending job on
+retry instead of stacking a second one. Shutdown cancels polling, withdraws
+claims, and removes presence. No library content belongs in these files; the
+ping payload must stay empty.
+
+### Native merge (order 09)
+
+`native-merge` connects the MCP `zotero_apply_dedupe_plan` tool to Zotero's own
+merge. The runtime side refuses to create a job unless the user passed the
+approved `expected_plan_hash` and the plan's batch collection is exactly the
+smoke-test collection `AI4S-smoke-sync-20261126` (`334VW86H`). The plugin side
+enforces the same guard again — `src/native-merge.js` refuses any plan whose
+batch collection is not `334VW86H`, verifies the plan file's canonical
+`sha256:` hash, and checks the job's approved hash before showing anything.
+
+The confirmation dialog lists every cluster: the master item (key and title),
+the keys to merge in, and whether the master will be added to the test
+collection first. Canceling makes zero Zotero writes. On agree, each cluster
+runs `Zotero.Items.merge(master, others)` natively — attachments, notes, tags,
+collections, and relations are preserved by Zotero, merged-away items move to
+the trash (recoverable), and `dc:replaces` is recorded. The plugin never trashes
+or deletes items itself and never calls permanent-delete APIs. After each
+successful cluster an `accepted` receipt with the progress so far is written, so
+an interrupted job resumes without re-merging finished clusters. A plan file is
+only ever read from directly inside `<dataDir>/dedupe-plans/`, with symlink and
+size (1 MiB) checks; channel files are capped at 32 KiB.
 
 ## Build and test
 
