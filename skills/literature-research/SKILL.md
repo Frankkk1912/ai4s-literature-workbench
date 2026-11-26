@@ -51,6 +51,14 @@ as an explicit, loudly warned override for trusted-network troubleshooting.
 
 Show the three groups from `rendered` only when the user asks what works, or when a key they asked for is missing.
 
+Keep it short for a simple ask. One paper lookup is one search call plus a
+one-sentence answer with the title and source; do not recite the whole
+workflow, and never paste a long results table or the full contents of an
+output file into the conversation — the files are already saved on disk, so
+name them instead. If the `rendered` Network check shows a required endpoint
+failed, say search is not available right now and give the fix line from the
+status; do not fall back to claiming basics work.
+
 Never ask for a key in chat. If the user wants PubMed speed or journal ratings
 and has no key, use the `ai4s-setup` skill to open the masked page; missing keys
 never block a search.
