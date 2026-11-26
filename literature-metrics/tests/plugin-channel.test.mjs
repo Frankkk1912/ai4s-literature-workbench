@@ -352,6 +352,15 @@ test("bootstrap starts metrics first, then the channel, then the menu; shutdown 
   assert.deepEqual(calls, ["metrics start", "channel start", "menu start", "menu stop", "channel stop", "metrics stop"]);
 });
 
+test("onMainWindowLoad re-runs metrics start so columns can recover after the item tree exists", async () => {
+  const { scope, calls, errors } = bootstrapHarness({ globals: { IOUtils: {}, PathUtils: {} } });
+  await scope.startup({ rootURI: "fake/", id: "literature-metrics@frank-ai4s.local", version: "0.2.1" });
+  assert.equal(typeof scope.onMainWindowLoad, "function");
+  await scope.onMainWindowLoad({ rootURI: "fake/", id: "literature-metrics@frank-ai4s.local", version: "0.2.1" });
+  assert.deepEqual(calls, ["metrics start", "channel start", "menu start", "metrics start"]);
+  assert.deepEqual(errors, []);
+});
+
 for (const failure of ["channelLoadError", "createDesktopError", "channelStartError"]) {
   test(`metrics columns still start when the channel fails at ${failure}`, async () => {
     const { scope, calls, errors, debugs } = bootstrapHarness({ [failure]: `${failure} simulated`, globals: { IOUtils: {}, PathUtils: {} } });

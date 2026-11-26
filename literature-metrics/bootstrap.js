@@ -196,6 +196,18 @@ async function shutdown() {
   }
 }
 
+// The item tree may finish loading after APP_STARTUP. Re-running start() is
+// idempotent and re-registers any columns that failed or were wiped.
+async function onMainWindowLoad(data) {
+  if (!LiteratureMetricsRuntime) return;
+  try {
+    await LiteratureMetricsRuntime.start({ id: data.id, version: data.version, rootURI: data.rootURI });
+  }
+  catch (error) {
+    reportStartupProblem("Workbench literature-metrics startup:", error);
+  }
+}
+
 function install() {}
 
 function uninstall() {}
