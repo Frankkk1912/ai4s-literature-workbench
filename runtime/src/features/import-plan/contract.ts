@@ -33,7 +33,7 @@ export interface ImportPlan {
     tags: string[];
   };
   matching: {
-    mode: 'local-api' | 'snapshot' | 'unchecked';
+    mode: 'local-api' | 'web-api-local-match' | 'snapshot' | 'unchecked';
     source_library_version: number | null;
     candidate_limit: number;
     unchecked_create: boolean;
@@ -61,6 +61,7 @@ export interface ReceiptResult {
   outcome: ReceiptOutcome;
   zotero_key: string | null;
   zotero_version: number | null;
+  unchanged?: boolean;
   error: ReceiptError | null;
 }
 
@@ -167,7 +168,7 @@ export function validateImportPlan(value: unknown): ImportPlan {
   value.target.tags = sortedUnique(value.target.tags, 'target.tags');
   if (!isObject(value.matching)) throw new Error('matching must be an object');
   exactKeys(value.matching, ['mode', 'source_library_version', 'candidate_limit', 'unchecked_create'], 'matching');
-  if (!['local-api', 'snapshot', 'unchecked'].includes(value.matching.mode)) throw new Error('Invalid matching.mode');
+  if (!['local-api', 'web-api-local-match', 'snapshot', 'unchecked'].includes(value.matching.mode)) throw new Error('Invalid matching.mode');
   if (!Number.isInteger(value.matching.candidate_limit) || value.matching.candidate_limit < 1) {
     throw new Error('matching.candidate_limit must be a positive integer');
   }
@@ -269,6 +270,7 @@ export function validateImportReceipt(value: unknown): ImportReceipt {
     seen.add(result.evidence_id);
     if (!['create', 'reuse', 'check', 'skip'].includes(result.planned_decision)) throw new Error('Invalid receipt planned_decision');
     if (!['created', 'reused', 'check', 'skipped', 'failed', 'pending'].includes(result.outcome)) throw new Error('Invalid receipt outcome');
+    if (result.unchanged !== undefined && typeof result.unchanged !== 'boolean') throw new Error('Invalid receipt unchanged flag');
   }
   return value as ImportReceipt;
 }

@@ -40,8 +40,17 @@ into stars.
 }
 ```
 
-Use stable evidence IDs exactly as defined in ranked evidence. `scope` is the
-project slug. `review_depth` is one of `metadata`, `abstract`, `mixed`, or
+New files must use canonical stable evidence IDs: `doi:<normalized DOI>` when
+there is a DOI, otherwise `pmid:<digits>`, otherwise the stable `source:` or
+`title-sha256:` ID. DOI normalization lowercases, removes a DOI URL or `doi:`
+prefix, and strips trailing whitespace and periods. The same identity is used
+by TypeScript sync and Python report rendering.
+
+For compatibility, bare DOIs, DOI URLs, `pmid:<digits>`, and bare PMIDs are
+accepted as recommendation aliases. A PMID alias also resolves to a record
+whose canonical ID is DOI-first. Unknown keys produce a sync error and a report
+warning; ambiguous or conflicting aliases must be resolved, not silently
+assigned Priority 1. `scope` is the project slug. `review_depth` is one of `metadata`, `abstract`, `mixed`, or
 `full-text`. `default_for_selected` is always `1`.
 
 Only Priority 2 and 3 overrides belong in `recommendations`; omitting Priority

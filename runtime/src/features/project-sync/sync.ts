@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import type { LibraryRef } from '../../api/web-client.js';
 import type { ToolContext } from '../../registry/registry.js';
 import { applyImportPlan, dryRunImportPlan } from '../import-plan/apply.js';
-import { canonicalPlanHash, type ImportPlan, type ImportPlanAction } from '../import-plan/contract.js';
+import { canonicalPlanHash, validateImportReceipt, type ImportPlan, type ImportPlanAction } from '../import-plan/contract.js';
 import { displayMetricYear, isPreprintEvidence, mergeMetricIntoExtra, metricFromEvidence, synchronizeCurrentMetricTags, type EvidenceMetric } from '../evidence-metrics.js';
 import { renderReportMarkdown, sha256 } from './report-renderer.js';
 import { projectReceiptPath, projectStatePath, readProjectState, writeProjectState, type ProjectSyncState } from './state.js';
@@ -10,7 +10,12 @@ import { projectReceiptPath, projectStatePath, readProjectState, writeProjectSta
 const REPORT_TAG = 'AI4S:Artifact:LiteratureReport';
 const LARGE_CREATE_THRESHOLD = 50;
 
-function dataOf(value: any): Record<string, any> { return value?.data && typeof value.data === 'object' ? value.data : value ?? {}; }
+interface ItemData {
+  [field: string]: unknown;
+  tags?: Array<string | { tag: string }>;
+  note?: string;
+}
+function dataOf(value: any): ItemData { return value?.data && typeof value.data === 'object' ? value.data : value ?? {}; }
 function keyOf(value: any): string { return String(value?.key ?? value?.data?.key ?? ''); }
 function versionOf(value: any): number | null {
   const version = value?.version ?? value?.data?.version;
@@ -20,12 +25,22 @@ function cleanDoi(value: unknown): string {
   return String(value ?? '').trim().toLowerCase().replace(/^https?:\/\/(dx\.)?doi\.org\//, '').replace(/^doi:\s*/, '').replace(/[ .]+$/, '');
 }
 function cleanPmid(value: unknown): string { return String(value ?? '').match(/\d+/)?.[0] ?? ''; }
+function recommendationKey(value: string): string {
+  const key = value.trim();
+  if (/^(?:pmid:\s*)?\d+$/i.test(key)) return `pmid:${cleanPmid(key)}`;
+  const doi = cleanDoi(key);
+  return /^10\.\d+\//.test(doi) ? `doi:${doi}` : key;
+}
+function evidenceAliases(id: string, record: Record<string, unknown>): string[] {
+  const found = identity(record);
+  return [...new Set([id, ...(found.doi ? [`doi:${found.doi}`] : []), ...(found.pmid ? [`pmid:${found.pmid}`] : [])])];
+}
 function normalizedTitle(value: unknown): string {
   return String(value ?? '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
 }
 function yearOf(value: unknown): string { return String(value ?? '').match(/(?:19|20)\d{2}/)?.[0] ?? ''; }
-function identity(record: Record<string, any>) {
-  return { doi: cleanDoi(record.doi ?? record.DOI), pmid: cleanPmid(record.pmid ?? record.PMID ?? record.extra), title: normalizedTitle(record.title), year: yearOf(record.date ?? record.year) };
+function identity(record: Record<string, unknown>) {
+  return { doi: cleanDoi(record.doi ?? record.DOI), pmid: cleanPmid(record.pmid ?? record.PMID ?? record.pubmed_id ?? String(record.extra ?? '').match(/(?:^|\n)PMID:\s*(\d+)/i)?.[1]), title: normalizedTitle(record.title), year: yearOf(record.date ?? record.year) };
 }
 function candidateIdentity(candidate: any) { return identity(dataOf(candidate)); }
 
@@ -122,9 +137,25 @@ async function allCollections(ctx: ToolContext, lib: LibraryRef): Promise<any[]>
   return output;
 }
 
-async function actionsFor(ctx: ToolContext, lib: LibraryRef, records: Array<{ id: string; record: Record<string, any> }>, tags: string[]) {
+async function allItems(ctx: ToolContext, lib: LibraryRef, collectionKey?: string): Promise<any[]> {
+  const output: any[] = [];
+  let start = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const page = await ctx.web.listItems(lib, { collectionKey, top: true, includeTrashed: false, limit: 100, start });
+    output.push(...page.data);
+    hasMore = output.length < page.totalResults;
+    if (hasMore && !page.data.length) throw new Error('Incomplete Web API item listing');
+    start += page.data.length;
+  }
+  return output;
+}
+
+async function actionsFor(ctx: ToolContext, lib: LibraryRef, records: Array<{ id: string; record: Record<string, unknown> }>, tags: string[], collectionKey?: string, syncedItems: ProjectSyncState['synced_items'] = {}) {
   const actions: ImportPlanAction[] = [];
   const risks: string[] = [];
+  let collectionItems: any[] | undefined;
+  let libraryItems: any[] | undefined;
   for (let index = 0; index < records.length; index += 1) {
     const { id, record } = records[index]!;
     const foundIdentity = identity(record);
@@ -134,22 +165,35 @@ async function actionsFor(ctx: ToolContext, lib: LibraryRef, records: Array<{ id
       actions.push({ ...base, decision: 'check', reason_codes: ['missing-stable-id-or-unsupported-item'], item, match: null });
       risks.push(`${id}:missing-stable-id-or-unsupported-item`); continue;
     }
-    const query = foundIdentity.doi || foundIdentity.pmid;
-    const found = await ctx.web.listItems(lib, { q: query, qmode: 'everything', top: true, includeTrashed: false, limit: 50 });
-    if (found.totalResults > 50) {
-      actions.push({ ...base, decision: 'check', reason_codes: ['candidate-limit-exceeded'], item, match: null });
-      risks.push(`${id}:candidate-limit-exceeded`); continue;
-    }
-    const exact = found.data.filter((candidate) => {
+    const matches = (candidate: any) => {
       const live = candidateIdentity(candidate);
       return Boolean((foundIdentity.doi && foundIdentity.doi === live.doi) || (foundIdentity.pmid && foundIdentity.pmid === live.pmid));
-    });
+    };
+    let bound: any = null;
+    const saved = syncedItems[id];
+    if (saved) {
+      try { bound = await ctx.web.getItem(lib, saved.item_key); }
+      catch (error: any) { if (error?.status !== 404) throw error; }
+      if (bound && (dataOf(bound).deleted || dataOf(bound).parentItem)) bound = null;
+      if (bound && !matches(bound)) {
+        actions.push({ ...base, decision: 'check', reason_codes: ['bound-item-identifier-mismatch'], item, match: null });
+        risks.push(`${id}:bound-item-identifier-mismatch`); continue;
+      }
+    }
+    if (!bound) collectionItems ??= collectionKey ? await allItems(ctx, lib, collectionKey) : [];
+    let exact = bound ? [bound] : collectionItems!.filter(matches);
+    if (!exact.length) {
+      libraryItems ??= await allItems(ctx, lib);
+      exact = libraryItems.filter(matches);
+    }
     if (exact.length === 1) {
       const live = candidateIdentity(exact[0]);
       const conflicts = Boolean((foundIdentity.doi && live.doi && foundIdentity.doi !== live.doi) || (foundIdentity.pmid && live.pmid && foundIdentity.pmid !== live.pmid));
       if (!conflicts && versionOf(exact[0]) !== null && keyOf(exact[0])) {
-        actions.push({ ...base, decision: 'reuse', reason_codes: ['unique-doi-or-pmid-match'], item,
-          match: { zotero_key: keyOf(exact[0]), zotero_version: versionOf(exact[0]), match_kind: foundIdentity.doi === live.doi ? 'doi' : 'pmid' } });
+        const priorityTags = (dataOf(exact[0]).tags ?? []).map((entry) => typeof entry === 'string' ? entry : entry.tag).filter((tag) => /^AI4S:Priority:[1-3]$/.test(tag));
+        const managedPriorityTag = saved?.item_key === keyOf(exact[0]) && saved.managed_priority && priorityTags.length === 1 && priorityTags[0] === `AI4S:Priority:${saved.managed_priority}` ? priorityTags[0] : null;
+        actions.push({ ...base, decision: 'reuse', reason_codes: [bound ? 'state-key-identifier-match' : 'unique-doi-or-pmid-match'], item,
+          match: { zotero_key: keyOf(exact[0]), zotero_version: versionOf(exact[0]), match_kind: bound ? 'state-key' : foundIdentity.doi === live.doi ? 'doi' : 'pmid', existing_priority_tags: priorityTags, managed_priority_tag: managedPriorityTag } });
         continue;
       }
     }
@@ -157,7 +201,7 @@ async function actionsFor(ctx: ToolContext, lib: LibraryRef, records: Array<{ id
       actions.push({ ...base, decision: 'check', reason_codes: ['multiple-or-conflicting-identifier-matches'], item, match: null });
       risks.push(`${id}:multiple-or-conflicting-identifier-matches`); continue;
     }
-    const titleCandidate = found.data.some((candidate) => {
+    const titleCandidate = (libraryItems ?? collectionItems ?? []).some((candidate) => {
       const live = candidateIdentity(candidate);
       return foundIdentity.title && foundIdentity.title === live.title && (!foundIdentity.year || !live.year || foundIdentity.year === live.year);
     });
@@ -199,8 +243,12 @@ export interface ProjectSyncInput {
 }
 export interface ProjectSyncResult {
   status: 'complete' | 'needs_review' | 'blocked'; collectionName: string; collectionKey?: string;
-  created: number; reused: number; report: 'created' | 'updated' | 'unchanged' | 'pending'; risks: string[]; reviewId?: string;
+  created: number; reused: number; unchanged?: number; report: 'created' | 'updated' | 'unchanged' | 'pending'; risks: string[]; reviewId?: string;
   metrics: { updated: number; missing: number; preprintsSkipped: number; displayYear: number; status: string };
+  createReview?: {
+    collection_name: string; collection_key: string | null; collection_exists: boolean;
+    new_items: number; previously_synced: number; evidence_ids: string[];
+  };
 }
 
 export async function syncLiteratureProject(ctx: ToolContext, lib: LibraryRef, input: ProjectSyncInput): Promise<ProjectSyncResult> {
@@ -228,7 +276,8 @@ export async function syncLiteratureProject(ctx: ToolContext, lib: LibraryRef, i
   for (const id of selectedIds) {
     const record = byId.get(id)!;
     if (isPreprintEvidence(record)) { metricsPreprintsSkipped += 1; continue; }
-    const metric = metricFromEvidence(record, evidenceHash);
+    // Provenance for this item's metric payload, not the whole changing batch.
+    const metric = metricFromEvidence(record, sha256(JSON.stringify(record.easyscholar ?? {})));
     if (metric) metricsById.set(id, metric);
     else metricsMissing += 1;
   }
@@ -250,9 +299,20 @@ export async function syncLiteratureProject(ctx: ToolContext, lib: LibraryRef, i
     if (value.scope !== input.projectSlug || value.default_for_selected !== 1) throw new Error('Priority recommendations do not match the project scope/default');
     if (!['metadata', 'abstract', 'mixed', 'full-text'].includes(value.review_depth)) throw new Error('Invalid priority review_depth');
     for (const id of selectedIds) priorityLevels.set(id, { level: 1, reasons: [] });
-    for (const [id, recommendation] of Object.entries<any>(value.recommendations ?? {})) {
-      if (!byId.has(id)) throw new Error(`Priority recommendations contain unknown evidence ID: ${id}`);
-      if (![2, 3].includes(recommendation?.priority) || !Array.isArray(recommendation?.reason_codes) || !recommendation.reason_codes.length) throw new Error(`Invalid priority recommendation for ${id}`);
+    const aliases = new Map<string, Set<string>>();
+    for (const [id, record] of byId) for (const alias of evidenceAliases(id, record)) {
+      if (!aliases.has(alias)) aliases.set(alias, new Set());
+      aliases.get(alias)!.add(id);
+    }
+    const recommended = new Map<string, number>();
+    for (const [key, recommendation] of Object.entries<any>(value.recommendations ?? {})) {
+      const ids = aliases.get(recommendationKey(key));
+      if (!ids?.size) throw new Error(`Priority recommendations contain unknown evidence ID: ${key}`);
+      if (ids.size !== 1) throw new Error(`Ambiguous priority recommendation: ${key}`);
+      const id = [...ids][0]!;
+      if (![2, 3].includes(recommendation?.priority) || !Array.isArray(recommendation?.reason_codes) || !recommendation.reason_codes.length) throw new Error(`Invalid priority recommendation for ${key}`);
+      if (recommended.has(id) && recommended.get(id) !== recommendation.priority) throw new Error(`Conflicting priority aliases for ${id}`);
+      recommended.set(id, recommendation.priority);
       if (selectedIds.includes(id)) priorityLevels.set(id, { level: recommendation.priority, reasons: recommendation.reason_codes.map(String) });
     }
     priorityMetadata = { source_sha256: sha256(bytes), scope: input.projectSlug, review_depth: value.review_depth, default_for_selected: 1 };
@@ -294,7 +354,7 @@ export async function syncLiteratureProject(ctx: ToolContext, lib: LibraryRef, i
   // metadata, state, and private receipt; Zotero membership uses a stable tag.
   const tags = [projectTag];
   const selected = selectedIds.map((id) => ({ id, record: byId.get(id)! }));
-  const classified = await actionsFor(ctx, lib, selected, tags);
+  const classified = await actionsFor(ctx, lib, selected, tags, collectionKey, state?.synced_items);
   for (const action of classified.actions) {
     const metric = metricsById.get(action.evidence_id);
     if (metric && action.item) {
@@ -309,25 +369,33 @@ export async function syncLiteratureProject(ctx: ToolContext, lib: LibraryRef, i
     if (!itemTags.some((entry: any) => entry?.tag === `AI4S:Priority:${priority.level}`)) itemTags.push({ tag: `AI4S:Priority:${priority.level}` });
     action.priority_recommendation = { level: priority.level, reason_codes: priority.reasons, tag_decision: 'add' };
   }
+  const createIds = classified.actions.filter((action) => action.decision === 'create').map((action) => action.evidence_id);
+  const createCount = createIds.length;
+  const previouslySynced = new Set([...(state?.synced_evidence_ids ?? []), ...Object.keys(state?.synced_items ?? {})]);
+  const previousCreateIds = createIds.filter((id) => previouslySynced.has(id));
+  const createReview = {
+    collection_name: collectionName, collection_key: collectionKey ?? null, collection_exists: Boolean(collectionKey),
+    new_items: createCount, previously_synced: previousCreateIds.length, evidence_ids: previousCreateIds,
+  };
+  if (previousCreateIds.length) return { status: 'needs_review', collectionName, collectionKey, created: 0, reused: 0, report: 'pending', risks: ['previously-synced-would-create', ...compactEvidenceRisks(classified.risks)], createReview, metrics };
   if (classified.risks.length) return { status: 'needs_review', collectionName, collectionKey, created: 0, reused: 0, report: 'pending', risks: compactEvidenceRisks(classified.risks), metrics };
-  const createCount = classified.actions.filter((action) => action.decision === 'create').length;
-  const reviewId = sha256(JSON.stringify({ project: input.projectSlug, collection: collectionName, reportHash, evidenceHash, priorityHash: priorityMetadata?.source_sha256 ?? null, selectedIds }));
-  if (createCount > LARGE_CREATE_THRESHOLD && input.confirmReviewId !== reviewId) return { status: 'needs_review', collectionName, collectionKey, created: 0, reused: 0, report: 'pending', risks: [`large-create-batch:${createCount}`], reviewId, metrics };
+  const reviewId = sha256(JSON.stringify({ project: input.projectSlug, library: lib, collection: collectionName, collectionKey, createIds, reportHash, evidenceHash, priorityHash: priorityMetadata?.source_sha256 ?? null, selectedIds }));
+  if (createCount > LARGE_CREATE_THRESHOLD && input.confirmReviewId !== reviewId) return { status: 'needs_review', collectionName, collectionKey, created: 0, reused: 0, report: 'pending', risks: [`large-create-batch:${createCount}`], createReview, reviewId, metrics };
 
   const plan: ImportPlan = {
     schema_version: '1.0', plan_type: 'zotero-import', created_at: new Date().toISOString(), plan_hash: '',
     project: { slug: input.projectSlug, search_date: input.searchDate },
     target: { library_type: lib.type, library_id: lib.id, collection_name: collectionName, tags },
-    matching: { mode: 'local-api', source_library_version: null, candidate_limit: 50, unchecked_create: false },
+    matching: { mode: 'web-api-local-match', source_library_version: null, candidate_limit: 100, unchecked_create: false },
     actions: classified.actions, ...(priorityMetadata ? { priority: priorityMetadata } : {}),
     summary: { selected: classified.actions.length, create: createCount, reuse: classified.actions.filter((action) => action.decision === 'reuse').length, check: 0, skip: 0 },
   };
   plan.plan_hash = canonicalPlanHash(plan);
   const dryRun = await dryRunImportPlan(ctx, plan, lib);
-  if (dryRun.status !== 'ready') return { status: 'needs_review', collectionName, collectionKey, created: 0, reused: 0, report: 'pending', risks: compactEvidenceRisks(dryRun.blockingIssues), metrics };
+  if (dryRun.status !== 'ready' || dryRun.blockingIssues.length) return { status: 'needs_review', collectionName, collectionKey, created: 0, reused: 0, report: 'pending', risks: compactEvidenceRisks(dryRun.blockingIssues), metrics };
   const applied = await applyImportPlan(ctx, plan, lib, projectReceiptPath(ctx.config.dataDir, lib, input.projectSlug, plan.plan_hash));
   collectionKey = applied.collectionKey ?? collectionKey;
-  if (!collectionKey || applied.status === 'blocked') return { status: 'blocked', collectionName, collectionKey, created: applied.summary.created ?? 0, reused: applied.summary.reused ?? 0, report: 'pending', risks: applied.blockingIssues, metrics };
+  if (!collectionKey || applied.status !== 'complete') return { status: 'blocked', collectionName, collectionKey, created: applied.summary.created ?? 0, reused: applied.summary.reused ?? 0, report: 'pending', risks: applied.blockingIssues, metrics };
 
   let note: any = null;
   if (state) note = await ctx.web.getItem(lib, state.report_note_key);
@@ -348,12 +416,23 @@ export async function syncLiteratureProject(ctx: ToolContext, lib: LibraryRef, i
   }
   const savedNote = await ctx.web.getItem(lib, noteKey);
   noteVersion = versionOf(savedNote);
+  const receipt = validateImportReceipt(JSON.parse(await readFile(applied.receiptPath!, 'utf8')));
+  const syncedItems: ProjectSyncState['synced_items'] = { ...state?.synced_items };
+  const actionsById = new Map(classified.actions.map((action) => [action.evidence_id, action]));
+  for (const result of receipt.results) {
+    if (!['created', 'reused'].includes(result.outcome) || !result.zotero_key) continue;
+    const action = actionsById.get(result.evidence_id)!;
+    const previous = action.match?.managed_priority_tag;
+    const canManage = action.decision === 'create' || action.match?.existing_priority_tags?.length === 0 || previous;
+    const level = canManage && action.priority_recommendation ? action.priority_recommendation.level : previous ? Number(previous.slice(-1)) as 1 | 2 | 3 : undefined;
+    syncedItems[result.evidence_id] = { item_key: result.zotero_key, version: result.zotero_version, ...(level ? { managed_priority: level } : {}) };
+  }
   const nextState: ProjectSyncState = {
-    schema_version: '1.0', project_slug: input.projectSlug, library: lib, collection_name: collectionName, collection_key: collectionKey,
+    schema_version: '1.1', project_slug: input.projectSlug, library: lib, collection_name: collectionName, collection_key: collectionKey,
     report_note_key: noteKey, report_note_version: noteVersion, report_sha256: reportHash,
     report_note_sha256: sha256(String(dataOf(savedNote).note ?? '')), evidence_sha256: evidenceHash,
-    synced_evidence_ids: [...selectedIds].sort(), updated_at: new Date().toISOString(),
+    synced_evidence_ids: [...new Set([...(state?.synced_evidence_ids ?? []), ...Object.keys(syncedItems), ...selectedIds])].sort(), synced_items: syncedItems, updated_at: new Date().toISOString(),
   };
   await writeProjectState(statePath, nextState);
-  return { status: 'complete', collectionName, collectionKey, created: applied.summary.created ?? 0, reused: applied.summary.reused ?? 0, report, risks: [], metrics };
+  return { status: 'complete', collectionName, collectionKey, created: applied.summary.created ?? 0, reused: applied.summary.reused ?? 0, unchanged: applied.summary.unchanged ?? 0, report, risks: [], metrics };
 }

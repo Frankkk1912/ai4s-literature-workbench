@@ -72,7 +72,7 @@ function itemIdentity(item: any): { doi: string; pmid: string; title: string; ye
   const data = dataOf(item);
   return {
     doi: cleanDoi(data.DOI ?? data.doi),
-    pmid: cleanPmid(data.PMID ?? data.pmid ?? data.extra),
+    pmid: cleanPmid(data.PMID ?? data.pmid ?? String(data.extra ?? '').match(/(?:^|\n)PMID:\s*(\d+)/i)?.[1]),
     title: normalizedTitle(data.title),
     year: String(data.date ?? data.year ?? '').match(/(?:19|20)\d{2}/)?.[0] ?? '',
   };
@@ -92,8 +92,8 @@ async function allCollections(ctx: ToolContext, lib: LibraryRef): Promise<any[]>
 }
 
 function queryForCreate(action: ImportPlanAction): string {
-  const item = action.item ?? {};
-  return cleanDoi(item.DOI) || cleanPmid(item.extra) || String(item.title ?? '');
+  const identity = itemIdentity(action.item);
+  return identity.doi || identity.pmid || String(action.item?.title ?? '');
 }
 
 function exactLiveMatch(action: ImportPlanAction, candidate: any): boolean {
@@ -118,6 +118,8 @@ async function preflight(
   const reuseItems = new Map<string, any>();
   const blockingIssues: string[] = [];
   if (collectionMatches.length > 1) blockingIssues.push('multiple-exact-collection-matches');
+  // Project sync must not fall back to q=DOI in its dry-run/apply preflight.
+  let webCandidates: any[] | undefined;
 
   for (const action of actions) {
     if (action.decision === 'create') {
@@ -126,18 +128,28 @@ async function preflight(
         itemChecks.set(action.evidence_id, `invalid-item:${validation.errors.join('; ')}`);
         continue;
       }
-      const query = queryForCreate(action);
-      const result = await ctx.web.listItems(lib, {
-        q: query,
-        qmode: 'everything',
-        top: true,
-        includeTrashed: false,
-        limit: plan.matching.candidate_limit,
-      });
-      if (result.totalResults > plan.matching.candidate_limit) {
-        itemChecks.set(action.evidence_id, 'live-candidate-limit-exceeded');
-      } else if (result.data.some((candidate) => exactLiveMatch(action, candidate))) {
-        itemChecks.set(action.evidence_id, 'live-match-for-planned-create');
+      if (plan.matching.mode === 'web-api-local-match') {
+        if (!webCandidates) {
+          webCandidates = [];
+          let hasMore = true;
+          while (hasMore) {
+            const page = await ctx.web.listItems(lib, { top: true, includeTrashed: false, limit: 100, start: webCandidates.length });
+            webCandidates.push(...page.data);
+            hasMore = webCandidates.length < page.totalResults;
+            if (hasMore && !page.data.length) throw new Error('Incomplete Web API item listing');
+          }
+        }
+        if (webCandidates.some((candidate) => exactLiveMatch(action, candidate))) itemChecks.set(action.evidence_id, 'live-match-for-planned-create');
+      } else {
+        const query = queryForCreate(action);
+        const result = await ctx.web.listItems(lib, {
+          q: query, qmode: 'everything', top: true, includeTrashed: false, limit: plan.matching.candidate_limit,
+        });
+        if (result.totalResults > plan.matching.candidate_limit) {
+          itemChecks.set(action.evidence_id, 'live-candidate-limit-exceeded');
+        } else if (result.data.some((candidate) => exactLiveMatch(action, candidate))) {
+          itemChecks.set(action.evidence_id, 'live-match-for-planned-create');
+        }
       }
     } else if (action.decision === 'reuse') {
       const key = String(action.match?.zotero_key ?? '');
@@ -239,7 +251,7 @@ function setBlockingError(receipt: ImportReceipt, actions: ImportPlanAction[], e
 
 function compactSummary(receipt: ImportReceipt): Record<string, number> {
   summarizeReceipt(receipt);
-  return { ...receipt.summary };
+  return { ...receipt.summary, unchanged: receipt.results.filter((result) => result.unchanged).length };
 }
 
 function mergeTags(existing: any[], additions: string[]): Array<{ tag: string; type?: number }> {
@@ -262,6 +274,13 @@ function plannedItemTags(action: ImportPlanAction): string[] {
 
 function isPriorityTag(tag: string): boolean {
   return /^AI4S:Priority:[1-3]$/.test(tag);
+}
+
+function sameSet(left: string[], right: string[]): boolean {
+  return JSON.stringify([...new Set(left)].sort()) === JSON.stringify([...new Set(right)].sort());
+}
+function tagSignatures(tags: Array<string | { tag: string; type?: number }>): string[] {
+  return tags.map((entry) => JSON.stringify(typeof entry === 'string' ? [entry, 0] : [entry.tag, entry.type ?? 0]));
 }
 
 function chunks<T>(values: T[], size: number): T[][] {
@@ -472,9 +491,17 @@ export async function applyImportPlan(
     // Per-item tags (such as AI4S:ArticleType:Review) are part of the hashed
     // action intent. Reused records must receive them just like newly created
     // records, while all existing Zotero tags remain untouched.
-    const currentPriority = (currentData.tags ?? [])
+    let currentTags = currentData.tags ?? [];
+    let currentPriority = currentTags
       .map((entry: any) => typeof entry === 'string' ? entry : entry?.tag)
       .filter((tag: unknown): tag is string => typeof tag === 'string' && isPriorityTag(tag));
+    // Refresh only the exact last project-managed Priority. Manual or untracked
+    // Priority tags still win, as they do for ordinary import plans.
+    const managedPriority = action.match?.managed_priority_tag;
+    if (plan.matching.mode === 'web-api-local-match' && action.priority_recommendation && currentPriority.length === 1 && currentPriority[0] === managedPriority && managedPriority !== `AI4S:Priority:${action.priority_recommendation.level}`) {
+      currentTags = currentTags.filter((entry: any) => (typeof entry === 'string' ? entry : entry?.tag) !== managedPriority);
+      currentPriority = [];
+    }
     const actionTags = plannedItemTags(action).filter((tag) => !currentPriority.length || !isPriorityTag(tag));
     const plannedMetrics = hasManagedMetrics(action.item?.extra);
     const extra = plannedMetrics ? mergePlannedMetricsExtra(currentData.extra, action.item?.extra) : String(currentData.extra ?? '');
@@ -487,8 +514,18 @@ export async function applyImportPlan(
         status: 'blocked', summary: compactSummary(receipt), blockingIssues: [info.code],
       };
     }
-    let tags = mergeTags(currentData.tags ?? [], [...plan.target.tags, ...actionTags]);
+    let tags = mergeTags(currentTags, [...plan.target.tags, ...actionTags]);
     if (plannedMetrics) tags = synchronizeCurrentMetricTags(tags, extra);
+    const unchanged = sameSet(collections, currentData.collections ?? [])
+      && sameSet(tagSignatures(tags), tagSignatures(currentData.tags ?? []))
+      && (!plannedMetrics || extra === String(currentData.extra ?? ''));
+    if (unchanged) {
+      const result = resultFor(receipt, action.evidence_id);
+      result.outcome = 'reused'; result.unchanged = true;
+      result.zotero_key = String(action.match?.zotero_key); result.zotero_version = currentVersion; result.error = null;
+      await persistReceipt(receiptPath, receipt);
+      continue;
+    }
     try {
       const newVersion = await ctx.web.patchItem(
         lib,

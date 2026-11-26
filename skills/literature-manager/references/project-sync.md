@@ -16,12 +16,12 @@ its synced reading copy. Keep human annotations in a separate Note.
 ## Low-Risk Automatic Path
 
 - Reuse one unique DOI or PMID match.
-- Create a supported record with a DOI or PMID after a complete live query
-  finds no identifier match.
+- Create a supported record with a DOI or PMID after paginated Web API collection and library lists
+  find no local identifier match.
 - Add, but never remove, project tags and collection membership.
 - Create a missing collection with one unambiguous exact name.
 - Create or update the one AI4S-owned report Note.
-- Resume an internal idempotent receipt after a partial transient failure.
+- Resume an internal receipt after a partial transient failure.
 - Write available EasyScholar metrics during the same create/reuse operation:
   merge only the managed `AI4S-Metrics` Extra block, synchronize current
   `JCR:*`/`CAS:*` tags, and preserve all user Extra and unrelated tags.
@@ -31,17 +31,28 @@ its synced reading copy. Keep human annotations in a separate Note.
 Stop and show a short risk summary for title-only or conflicting matches,
 missing stable IDs, truncated queries, ownership/version conflicts, destructive
 implications, duplicate collections/notes, manual report edits, or more than 50
-new records. Only the large-create case may proceed after one explicit
-confirmation using the returned review ID. Identity and ownership conflicts
-must be resolved first.
+new records. On `needs_review`, `large-create-batch`, or
+`previously-synced-would-create`, ask the user before retrying. Never
+silently retry with `confirm_review_id` in the same turn. Show the target
+collection name and key, how many new items are proposed, and how many were
+previously synced, including those evidence IDs. Only the large-create case
+may proceed after explicit user confirmation using the returned review ID.
+Previously synced creates cannot be overridden by that token; missing keys,
+identity and ownership conflicts must be resolved first.
 
 ## Inputs and Recovery
 
 Required inputs are the project slug, search date, search-record `report.md`, and
 ranked evidence JSON. The evidence should already contain selected-only
 EasyScholar enrichment for a new import. The collection name is required only on first sync; later
-runs recover it from the private binding. An optional compact selection JSON
-restricts the collection; otherwise all ranked records are selected. Never pass
+runs recover it from the private binding. State schema 1.1 records canonical
+evidence IDs with Zotero item keys and versions. Legacy 1.0 state remains
+readable and is upgraded after a successful sync. Bound keys are checked
+before collection/library matching; a missing key never silently authorizes
+recreating previously synced evidence. An optional compact selection JSON
+restricts this run; otherwise all ranked records are selected. State keeps the
+union of previously synced IDs and bindings. Shrinking a selection does not
+remove papers from the collection or trash them. Never pass
 an uncapped raw retrieval dump as ranked evidence.
 
 The sync derives the metric display year from the search date (`year - 1`) and
@@ -51,3 +62,14 @@ returns `metrics_updated`, `metrics_missing`, `metrics_preprint_skipped`, and
 Zotero rate limiting uses the existing Web API client. Private receipts are
 keyed by internal content hash. Reruns skip completed writes and resume pending
 ones, so a report failure after paper import does not duplicate papers.
+
+Reuse compares collection membership, tags (including tag type, ignoring order),
+and managed metrics Extra before writing. Unchanged items remain `reused` with
+an `unchanged` receipt flag and retain their Zotero versions. Unchanged report
+Notes also receive no patch. Adding one evidence record creates only that
+record; metric provenance hashes are per-record EasyScholar payloads so adding
+papers does not invalidate every older metric block.
+
+Changed Priority recommendations refresh only a tracked project-managed tag
+whose live value still matches the last value written by this project. Existing
+untracked Priority and manual overrides are never automatically re-rated.

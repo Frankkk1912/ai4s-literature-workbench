@@ -272,10 +272,13 @@ the `AI4S-Summary` Extra contract.
 2. For a recurring report project, use `zotero_sync_literature_project` with
    the search-record `report.md`, EasyScholar-enriched ranked evidence, project
    slug, and search date. Exact DOI/PMID operations and available create/reuse
-   metrics proceed idempotently and return a compact result.
-3. Stop and ask Frank only if project sync reports a high-risk case. A large
-   create batch can resume after one explicit confirmation; identity and
-   ownership conflicts require resolution.
+   metrics use local identifier matching over Web API lists and return a compact result.
+3. On `needs_review`, `large-create-batch`, or
+   `previously-synced-would-create`, stop and ask the user before retrying.
+   Never automatically supply `confirm_review_id` in the same turn. Show the
+   collection name/key, proposed create count, and previously synced IDs.
+   Only a large-create batch can resume after explicit user approval;
+   previously synced creates and identity/ownership conflicts require resolution.
 4. For lower-level work, export or fetch Zotero items to `zotero_items.json`. Prefer local API for a
    desktop library and Web API for synced/group libraries.
 5. Run `dedupe-library` if the user asked for library cleanup or if duplicate
@@ -314,10 +317,11 @@ stay in Zotero Desktop.
 
 When `priority_recommendations.json` is present, selected records default to
 `AI4S:Priority:1`; explicit Priority 2/3 promotions are carried into the hashed
-action with reason codes and sidecar SHA-256. Priority is user-owned after the
-first write: an existing valid Priority tag is preserved during planning and
-again during live MCP apply unless Frank explicitly requests a separate
-re-rating workflow.
+action with reason codes and sidecar SHA-256. Ordinary imports preserve existing
+valid Priority tags. Recurring project sync may refresh its own tracked
+Priority when the recommendation changes and the live tag still equals its
+last managed value. Untracked tags and manual overrides are preserved; changing
+those requires Frank's explicit re-rating request.
 
 When `semantic_tag_candidates.json` is present, apply the import first, map its
 stable evidence IDs through the import receipt, and then reconcile candidates
