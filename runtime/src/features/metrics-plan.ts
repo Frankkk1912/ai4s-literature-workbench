@@ -136,9 +136,44 @@ function mergedTags(tags: any[], extra: string): Array<{ tag: string; type?: num
   const latest = years.length ? payload.by_year[years.at(-1)!] : {};
   const kept = new Map<string, { tag: string; type?: number }>();
   for (const raw of tags ?? []) { const tag = typeof raw === 'string' ? raw : raw?.tag; if (tag && !/^JCR:|^CAS:/.test(tag)) kept.set(tag, typeof raw === 'string' ? { tag } : raw); }
-  if (typeof latest.jcr_zone === 'string' && latest.jcr_zone) kept.set(`JCR:${latest.jcr_zone}`, { tag: `JCR:${latest.jcr_zone}` });
-  if (typeof latest.cas_zone === 'string' && latest.cas_zone) kept.set(`CAS:${latest.cas_zone}`, { tag: `CAS:${latest.cas_zone}` });
+  // New JCR/CAS tags use the usual Web API shape (`type: 0`); detection treats a missing type as 0.
+  if (typeof latest.jcr_zone === 'string' && latest.jcr_zone) kept.set(`JCR:${latest.jcr_zone}`, { tag: `JCR:${latest.jcr_zone}`, type: 0 });
+  if (typeof latest.cas_zone === 'string' && latest.cas_zone) kept.set(`CAS:${latest.cas_zone}`, { tag: `CAS:${latest.cas_zone}`, type: 0 });
   return [...kept.values()];
+}
+/** Canonical tag entries for comparison: missing `type` is 0, order-independent, exact duplicates collapsed. */
+function normalizedTagEntries(tags: unknown): Array<{ tag: string; type: number }> {
+  const seen = new Map<string, { tag: string; type: number }>();
+  for (const raw of Array.isArray(tags) ? tags : []) {
+    const tag = typeof raw === 'string' ? raw : isObject(raw) && typeof raw.tag === 'string' ? raw.tag : null;
+    if (!tag) continue;
+    const type = isObject(raw) && typeof raw.type === 'number' && Number.isInteger(raw.type) ? raw.type : 0;
+    const key = `${type}:${tag}`;
+    if (!seen.has(key)) seen.set(key, { tag, type });
+  }
+  return [...seen.values()].sort((a, b) => (a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : a.type - b.type));
+}
+/** True when both tag lists hold the same (tag, type) pairs — the Web API may add `type: 0` or reorder freely. */
+function tagsEquivalent(a: unknown, b: unknown): boolean {
+  const left = normalizedTagEntries(a); const right = normalizedTagEntries(b);
+  return left.length === right.length && left.every((entry, index) => entry.tag === right[index]!.tag && entry.type === right[index]!.type);
+}
+/** Extra comparison that ignores line endings, trailing whitespace, and JSON key order of the metrics block. */
+function extraEquivalent(current: unknown, candidate: string): boolean {
+  if (String(current ?? '') === candidate) return true;
+  const split = (extra: string) => {
+    const lines = extra.replace(/\r\n?/g, '\n').split('\n');
+    const metrics = lines.filter((line) => line.startsWith(PREFIX));
+    const retained = lines.filter((line) => !line.startsWith(PREFIX)).map((line) => line.replace(/\s+$/, ''));
+    while (retained.length && !retained[0]) retained.shift();
+    while (retained.length && !retained.at(-1)) retained.pop();
+    return { metrics, retained };
+  };
+  const parse = (line: string): string | null => { try { const payload = JSON.parse(line.slice(PREFIX.length).trim()); return isObject(payload) ? JSON.stringify(deepSort(payload)) : null; } catch { return null; } };
+  const left = split(String(current ?? '')); const right = split(candidate);
+  if (left.metrics.length !== 1 || right.metrics.length !== 1) return false;
+  const leftMetrics = parse(left.metrics[0]!); const rightMetrics = parse(right.metrics[0]!);
+  return leftMetrics !== null && leftMetrics === rightMetrics && left.retained.join('\n') === right.retained.join('\n');
 }
 function versionOf(item: any): number | null { const value = item?.version ?? item?.data?.version; return Number.isInteger(value) ? value : null; }
 function dataOf(item: any): Record<string, any> { return isObject(item?.data) ? item.data : item ?? {}; }
@@ -223,7 +258,7 @@ export async function executeMetricsPlan(ctx: ToolContext, plan: MetricsPlan, li
       }
       const extra = mergeMetric(sourceExtra, plan.metrics.metrics_year, action.metric!);
       if (extra === null) { result.outcome = 'failed'; result.error = 'invalid-or-duplicate-ai4s-metrics-block'; continue; }
-      const tags = mergedTags(data.tags, extra); const changed = extra !== String(data.extra ?? '') || JSON.stringify(tags) !== JSON.stringify(data.tags ?? []);
+      const tags = mergedTags(data.tags, extra); const changed = !extraEquivalent(data.extra, extra) || !tagsEquivalent(tags, data.tags ?? []);
       if (mode === 'dry_run') { result.outcome = changed ? 'pending' : 'unchanged'; continue; }
       if (!changed) { result.outcome = 'unchanged'; continue; }
       result.zotero_version = await ctx.web.patchItem(lib, action.item_key, { extra, tags }, current); result.outcome = 'updated'; result.error = null;

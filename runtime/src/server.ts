@@ -49,6 +49,7 @@ export const WORKBENCH_TOOL_NAMES = new Set([
   'zotero_apply_fulltext_handoff',
   'zotero_apply_import_plan',
   'zotero_apply_metrics_plan',
+  'zotero_backfill_metrics',
   'zotero_apply_citation_plan',
   'zotero_find_duplicates',
   'zotero_apply_dedupe_plan',

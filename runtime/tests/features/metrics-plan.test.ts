@@ -25,6 +25,23 @@ function cloudContext(version: number) {
     router: { getItem: vi.fn(() => { throw new Error('Must not use the router for cloud version refresh'); }) },
   } as any;
 }
+const LIVE_SHA = 'c'.repeat(64);
+function idempotentPlan(): MetricsPlan {
+  const value: MetricsPlan = {
+    schema_version: '1.0', plan_type: 'zotero-metrics', created_at: '2026-11-26', plan_hash: '',
+    target: { library_type: 'user', library_id: 1 },
+    metrics: { metrics_year: 2025, source_label: 'test', source_sha256: 'a'.repeat(64) },
+    actions: [{ item_key: '3DI5B43M', expected_version: 41537, title: 'Paper', issns: [], decision: 'update', reason_codes: [], metric: { jcr_zone: 'Q1', cas_zone: '2区', source_label: 'test', source_sha256: LIVE_SHA } }],
+    summary: { selected: 1, update: 1, skip: 0 },
+  };
+  value.plan_hash = canonicalMetricsPlanHash(value);
+  return value;
+}
+/** The Extra exactly as an approved earlier apply would have written it. */
+function expectedExtra(): string {
+  const payload = { by_year: { '2025': { cas_zone: '2区', jcr_zone: 'Q1', source_label: 'test', source_sha256: LIVE_SHA } }, schema_version: 2 };
+  return `Human note\nAI4S-Metrics: ${JSON.stringify(payload)}`;
+}
 
 describe('metrics plan cloud-version preflight', () => {
   it('refreshes 81 local-scale versions directly from cloud, with a new reviewable hash', async () => {
@@ -116,6 +133,79 @@ describe('metrics plan cloud-version preflight', () => {
     const original = versionPlan(1200, 1, 'zotero-local-api');
     expect(validateMetricsPlan(original)).toBe(original);
     expect(() => validateMetricsPlan({ ...original, source: 'zotero-web-api' })).toThrow(/hash mismatch/);
+  });
+});
+
+describe('metrics plan dry-run idempotence', () => {
+  function itemContext(data: Record<string, unknown>, version = 41537) {
+    return {
+      web: { isCloud: true, getItem: vi.fn(async () => ({ version, data })), patchItem: vi.fn(async () => version + 1) },
+      router: { getItem: vi.fn(() => { throw new Error('Must not use the router'); }) },
+    } as any;
+  }
+
+  it('treats API-shaped tags (type: 0, reordered) as unchanged when Extra already matches', async () => {
+    const ctx = itemContext({
+      extra: expectedExtra(),
+      tags: [{ tag: 'CAS:2区', type: 0 }, { tag: 'JCR:Q1', type: 0 }, { tag: 'project:ai4s-smoke-sync-20261126', type: 0 }],
+    });
+    const result = await executeMetricsPlan(ctx, idempotentPlan(), library, 'dry_run');
+    expect(result).toMatchObject({ status: 'ready', summary: { unchanged: 1, pending: 0, failed: 0 }, conflicts: [] });
+    expect(ctx.web.patchItem).not.toHaveBeenCalled();
+  });
+
+  it('treats tags without type in a different order as unchanged (the exact live failure)', async () => {
+    const ctx = itemContext({
+      extra: expectedExtra(),
+      tags: [{ tag: 'CAS:2区' }, { tag: 'JCR:Q1' }, { tag: 'project:ai4s-smoke-sync-20261126' }],
+    });
+    const result = await executeMetricsPlan(ctx, idempotentPlan(), library, 'dry_run');
+    expect(result).toMatchObject({ status: 'ready', summary: { unchanged: 1, pending: 0, failed: 0 }, conflicts: [] });
+    expect(ctx.web.patchItem).not.toHaveBeenCalled();
+  });
+
+  it('ignores harmless Extra formatting: CRLF, trailing newline, and metrics JSON key order', async () => {
+    const unsorted = `{"schema_version":2,"by_year":{"2025":{"source_sha256":"${LIVE_SHA}","source_label":"test","cas_zone":"2区","jcr_zone":"Q1"}}}`;
+    const ctx = itemContext({ extra: `Human note\r\nAI4S-Metrics: ${unsorted}\r\n`, tags: [{ tag: 'JCR:Q1' }, { tag: 'CAS:2区' }] });
+    const result = await executeMetricsPlan(ctx, idempotentPlan(), library, 'dry_run');
+    expect(result).toMatchObject({ status: 'ready', summary: { unchanged: 1, pending: 0, failed: 0 }, conflicts: [] });
+    expect(ctx.web.patchItem).not.toHaveBeenCalled();
+  });
+
+  it('still reports pending for a genuinely different metric or tag set', async () => {
+    const stale = itemContext({
+      extra: expectedExtra(),
+      tags: [{ tag: 'CAS:3区', type: 0 }, { tag: 'JCR:Q1', type: 0 }],
+    });
+    const staleResult = await executeMetricsPlan(stale, idempotentPlan(), library, 'dry_run');
+    expect(staleResult).toMatchObject({ status: 'ready', summary: { pending: 1, unchanged: 0 }, conflicts: [] });
+
+    const drifted = itemContext({ extra: 'Human note\nAI4S-Metrics: {"by_year":{"2025":{"cas_zone":"3区"}},"schema_version":2}', tags: [{ tag: 'JCR:Q1' }, { tag: 'CAS:2区' }] });
+    const driftedResult = await executeMetricsPlan(drifted, idempotentPlan(), library, 'dry_run');
+    expect(driftedResult).toMatchObject({ status: 'ready', summary: { pending: 1, unchanged: 0 }, conflicts: [] });
+  });
+
+  it('apply mode leaves an already-correct item untouched (no patch call)', async () => {
+    const ctx = itemContext({
+      extra: expectedExtra(),
+      tags: [{ tag: 'CAS:2区' }, { tag: 'JCR:Q1' }, { tag: 'project:ai4s-smoke-sync-20261126' }],
+    });
+    const receiptPath = join(await mkdtemp(join(tmpdir(), 'metrics-idem-')), 'receipt.json');
+    const result = await executeMetricsPlan(ctx, idempotentPlan(), library, 'apply', receiptPath);
+    expect(result).toMatchObject({ status: 'complete', summary: { unchanged: 1, updated: 0, failed: 0, pending: 0 } });
+    expect(ctx.web.patchItem).not.toHaveBeenCalled();
+    expect(JSON.parse(await readFile(receiptPath, 'utf8')).results[0]).toMatchObject({ item_key: '3DI5B43M', outcome: 'unchanged' });
+  });
+
+  it('writes consistent type: 0 JCR/CAS tags without shuffling preserved tags', async () => {
+    const ctx = itemContext({ extra: 'Human note', tags: [{ tag: 'CAS:2区', type: 0 }, { tag: 'project:x', type: 0 }] });
+    const receiptPath = join(await mkdtemp(join(tmpdir(), 'metrics-write-')), 'receipt.json');
+    const result = await executeMetricsPlan(ctx, idempotentPlan(), library, 'apply', receiptPath);
+    expect(result).toMatchObject({ status: 'complete', summary: { updated: 1, unchanged: 0 } });
+    expect(ctx.web.patchItem).toHaveBeenCalledTimes(1);
+    const patch = ctx.web.patchItem.mock.calls[0]![2] as { extra: string; tags: Array<{ tag: string; type?: number }> };
+    // The preserved project tag keeps its place and type; JCR is appended as type: 0.
+    expect(patch.tags).toEqual([{ tag: 'project:x', type: 0 }, { tag: 'JCR:Q1', type: 0 }, { tag: 'CAS:2区', type: 0 }]);
   });
 });
 
