@@ -209,6 +209,21 @@ describe('zotero import-plan execution', () => {
     expect(ctx.web.writeItems).toHaveBeenCalledTimes(writeCount);
   });
 
+  it('records unchanged reuse without patching, ignoring membership/tag order and preserving tag types', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'zotero-import-'));
+    const value = plan(); value.actions = [value.actions[1]!];
+    value.summary = { selected: 1, create: 0, reuse: 1, check: 0, skip: 0 }; value.plan_hash = canonicalPlanHash(value);
+    const ctx = context({ getItem: vi.fn(async () => ({ key: 'EXIST001', version: 3, data: {
+      collections: ['COLL001', 'OLD'], tags: [
+        { tag: 'project:test-project', type: 1 }, { tag: 'AI4S:Priority:3' },
+        { tag: 'existing' }, { tag: 'AI4S:ArticleType:Review' }, { tag: 'import-run:test-project-20260712' },
+      ],
+    } })) });
+    const path = join(directory, 'receipt.json'); const result = await applyImportPlan(ctx, value, lib, path);
+    expect(result).toMatchObject({ status: 'complete', summary: { reused: 1, unchanged: 1 } });
+    expect(ctx.web.patchItem).not.toHaveBeenCalled(); expect(ctx.web.writeItems).not.toHaveBeenCalled();
+    expect(JSON.parse(await readFile(path, 'utf8')).results[0]).toMatchObject({ outcome: 'reused', unchanged: true, zotero_key: 'EXIST001', zotero_version: 3 });
+  });
   it('preserves a live user Priority added after plan generation', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'zotero-import-'));
     const ctx = context({

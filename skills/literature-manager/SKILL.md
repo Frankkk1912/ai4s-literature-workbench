@@ -317,10 +317,11 @@ stay in Zotero Desktop.
 
 When `priority_recommendations.json` is present, selected records default to
 `AI4S:Priority:1`; explicit Priority 2/3 promotions are carried into the hashed
-action with reason codes and sidecar SHA-256. Priority is user-owned after the
-first write: an existing valid Priority tag is preserved during planning and
-again during live MCP apply unless Frank explicitly requests a separate
-re-rating workflow.
+action with reason codes and sidecar SHA-256. Ordinary imports preserve existing
+valid Priority tags. Recurring project sync may refresh its own tracked
+Priority when the recommendation changes and the live tag still equals its
+last managed value. Untracked tags and manual overrides are preserved; changing
+those requires Frank's explicit re-rating request.
 
 When `semantic_tag_candidates.json` is present, apply the import first, map its
 stable evidence IDs through the import receipt, and then reconcile candidates

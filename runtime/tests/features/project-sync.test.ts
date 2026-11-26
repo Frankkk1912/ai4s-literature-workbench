@@ -11,6 +11,7 @@ class FakeWeb {
   hasKey = true; collections: any[] = []; items: any[] = []; version = 1; next = 1;
   listQueries: any[] = [];
   hideBibliography = false;
+  patchedKeys: string[] = [];
   private key(): string { return `K${String(this.next++).padStart(7, '0')}`; }
   async listCollections(_lib: any, query: any = {}) {
     const start = query.start ?? 0; const data = this.collections.slice(start, start + (query.limit ?? 100));
@@ -45,6 +46,7 @@ class FakeWeb {
     return { successful, unchanged: [], failed: [], newLibraryVersion: this.version };
   }
   async patchItem(_lib: any, key: string, patch: any, _version: number) {
+    this.patchedKeys.push(key);
     const item = this.items.find((candidate) => candidate.key === key); if (!item) throw new Error('not found');
     item.version = ++this.version; item.data = { ...item.data, ...structuredClone(patch), version: item.version }; return item.version;
   }
@@ -197,6 +199,72 @@ describe('project sync', () => {
     const result = await syncLiteratureProject(ctx, { type: 'user', id: 1 }, input);
     expect(result).toMatchObject({ status: 'needs_review', created: 0 });
     expect(result.risks).toContain('multiple-or-conflicting-identifier-matches:1');
+  });
+  it('makes identical reruns zero-write, including metrics, Priority, and report', async () => {
+    const enriched = { ...record, easyscholar: { official_rank: { all: { sciif: '5.8', sci: 'Q1' } }, fetched_at: '2026-07-17T00:00:00Z' } };
+    const files = await fixture([enriched]); const web = new FakeWeb(); const ctx = context(files.dir, web); const lib = { type: 'user' as const, id: 1 };
+    const priorityPath = join(files.dir, 'priority.json');
+    await writeFile(priorityPath, JSON.stringify({ schema_version: '1.0', artifact_type: 'literature-priority-recommendations', scope: 'no-op', review_depth: 'abstract', default_for_selected: 1, recommendations: {} }));
+    const input = { ...files, projectSlug: 'no-op', collectionName: 'No Op', searchDate: '2026-07-17', priorityRecommendationsPath: priorityPath };
+    await syncLiteratureProject(ctx, lib, input);
+    const versions = web.items.map((item) => item.version); web.patchedKeys = [];
+    expect(await syncLiteratureProject(ctx, lib, input)).toMatchObject({ status: 'complete', created: 0, reused: 1, unchanged: 1, report: 'unchanged' });
+    expect(web.patchedKeys).toEqual([]); expect(web.items.map((item) => item.version)).toEqual(versions);
+    expect((await readProjectState(projectStatePath(files.dir, lib, input.projectSlug)))?.synced_items['doi:10.1000/test.1'].version).toBe(versions[0]);
+  });
+  it('creates only new evidence and retains deselected IDs and bindings', async () => {
+    const records = [0, 1, 2].map((n) => ({ ...record, doi: `10.1000/incremental.${n}`, pmid: undefined, title: `Incremental study ${n}`, easyscholar: { official_rank: { all: { sciif: '5.8', sci: 'Q1' } } } }));
+    const files = await fixture(records.slice(0, 2)); const web = new FakeWeb(); const ctx = context(files.dir, web); const lib = { type: 'user' as const, id: 1 };
+    const input = { ...files, projectSlug: 'incremental', collectionName: 'Incremental', searchDate: '2026-07-17' };
+    await syncLiteratureProject(ctx, lib, input); web.patchedKeys = [];
+    const statePath = projectStatePath(files.dir, lib, input.projectSlug); const original = await readProjectState(statePath);
+    const selectionPath = join(files.dir, 'selection.json');
+    await writeFile(selectionPath, JSON.stringify({ schema_version: '1.0', evidence_ids: ['doi:10.1000/incremental.0'] }));
+    await syncLiteratureProject(ctx, lib, { ...input, selectionPath });
+    const reduced = await readProjectState(statePath);
+    expect(reduced?.synced_evidence_ids).toEqual(original?.synced_evidence_ids); expect(reduced?.synced_items).toEqual(original?.synced_items);
+    await writeFile(files.evidencePath, JSON.stringify({ records }));
+    expect(await syncLiteratureProject(ctx, lib, input)).toMatchObject({ status: 'complete', created: 1, reused: 2, unchanged: 2 });
+    expect(web.patchedKeys).toEqual([]); expect(web.items).toHaveLength(4);
+    expect(Object.keys((await readProjectState(statePath))!.synced_items)).toHaveLength(3);
+  });
+  it('patches only the one changed metric payload', async () => {
+    const records = [0, 1].map((n) => ({ ...record, doi: `10.1000/metrics.${n}`, pmid: String(90000000 + n), title: `Metrics study ${n}`, easyscholar: { official_rank: { all: { sciif: '5.8', sci: 'Q2' } } } }));
+    const files = await fixture(records); const web = new FakeWeb(); const ctx = context(files.dir, web);
+    const input = { ...files, projectSlug: 'metrics', collectionName: 'Metrics', searchDate: '2026-07-17' };
+    await syncLiteratureProject(ctx, { type: 'user', id: 1 }, input); web.patchedKeys = [];
+    records[1]!.easyscholar.official_rank.all.sci = 'Q1';
+    await writeFile(files.evidencePath, JSON.stringify({ records }));
+    expect(await syncLiteratureProject(ctx, { type: 'user', id: 1 }, input)).toMatchObject({ created: 0, reused: 2, unchanged: 1 });
+    expect(web.patchedKeys).toEqual([web.items[1].key]);
+    expect(web.items[0].data.tags).toContainEqual({ tag: 'JCR:Q2' }); expect(web.items[1].data.tags).toContainEqual({ tag: 'JCR:Q1' });
+    web.patchedKeys = []; await syncLiteratureProject(ctx, { type: 'user', id: 1 }, input); expect(web.patchedKeys).toEqual([]);
+  });
+  it('refreshes only changed project-managed Priority and preserves manual overrides', async () => {
+    const records = [0, 1].map((n) => ({ ...record, doi: `10.1000/priority.${n}`, pmid: String(90000000 + n), title: `Priority study ${n}` }));
+    const files = await fixture(records); const web = new FakeWeb(); const ctx = context(files.dir, web); const priorityPath = join(files.dir, 'priority.json');
+    const priority = { schema_version: '1.0', artifact_type: 'literature-priority-recommendations', scope: 'priority', review_depth: 'abstract', default_for_selected: 1, recommendations: {} as Record<string, unknown> };
+    await writeFile(priorityPath, JSON.stringify(priority));
+    const input = { ...files, projectSlug: 'priority', collectionName: 'Priority', searchDate: '2026-07-17', priorityRecommendationsPath: priorityPath };
+    await syncLiteratureProject(ctx, { type: 'user', id: 1 }, input); web.patchedKeys = [];
+    priority.recommendations = { 'pmid:90000000': { priority: 3, reason_codes: ['direct-question-match'] } };
+    await writeFile(priorityPath, JSON.stringify(priority));
+    expect(await syncLiteratureProject(ctx, { type: 'user', id: 1 }, input)).toMatchObject({ created: 0, reused: 2, unchanged: 1 });
+    expect(web.patchedKeys).toEqual([web.items[0].key]);
+    expect(web.items[0].data.tags).toContainEqual({ tag: 'AI4S:Priority:3' }); expect(web.items[0].data.tags).not.toContainEqual({ tag: 'AI4S:Priority:1' });
+    await web.patchItem({}, web.items[0].key, { tags: [...web.items[0].data.tags.filter((entry: any) => !entry.tag.startsWith('AI4S:Priority:')), { tag: 'AI4S:Priority:2' }] }, web.items[0].version);
+    web.patchedKeys = [];
+    await syncLiteratureProject(ctx, { type: 'user', id: 1 }, input);
+    expect(web.items[0].data.tags).toContainEqual({ tag: 'AI4S:Priority:2' }); expect(web.patchedKeys).toEqual([]);
+  });
+  it('restores missing collection membership once without touching other items', async () => {
+    const files = await fixture([record]); const web = new FakeWeb(); const ctx = context(files.dir, web);
+    const input = { ...files, projectSlug: 'membership', collectionName: 'Membership', searchDate: '2026-07-17' };
+    const first = await syncLiteratureProject(ctx, { type: 'user', id: 1 }, input);
+    await web.patchItem({}, web.items[0].key, { collections: ['OTHER001'] }, web.items[0].version); web.patchedKeys = [];
+    expect(await syncLiteratureProject(ctx, { type: 'user', id: 1 }, input)).toMatchObject({ created: 0, reused: 1, unchanged: 0 });
+    expect(web.patchedKeys).toEqual([web.items[0].key]); expect(web.items[0].data.collections).toEqual(['OTHER001', first.collectionKey]);
+    web.patchedKeys = []; await syncLiteratureProject(ctx, { type: 'user', id: 1 }, input); expect(web.patchedKeys).toEqual([]);
   });
   it('stops when the managed report was edited in Zotero', async () => {
     const files = await fixture([record]); const web = new FakeWeb(); const ctx = context(files.dir, web);

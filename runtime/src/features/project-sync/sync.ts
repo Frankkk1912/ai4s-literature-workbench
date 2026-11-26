@@ -190,8 +190,10 @@ async function actionsFor(ctx: ToolContext, lib: LibraryRef, records: Array<{ id
       const live = candidateIdentity(exact[0]);
       const conflicts = Boolean((foundIdentity.doi && live.doi && foundIdentity.doi !== live.doi) || (foundIdentity.pmid && live.pmid && foundIdentity.pmid !== live.pmid));
       if (!conflicts && versionOf(exact[0]) !== null && keyOf(exact[0])) {
+        const priorityTags = (dataOf(exact[0]).tags ?? []).map((entry) => typeof entry === 'string' ? entry : entry.tag).filter((tag) => /^AI4S:Priority:[1-3]$/.test(tag));
+        const managedPriorityTag = saved?.item_key === keyOf(exact[0]) && saved.managed_priority && priorityTags.length === 1 && priorityTags[0] === `AI4S:Priority:${saved.managed_priority}` ? priorityTags[0] : null;
         actions.push({ ...base, decision: 'reuse', reason_codes: [bound ? 'state-key-identifier-match' : 'unique-doi-or-pmid-match'], item,
-          match: { zotero_key: keyOf(exact[0]), zotero_version: versionOf(exact[0]), match_kind: bound ? 'state-key' : foundIdentity.doi === live.doi ? 'doi' : 'pmid' } });
+          match: { zotero_key: keyOf(exact[0]), zotero_version: versionOf(exact[0]), match_kind: bound ? 'state-key' : foundIdentity.doi === live.doi ? 'doi' : 'pmid', existing_priority_tags: priorityTags, managed_priority_tag: managedPriorityTag } });
         continue;
       }
     }
@@ -241,7 +243,7 @@ export interface ProjectSyncInput {
 }
 export interface ProjectSyncResult {
   status: 'complete' | 'needs_review' | 'blocked'; collectionName: string; collectionKey?: string;
-  created: number; reused: number; report: 'created' | 'updated' | 'unchanged' | 'pending'; risks: string[]; reviewId?: string;
+  created: number; reused: number; unchanged?: number; report: 'created' | 'updated' | 'unchanged' | 'pending'; risks: string[]; reviewId?: string;
   metrics: { updated: number; missing: number; preprintsSkipped: number; displayYear: number; status: string };
   createReview?: {
     collection_name: string; collection_key: string | null; collection_exists: boolean;
@@ -274,7 +276,8 @@ export async function syncLiteratureProject(ctx: ToolContext, lib: LibraryRef, i
   for (const id of selectedIds) {
     const record = byId.get(id)!;
     if (isPreprintEvidence(record)) { metricsPreprintsSkipped += 1; continue; }
-    const metric = metricFromEvidence(record, evidenceHash);
+    // Provenance for this item's metric payload, not the whole changing batch.
+    const metric = metricFromEvidence(record, sha256(JSON.stringify(record.easyscholar ?? {})));
     if (metric) metricsById.set(id, metric);
     else metricsMissing += 1;
   }
@@ -389,7 +392,7 @@ export async function syncLiteratureProject(ctx: ToolContext, lib: LibraryRef, i
   };
   plan.plan_hash = canonicalPlanHash(plan);
   const dryRun = await dryRunImportPlan(ctx, plan, lib);
-  if (dryRun.status !== 'ready') return { status: 'needs_review', collectionName, collectionKey, created: 0, reused: 0, report: 'pending', risks: compactEvidenceRisks(dryRun.blockingIssues), metrics };
+  if (dryRun.status !== 'ready' || dryRun.blockingIssues.length) return { status: 'needs_review', collectionName, collectionKey, created: 0, reused: 0, report: 'pending', risks: compactEvidenceRisks(dryRun.blockingIssues), metrics };
   const applied = await applyImportPlan(ctx, plan, lib, projectReceiptPath(ctx.config.dataDir, lib, input.projectSlug, plan.plan_hash));
   collectionKey = applied.collectionKey ?? collectionKey;
   if (!collectionKey || applied.status !== 'complete') return { status: 'blocked', collectionName, collectionKey, created: applied.summary.created ?? 0, reused: applied.summary.reused ?? 0, report: 'pending', risks: applied.blockingIssues, metrics };
@@ -414,16 +417,22 @@ export async function syncLiteratureProject(ctx: ToolContext, lib: LibraryRef, i
   const savedNote = await ctx.web.getItem(lib, noteKey);
   noteVersion = versionOf(savedNote);
   const receipt = validateImportReceipt(JSON.parse(await readFile(applied.receiptPath!, 'utf8')));
-  const syncedItems: ProjectSyncState['synced_items'] = {};
+  const syncedItems: ProjectSyncState['synced_items'] = { ...state?.synced_items };
+  const actionsById = new Map(classified.actions.map((action) => [action.evidence_id, action]));
   for (const result of receipt.results) {
-    if (['created', 'reused'].includes(result.outcome) && result.zotero_key) syncedItems[result.evidence_id] = { item_key: result.zotero_key, version: result.zotero_version };
+    if (!['created', 'reused'].includes(result.outcome) || !result.zotero_key) continue;
+    const action = actionsById.get(result.evidence_id)!;
+    const previous = action.match?.managed_priority_tag;
+    const canManage = action.decision === 'create' || action.match?.existing_priority_tags?.length === 0 || previous;
+    const level = canManage && action.priority_recommendation ? action.priority_recommendation.level : previous ? Number(previous.slice(-1)) as 1 | 2 | 3 : undefined;
+    syncedItems[result.evidence_id] = { item_key: result.zotero_key, version: result.zotero_version, ...(level ? { managed_priority: level } : {}) };
   }
   const nextState: ProjectSyncState = {
     schema_version: '1.1', project_slug: input.projectSlug, library: lib, collection_name: collectionName, collection_key: collectionKey,
     report_note_key: noteKey, report_note_version: noteVersion, report_sha256: reportHash,
     report_note_sha256: sha256(String(dataOf(savedNote).note ?? '')), evidence_sha256: evidenceHash,
-    synced_evidence_ids: [...selectedIds].sort(), synced_items: syncedItems, updated_at: new Date().toISOString(),
+    synced_evidence_ids: [...new Set([...(state?.synced_evidence_ids ?? []), ...Object.keys(syncedItems), ...selectedIds])].sort(), synced_items: syncedItems, updated_at: new Date().toISOString(),
   };
   await writeProjectState(statePath, nextState);
-  return { status: 'complete', collectionName, collectionKey, created: applied.summary.created ?? 0, reused: applied.summary.reused ?? 0, report, risks: [], metrics };
+  return { status: 'complete', collectionName, collectionKey, created: applied.summary.created ?? 0, reused: applied.summary.reused ?? 0, unchanged: applied.summary.unchanged ?? 0, report, risks: [], metrics };
 }

@@ -61,6 +61,7 @@ export interface ReceiptResult {
   outcome: ReceiptOutcome;
   zotero_key: string | null;
   zotero_version: number | null;
+  unchanged?: boolean;
   error: ReceiptError | null;
 }
 
@@ -269,6 +270,7 @@ export function validateImportReceipt(value: unknown): ImportReceipt {
     seen.add(result.evidence_id);
     if (!['create', 'reuse', 'check', 'skip'].includes(result.planned_decision)) throw new Error('Invalid receipt planned_decision');
     if (!['created', 'reused', 'check', 'skipped', 'failed', 'pending'].includes(result.outcome)) throw new Error('Invalid receipt outcome');
+    if (result.unchanged !== undefined && typeof result.unchanged !== 'boolean') throw new Error('Invalid receipt unchanged flag');
   }
   return value as ImportReceipt;
 }
