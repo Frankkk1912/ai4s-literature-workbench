@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { LibraryRef } from '../api/web-client.js';
@@ -15,11 +15,86 @@ import {
   type FreshItemRecord,
 } from '../features/duplicates/plan.js';
 import { LIBRARY_SCAN_MAX_ITEMS, annotateMasterScope, listScope } from './find-duplicates.js';
+import { createPluginChannel, type NativeMergeJob } from '../features/plugin-channel/index.js';
 import type { ToolContext, ToolDefinition, ToolHandlerResult } from '../registry/registry.js';
 import { ok } from '../registry/registry.js';
 
 function err(text: string): ToolHandlerResult {
   return { content: [{ type: 'text', text }], isError: true };
+}
+
+/** The only collection whose plans may ever execute through a native-merge job. */
+export const NATIVE_MERGE_COLLECTION_KEY = '334VW86H';
+export const NATIVE_MERGE_COLLECTION_NAME = 'AI4S-smoke-sync-20261126';
+/** How long apply waits for the plugin receipt; a pending job stays reusable after. */
+const APPLY_ACK_TIMEOUT_MS = 120000;
+
+function refuseGuard(collectionKey: unknown): ToolHandlerResult | null {
+  if (String(collectionKey ?? '') !== NATIVE_MERGE_COLLECTION_KEY)
+    return err(
+      `Refusing to execute: the plan's batch collection is ${JSON.stringify(collectionKey ?? null)}, but native-merge execution is currently restricted to the smoke-test collection ${NATIVE_MERGE_COLLECTION_NAME} (${NATIVE_MERGE_COLLECTION_KEY}). Keep using dry_run for other collections; do not merge them without a dedicated review.`,
+    );
+  return null;
+}
+
+/** Create (or reuse) a native-merge job, wait for the plugin receipt, and map it. */
+async function executeNativeMerge(
+  ctx: ToolContext,
+  plan: DedupePlan,
+  planPath: string,
+): Promise<ToolHandlerResult> {
+  const channel = createPluginChannel(ctx.config.dataDir);
+  const payload = {
+    plan_path: planPath,
+    plan_hash: plan.plan_hash,
+    collection_key: NATIVE_MERGE_COLLECTION_KEY,
+  };
+  let job: NativeMergeJob;
+  try {
+    // Reuse a still-pending job for this exact plan instead of stacking a second one,
+    // so a retry after an ack timeout is safe (the plugin is re-entrant per receipt).
+    job = (await channel.findNativeMergeJob(payload)) ?? (await channel.createNativeMergeJob(payload));
+  } catch (error) {
+    return err(error instanceof Error ? error.message : String(error));
+  }
+  let ack;
+  try {
+    ack = await channel.waitForAck(job, APPLY_ACK_TIMEOUT_MS);
+  } catch (error) {
+    return err(
+      `${error instanceof Error ? error.message : String(error)} The native-merge job stays pending: answer the Zotero confirmation dialog, then re-run this apply with the same inputs to pick up the receipt.`,
+    );
+  }
+  const clusters = ack.clusters ?? [];
+  const mergedCount = clusters.filter((cluster) => cluster.status === 'success').length;
+  const base = {
+    mode: 'apply' as const,
+    plan_id: plan.plan_id || undefined,
+    plan_path: planPath,
+    plan_hash: plan.plan_hash,
+    cluster_count: plan.cluster_count,
+    clusters,
+    merged_items_destination: 'trash' as const,
+    recoverable: true,
+    permanent_delete: false,
+  };
+  if (ack.status === 'completed')
+    return ok(
+      { ...base, status: 'complete', zotero_writes: true },
+      `Native merge complete: ${mergedCount} of ${plan.cluster_count} cluster(s) merged through Zotero.Items.merge in Zotero. ` +
+        'Merged-away items are in the Zotero trash (recoverable); attachments, notes, tags, collections, and relations were preserved by the native merge.',
+    );
+  if (ack.status === 'rejected')
+    return ok(
+      { ...base, status: 'rejected', zotero_writes: false, error: ack.error },
+      `Native merge declined in Zotero${ack.error ? `: ${ack.error}` : ''}. This run made no new Zotero writes.` +
+        (clusters.length ? ' The receipt still records the clusters completed by earlier runs.' : ''),
+    );
+  return {
+    content: [{ type: 'text', text: `Native merge failed: ${ack.error ?? 'per-cluster failures'} — ${clusters.filter((cluster) => cluster.status === 'failed').length} of ${plan.cluster_count} cluster(s) failed; see the per-cluster errors in the structured output. Clusters recorded as success are not re-merged on retry.` }],
+    structuredContent: { ...base, status: 'failed', zotero_writes: true, error: ack.error },
+    isError: true,
+  };
 }
 
 /** Fresh read-only verification of every key a plan or report still names. */
@@ -87,14 +162,14 @@ async function verifySavedPlan(
 
 const applyDedupePlan: ToolDefinition = {
   name: 'zotero_apply_dedupe_plan',
-  title: 'Dry-run or apply a Zotero duplicate merge plan without writing Zotero',
+  title: 'Dry-run or apply a Zotero duplicate merge plan; apply executes via the desktop plugin native merge',
   description:
-    'Turns a zotero_find_duplicates report (or a batch collection key, scanned first) into a reviewable, hashed merge plan. dry_run re-checks read-only that every key still exists, reports current versions and batch membership, and describes exactly what a native Zotero merge would keep (attachments, notes, tags, collections, and relations including dc:replaces) and which merged-away items would move to the trash (recoverable; permanent deletion is forbidden). It never writes Zotero. Clusters whose recommended master is outside the batch get an add-master-to-collection step first. apply only saves and validates the plan file under the data directory and returns needs_plugin/native_merge_required, because executing the merge needs Zotero native merge; it must never be replaced by trashing items by hand. zotero_trash_items and zotero_delete_items are not part of the workbench profile.',
+    'Turns a zotero_find_duplicates report (or a batch collection key, scanned first) into a reviewable, hashed merge plan. dry_run re-checks read-only that every key still exists, reports current versions and batch membership, and describes exactly what a native Zotero merge would keep (attachments, notes, tags, collections, and relations including dc:replaces) and which merged-away items would move to the trash (recoverable; permanent deletion is forbidden). It never writes Zotero. apply requires the user-approved expected_plan_hash, saves and validates the plan file, then sends a native-merge job through the desktop plugin jobs channel: Zotero shows a confirmation dialog listing every cluster, and only after the user agrees does the plugin run Zotero.Items.merge natively, moving merged-away items to the trash (recoverable; the plugin never permanently deletes). apply returns complete, rejected (the user declined in Zotero), or failed. Execution is restricted to the smoke-test collection AI4S-smoke-sync-20261126 (334VW86H); apply refuses any other batch collection. If the desktop plugin is not running, apply fails clearly before creating a job. Never replace this pipeline with trashing items by hand. zotero_trash_items and zotero_delete_items are not part of the workbench profile.',
   inputSchema: {
     mode: z
       .enum(['dry_run', 'apply'])
       .optional()
-      .describe('Default "dry_run": read-only checks and the plan, nothing written. "apply" saves and validates the plan file; it still never writes Zotero.'),
+      .describe('Default "dry_run": read-only checks and the plan, nothing written. "apply" requires expected_plan_hash, saves and validates the plan file, and sends a native-merge job to the desktop plugin, which confirms in Zotero and runs Zotero.Items.merge; merged-away items move to the trash (recoverable).'),
     report_path: z
       .string()
       .min(1)
@@ -126,7 +201,7 @@ const applyDedupePlan: ToolDefinition = {
       .string()
       .min(1)
       .optional()
-      .describe('The plan_hash the user approved; checked against plan_path before any validation.'),
+      .describe('The plan_hash the user approved from the dry run; required for mode "apply" and checked before a native-merge job is created.'),
     library_type: z.enum(['user', 'group']).optional(),
     library_id: z.number().int().optional(),
   },
@@ -138,11 +213,15 @@ const applyDedupePlan: ToolDefinition = {
   },
   handler: async (args, ctx) => {
     const mode = args.mode ?? 'dry_run';
+    if (mode === 'apply' && !args.expected_plan_hash)
+      return err(
+        '`mode: "apply"` executes the merge and requires `expected_plan_hash`: pass the plan_hash from the dry run the user approved.',
+      );
     const sources = [args.report_path, args.plan_path, args.collection_key].filter(Boolean);
     if (sources.length !== 1)
       return err('Provide exactly one of `report_path`, `plan_path`, or `collection_key`.');
-    if (args.expected_plan_hash && !args.plan_path)
-      return err('`expected_plan_hash` requires `plan_path`.');
+    if (args.expected_plan_hash && !args.plan_path && mode !== 'apply')
+      return err('`expected_plan_hash` without `plan_path` is only meaningful with `mode: "apply"`.');
     const library: LibraryRef | undefined = args.library_id
       ? { type: (args.library_type ?? 'group') as 'user' | 'group', id: args.library_id }
       : undefined;
@@ -174,14 +253,19 @@ const applyDedupePlan: ToolDefinition = {
         return err(error instanceof Error ? error.message : String(error));
       }
       if (verification.error) return err(verification.error);
+      if (mode === 'apply') {
+        // Execute the approved, saved plan through the desktop plugin's native merge.
+        const refusal = refuseGuard(plan.batch_selector?.collection_key);
+        if (refusal) return refusal;
+        return executeNativeMerge(ctx, plan, resolve(args.plan_path));
+      }
       const summary =
-        `Dedupe plan ${mode === 'apply' ? 'validated' : 're-validated'}: ${plan.cluster_count} cluster(s), ` +
+        `Dedupe plan re-validated: ${plan.cluster_count} cluster(s), ` +
         `${plan.clusters.reduce((count, cluster) => count + cluster.merge_keys.length, 0)} item(s) would move to the trash (recoverable). ` +
-        `No Zotero writes were made. Executing the merge needs the Zotero native-merge plugin (needs_plugin).`;
+        'No Zotero writes were made. Executing the merge needs the Zotero native-merge plugin (needs_plugin).';
       return ok(
         {
           mode,
-          ...(mode === 'apply' ? { status: 'needs_plugin' } : {}),
           plan,
           plan_hash: plan.plan_hash,
           cluster_count: plan.cluster_count,
@@ -297,6 +381,17 @@ const applyDedupePlan: ToolDefinition = {
     };
     plan.plan_hash = canonicalDedupePlanHash(plan);
 
+    if (mode === 'apply') {
+      // Execution is restricted to the smoke-test collection; the plugin guards
+      // the same key again on its side before any merge runs.
+      const refusal = refuseGuard(batchSelector.collection_key);
+      if (refusal) return refusal;
+      if (args.expected_plan_hash !== plan.plan_hash)
+        return err(
+          `Dedupe plan hash mismatch: expected ${args.expected_plan_hash}, the current plan is ${plan.plan_hash}. The report or library changed since the approved dry run; re-run the dry run and get a fresh approval.`,
+        );
+    }
+
     if (mode === 'dry_run') {
       const mergeCount = clusters.reduce((count, cluster) => count + cluster.merge_keys.length, 0);
       return ok(
@@ -319,8 +414,9 @@ const applyDedupePlan: ToolDefinition = {
       );
     }
 
-    // apply: only persist and validate the plan file. Never touch Zotero; the
-    // merge execution path is the native-merge plugin, which reports needs_plugin.
+    // apply: persist and validate the plan file, then send it to the desktop
+    // plugin as a native-merge job; the plugin confirms with the user in Zotero
+    // and runs Zotero.Items.merge (trash-only, recoverable).
     plan.plan_id = `dedupe-plan-${createdAt.replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
     const planDirectory = join(ctx.config.dataDir, 'dedupe-plans');
     const planPath = join(planDirectory, `${plan.plan_id}.json`);
@@ -335,24 +431,7 @@ const applyDedupePlan: ToolDefinition = {
         `Could not persist or validate the dedupe plan: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
-    return ok(
-      {
-        mode: 'apply',
-        status: 'needs_plugin',
-        plan_id: plan.plan_id,
-        plan_path: planPath,
-        plan_hash: plan.plan_hash,
-        cluster_count: clusters.length,
-        master_outside_scope_count: masterOutsideScopeCount,
-        needs_plugin: true,
-        native_merge_required: true,
-        zotero_writes: false,
-        merged_items_destination: 'trash',
-        recoverable: true,
-        permanent_delete: false,
-      },
-      `Dedupe plan saved and validated at ${planPath}. Executing the merge needs the Zotero native-merge plugin, which is not available in this server (needs_plugin / native_merge_required). Show the plan and its plan_hash to the user for approval; do not trash or delete the duplicates by hand — merged-away items only move to the trash (recoverable) when the native merge runs.`,
-    );
+    return executeNativeMerge(ctx, plan, resolve(planPath));
   },
 };
 

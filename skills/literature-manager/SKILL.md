@@ -274,11 +274,19 @@ list and trash it yourself.
    step first.
 3. Show the plan and its `plan_hash` to Frank for approval. Do not execute
    anything before he approves.
-4. `mode: "apply"` only saves and validates the plan file; it never writes
-   Zotero. The merge itself executes only through Zotero's native merge, so
-   apply returns `needs_plugin` / `native_merge_required`; never fall back to
-   trashing items by hand. `zotero_trash_items` and `zotero_delete_items` are
-   not part of the workbench profile.
+4. `mode: "apply"` requires the approved `expected_plan_hash` and executes via
+   the desktop plugin: it saves and validates the plan file, sends a
+   `native-merge` job through the plugin jobs channel, and Zotero shows a
+   confirmation dialog listing each cluster (master, merge-ins,
+   add-to-collection step). Only after the user agrees does the plugin run
+   `Zotero.Items.merge` natively; merged-away items go to the trash
+   (recoverable; permanent deletion is forbidden). Apply returns `complete`,
+   `rejected`, or `failed`. Execution is restricted to the smoke-test
+   collection `AI4S-smoke-sync-20261126` (`334VW86H`); apply refuses any other
+   batch collection, and the plugin guards the same key again. If the plugin is
+   not running, apply fails clearly and the job stays pending; a retry reuses
+   it. Never fall back to trashing items by hand. `zotero_trash_items` and
+   `zotero_delete_items` are not part of the workbench profile.
 
 ## Utility Scripts
 Use `scripts/zotero_literature_manager.py` for repeatable work. All subcommands

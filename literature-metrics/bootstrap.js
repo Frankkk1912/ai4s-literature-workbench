@@ -86,6 +86,16 @@ function resolveChannelTimer() {
 // that API can throw in Zotero plugin sandboxes and once killed the whole
 // startup, taking the metrics columns down with it.
 async function startJobsChannel(data, scope) {
+  // native-merge.js should load first so plugin-channel.js can bind the same-scope
+  // LiteratureNativeMerge var. It is isolated in its own try/catch: a load failure
+  // must not take down the jobs channel, ping, or metrics columns. createDesktop
+  // then passes merge: null and native-merge jobs are rejected at runtime.
+  try {
+    Services.scriptloader.loadSubScript(data.rootURI + "src/native-merge.js", scope);
+  }
+  catch (error) {
+    reportStartupProblem("Workbench native-merge:", error);
+  }
   Services.scriptloader.loadSubScript(data.rootURI + "src/plugin-channel.js", scope);
   // In Zotero 7+ bootstrap scopes IOUtils and PathUtils are already globals;
   // fall back to a guarded ES module import only when they are missing.
@@ -124,7 +134,6 @@ async function startup(data) {
     Services.scriptloader.loadSubScript(data.rootURI + "src/ai-summaries.js", scope);
     Services.scriptloader.loadSubScript(data.rootURI + "src/priorities.js", scope);
     Services.scriptloader.loadSubScript(data.rootURI + "src/literature-metrics.js", scope);
-    Services.scriptloader.loadSubScript(data.rootURI + "src/metrics-backfill-menu.js", scope);
     LiteratureMetricsRuntime = scope.LiteratureMetrics;
     // Metrics start FIRST and independently: the columns must appear even if
     // every step of the jobs channel below fails.
@@ -141,18 +150,22 @@ async function startup(data) {
       reportStartupProblem("Workbench jobs channel:", error);
     }
     // The backfill menu starts LAST and in its own try/catch, so a menu failure
-    // can take down neither the metrics columns nor the jobs channel. Without a
-    // live channel it stays unregistered instead of adding dead menu entries.
+    // (including a load/parse error of metrics-backfill-menu.js) can take down
+    // neither the metrics columns nor the jobs channel. Without a live channel
+    // it stays unregistered instead of adding dead menu entries.
     try {
-      if (jobsChannel && scope.LiteratureMetricsBackfillMenu) {
-        const menuTimer = resolveChannelTimer();
-        scope.LiteratureMetricsBackfillMenu.start({
-          channel: jobsChannel,
-          schedule: menuTimer.schedule,
-          cancel: menuTimer.cancel,
-          confirm: (title, text) => Services.prompt.confirm(Zotero.getMainWindow(), title, text),
-        });
-        MetricsBackfillMenu = scope.LiteratureMetricsBackfillMenu;
+      if (jobsChannel) {
+        Services.scriptloader.loadSubScript(data.rootURI + "src/metrics-backfill-menu.js", scope);
+        if (scope.LiteratureMetricsBackfillMenu) {
+          const menuTimer = resolveChannelTimer();
+          scope.LiteratureMetricsBackfillMenu.start({
+            channel: jobsChannel,
+            schedule: menuTimer.schedule,
+            cancel: menuTimer.cancel,
+            confirm: (title, text) => Services.prompt.confirm(Zotero.getMainWindow(), title, text),
+          });
+          MetricsBackfillMenu = scope.LiteratureMetricsBackfillMenu;
+        }
       }
     }
     catch (error) {
