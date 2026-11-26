@@ -10,6 +10,9 @@ import { createMetrics } from './lib/metrics.js';
 import { makeReadiness, storeCheck, zoteroPingCheck } from './lib/health.js';
 import { installShutdownHandlers } from './lib/lifecycle.js';
 import { runSetupCli } from './lib/setup-cli.js';
+import { backfillMetrics } from './features/metrics-backfill.js';
+import { createMetricsBackfillConsumer } from './features/plugin-channel/metrics-backfill-jobs.js';
+import { requireCloudLibrary } from './registry/registry.js';
 import type { Server } from 'node:http';
 
 function flag(name: string): string | undefined {
@@ -30,6 +33,48 @@ async function main(): Promise<void> {
   const config = loadConfig(process.env);
   const logger = createLogger(config.logLevel, config.logFormat);
   const { server, ctx } = await buildServer(config);
+
+  // Plugin-authored metrics-backfill requests (workbench order 11): while this
+  // runtime is running, answer the Zotero add-on's preview requests with the
+  // same reviewed backfill path in dry_run, and apply only when the add-on
+  // submits a follow-up job with the user's confirmed plan_hash. The MCP tool
+  // still defaults to dry_run and still requires its own confirm_plan_hash plus
+  // receipt_path. Purely additive: it shares the ping jobs directory but never
+  // claims, acks, or removes ping files, and any failure lands in the job's
+  // result file instead of the MCP server.
+  const backfillConsumer = createMetricsBackfillConsumer({
+    dataDir: config.dataDir,
+    runPreview: async (payload) => {
+      const lib = requireCloudLibrary(ctx);
+      const result = await backfillMetrics(ctx, lib, {
+        ...(payload.collection_key ? { collection_key: payload.collection_key } : { item_keys: payload.item_keys }),
+        mode: 'dry_run',
+      });
+      return {
+        update: result.update,
+        skip: result.skip,
+        plan_hash: result.plan_hash,
+        easyscholar: { key_configured: result.easyscholar.key_configured },
+      };
+    },
+    runApply: async (payload, receipt_path) => {
+      const lib = requireCloudLibrary(ctx);
+      const result = await backfillMetrics(ctx, lib, {
+        ...(payload.collection_key ? { collection_key: payload.collection_key } : { item_keys: payload.item_keys }),
+        mode: 'apply',
+        confirm_plan_hash: payload.confirm_plan_hash,
+        receipt_path,
+      });
+      return {
+        update: result.update,
+        skip: result.skip,
+        plan_hash: result.plan_hash,
+        receipt_path: result.receipt_path ?? receipt_path,
+      };
+    },
+    logger,
+  });
+  backfillConsumer.start();
 
   const httpFlag = flag('http');
   if (httpFlag !== undefined) {
@@ -74,11 +119,13 @@ async function main(): Promise<void> {
       flush: async () => {
         await oauth?.store.flush();
         await cache.flushIndexes();
+        await backfillConsumer.stop();
       },
     });
   } else {
     await startStdio(server);
     logger.info('Literature Zotero MCP server started on stdio.');
+    await backfillConsumer.stop();
   }
 }
 

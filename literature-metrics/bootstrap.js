@@ -10,6 +10,7 @@
 var { Services } = ChromeUtils.importESModule("resource://gre/modules/Services.sys.mjs");
 var LiteratureMetricsRuntime = null;
 var WorkbenchPluginChannel = null;
+var MetricsBackfillMenu = null;
 
 // Startup failures must never escape unlogged again: report them to both the
 // Error Console (logError) and the debug output (debug), with the full error
@@ -85,9 +86,16 @@ function resolveChannelTimer() {
 // that API can throw in Zotero plugin sandboxes and once killed the whole
 // startup, taking the metrics columns down with it.
 async function startJobsChannel(data, scope) {
-  // native-merge.js must load first: plugin-channel.js's createDesktop binds the
-  // same-scope LiteratureNativeMerge var for native-merge jobs.
-  Services.scriptloader.loadSubScript(data.rootURI + "src/native-merge.js", scope);
+  // native-merge.js should load first so plugin-channel.js can bind the same-scope
+  // LiteratureNativeMerge var. It is isolated in its own try/catch: a load failure
+  // must not take down the jobs channel, ping, or metrics columns. createDesktop
+  // then passes merge: null and native-merge jobs are rejected at runtime.
+  try {
+    Services.scriptloader.loadSubScript(data.rootURI + "src/native-merge.js", scope);
+  }
+  catch (error) {
+    reportStartupProblem("Workbench native-merge:", error);
+  }
   Services.scriptloader.loadSubScript(data.rootURI + "src/plugin-channel.js", scope);
   // In Zotero 7+ bootstrap scopes IOUtils and PathUtils are already globals;
   // fall back to a guarded ES module import only when they are missing.
@@ -110,6 +118,7 @@ async function startJobsChannel(data, scope) {
     cancel: timer.cancel,
   });
   await WorkbenchPluginChannel.start();
+  return WorkbenchPluginChannel;
 }
 
 async function startup(data) {
@@ -129,13 +138,38 @@ async function startup(data) {
     // Metrics start FIRST and independently: the columns must appear even if
     // every step of the jobs channel below fails.
     await LiteratureMetricsRuntime.start({ id: data.id, version: data.version, rootURI: data.rootURI });
+    // The channel is returned only when its start() fully succeeded, so the menu
+    // never registers against a half-started channel whose submit would fail.
+    let jobsChannel = null;
     try {
-      await startJobsChannel(data, scope);
+      jobsChannel = await startJobsChannel(data, scope);
     }
     catch (error) {
       // Log loudly but keep the metrics columns alive; shutdown still attempts
       // a channel stop if start() got far enough to need cleanup.
       reportStartupProblem("Workbench jobs channel:", error);
+    }
+    // The backfill menu starts LAST and in its own try/catch, so a menu failure
+    // (including a load/parse error of metrics-backfill-menu.js) can take down
+    // neither the metrics columns nor the jobs channel. Without a live channel
+    // it stays unregistered instead of adding dead menu entries.
+    try {
+      if (jobsChannel) {
+        Services.scriptloader.loadSubScript(data.rootURI + "src/metrics-backfill-menu.js", scope);
+        if (scope.LiteratureMetricsBackfillMenu) {
+          const menuTimer = resolveChannelTimer();
+          scope.LiteratureMetricsBackfillMenu.start({
+            channel: jobsChannel,
+            schedule: menuTimer.schedule,
+            cancel: menuTimer.cancel,
+            confirm: (title, text) => Services.prompt.confirm(Zotero.getMainWindow(), title, text),
+          });
+          MetricsBackfillMenu = scope.LiteratureMetricsBackfillMenu;
+        }
+      }
+    }
+    catch (error) {
+      reportStartupProblem("Workbench metrics backfill menu:", error);
     }
   }
   catch (error) {
@@ -146,6 +180,11 @@ async function startup(data) {
 }
 
 async function shutdown() {
+  if (MetricsBackfillMenu) {
+    try { await MetricsBackfillMenu.stop(); }
+    catch (error) { reportStartupProblem("Workbench metrics backfill menu:", error); }
+    MetricsBackfillMenu = null;
+  }
   if (WorkbenchPluginChannel) {
     try { await WorkbenchPluginChannel.stop(); }
     catch (error) { reportStartupProblem("Workbench jobs channel:", error); }
@@ -154,6 +193,18 @@ async function shutdown() {
   if (LiteratureMetricsRuntime) {
     await LiteratureMetricsRuntime.stop();
     LiteratureMetricsRuntime = null;
+  }
+}
+
+// The item tree may finish loading after APP_STARTUP. Re-running start() is
+// idempotent and re-registers any columns that failed or were wiped.
+async function onMainWindowLoad(data) {
+  if (!LiteratureMetricsRuntime) return;
+  try {
+    await LiteratureMetricsRuntime.start({ id: data.id, version: data.version, rootURI: data.rootURI });
+  }
+  catch (error) {
+    reportStartupProblem("Workbench literature-metrics startup:", error);
   }
 }
 

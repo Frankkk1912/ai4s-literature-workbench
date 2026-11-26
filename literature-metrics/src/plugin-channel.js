@@ -4,6 +4,14 @@
 var LiteraturePluginChannel = (function () {
   "use strict";
   const ID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
+  // Channel job files are `<uuid>.(job|ack|claim|result).json` only. Gecko's
+  // nsIUUIDGenerator.toString() returns "{XXXXXXXX-XXXX-...}" (braces, often
+  // uppercase), which is not a safe filename — normalize before writing.
+  function jobIdFromGenerator(raw) {
+    const id = String(raw == null ? "" : raw).replace(/[{}]/g, "").toLowerCase();
+    if (!ID.test(id)) throw new Error("Unsafe channel job id.");
+    return id;
+  }
   const HASH = /^[a-f0-9]{64}$/;
   const PLAN_HASH = /^sha256:[a-f0-9]{64}$/;
   const ZOTERO_KEY = /^[A-Z0-9]{8}$/;
@@ -13,18 +21,50 @@ var LiteraturePluginChannel = (function () {
   // A dedupe plan must stay readable and small: it is the merge worklist, not a dump.
   const MAX_PLAN_FILE_BYTES = 1048576;
 
+  // Pinned metrics-backfill request payload: exactly one of a collection key or
+  // selected item keys. Preview jobs have only that selector. Apply jobs, which
+  // the add-on writes only after the user confirms a preview, also carry
+  // mode: "apply" and confirm_plan_hash (the preview's plan_hash). No secrets,
+  // no Extra blobs, no local API versions, and no receipt_path — the runtime
+  // generates the receipt under dataDir/receipts/.
+  function validSelector(payload) {
+    if (Object.prototype.hasOwnProperty.call(payload, "collection_key")) {
+      return ZOTERO_KEY.test(payload.collection_key);
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, "item_keys")) {
+      return Array.isArray(payload.item_keys) && payload.item_keys.length > 0 && payload.item_keys.length <= 100
+        && payload.item_keys.every((key) => ZOTERO_KEY.test(key));
+    }
+    return false;
+  }
+
+  function validBackfillPayload(payload) {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
+    const keys = Object.keys(payload).sort().join(",");
+    if (keys === "collection_key" || keys === "item_keys") return validSelector(payload);
+    if (keys === "collection_key,confirm_plan_hash,mode" || keys === "confirm_plan_hash,item_keys,mode") {
+      return payload.mode === "apply" && PLAN_HASH.test(payload.confirm_plan_hash) && validSelector(payload);
+    }
+    return false;
+  }
+
   function planHash(job) {
-    // Same-scope binding: native-merge.js is loaded into the same loadSubScript
-    // scope before this file, so the var above is visible without globalThis. Its
-    // raw-text sha256 stays byte-identical to the Node runtime's crypto hash even
-    // if a payload (unlike ping's) ever contains unusual whitespace.
-    return LiteratureNativeMerge.sha256Hex(JSON.stringify([
+    // Prefer LiteratureNativeMerge.sha256Hex when native-merge.js loaded into this
+    // loadSubScript scope; fall back to the same-scope LiteratureAiSummaries.sha256
+    // (byte-identical) so ping and metrics-backfill still work if native-merge failed
+    // to start. Never use globalThis.
+    const digest = (typeof LiteratureNativeMerge !== "undefined" && LiteratureNativeMerge
+      && typeof LiteratureNativeMerge.sha256Hex === "function")
+      ? LiteratureNativeMerge.sha256Hex
+      : LiteratureAiSummaries.sha256;
+    return digest(JSON.stringify([
       job.schema_version, job.job_id, job.job_type, job.created_at, job.payload,
     ]));
   }
 
-  // Only known job types with pinned payloads are allowed: ping stays empty, and
-  // native-merge only names a plan file, its hash, and the batch collection key.
+  // MCP-to-plugin jobs use a tight allowlist: ping stays empty, and native-merge
+  // only names a plan file, its hash, and the batch collection key. Plugin-authored
+  // metrics-backfill requests are not in this allowlist; the ping loop skips them.
   function valid(job, id) {
     if (!job || Object.keys(job).sort().join(",") !== "created_at,job_id,job_type,payload,plan_hash,schema_version"
       || job.schema_version !== 1 || job.job_id !== id
@@ -54,7 +94,7 @@ var LiteraturePluginChannel = (function () {
     }
   }
 
-  function create({ files, confirm, merge, schedule, cancel, log, now = () => new Date().toISOString() }) {
+  function create({ files, confirm, merge, schedule, cancel, log, now = () => new Date().toISOString(), uuid = () => crypto.randomUUID() }) {
     let running = false;
     let timer = null;
     let scanning = null;
@@ -96,6 +136,10 @@ var LiteraturePluginChannel = (function () {
           const job = await files.read(name);
           if (!running) break;
           if (!job || job.job_id !== id || !HASH.test(job.plan_hash)) continue;
+          // metrics-backfill requests are authored by the plugin itself and consumed
+          // by the workbench runtime; this ping loop must never claim, confirm, or
+          // reject them. A matching result file is their only reply channel.
+          if (job.job_type === "metrics-backfill") continue;
           const ackName = `${id}.ack.json`;
           const existing = await files.read(ackName);
           if (!running) break;
@@ -144,6 +188,32 @@ var LiteraturePluginChannel = (function () {
       scanning = scanOnce().catch(() => log("Could not scan workbench jobs directory.")).finally(() => { scanning = null; });
       return scanning;
     }
+    // Plugin-authored preview request: the workbench runtime consumes it with
+    // zotero_backfill_metrics (preview, or apply after an in-Zotero confirm) and answers with a result file.
+    async function submitMetricsBackfillJob(payload) {
+      if (!running) throw new Error("Jobs channel is not running.");
+      if (!validBackfillPayload(payload)) throw new Error("Invalid metrics-backfill request payload.");
+      const job = {
+        schema_version: 1,
+        job_id: jobIdFromGenerator(uuid()),
+        job_type: "metrics-backfill",
+        created_at: now(),
+        payload,
+      };
+      job.plan_hash = planHash(job);
+      await files.write(`${job.job_id}.job.json`, job);
+      return job;
+    }
+    async function readMetricsBackfillResult(jobId) {
+      if (!ID.test(jobId)) throw new Error("Unsafe metrics-backfill job id.");
+      const result = await files.read(`${jobId}.result.json`);
+      return result && result.job_id === jobId ? result : null;
+    }
+    async function discardMetricsBackfillJob(jobId) {
+      if (!ID.test(jobId)) throw new Error("Unsafe metrics-backfill job id.");
+      await files.remove(`${jobId}.job.json`);
+      await files.remove(`${jobId}.result.json`);
+    }
     async function start() {
       if (running) return;
       await files.initialize();
@@ -163,7 +233,7 @@ var LiteraturePluginChannel = (function () {
       claims.clear();
       await files.remove("presence.json");
     }
-    return Object.freeze({ start, stop, scan });
+    return Object.freeze({ start, stop, scan, submitMetricsBackfillJob, readMetricsBackfillResult, discardMetricsBackfillJob });
   }
 
   function createDesktop({ Zotero, Services, Components, IOUtils, PathUtils, schedule, cancel }) {
@@ -178,7 +248,7 @@ var LiteraturePluginChannel = (function () {
     const dataDir = env("LITERATURE_ZOTERO_MCP_DATA_DIR") || env("ZOTEUS_DATA_DIR") || defaultDir;
     const root = PathUtils.join(dataDir, "plugin-jobs");
     const path = (name) => {
-      if (name !== "presence.json" && !/^[a-f0-9-]{36}\.(job|ack|claim)\.json$/.test(name)) throw new Error("Unsafe channel filename.");
+      if (name !== "presence.json" && !/^[a-f0-9-]{36}\.(job|ack|claim|result)\.json$/.test(name)) throw new Error("Unsafe channel filename.");
       return PathUtils.join(root, name);
     };
     async function directory() {
@@ -230,10 +300,14 @@ var LiteraturePluginChannel = (function () {
     };
     return create({ files, schedule, cancel,
       confirm: (title, text) => Services.prompt.confirm(Zotero.getMainWindow(), title, text),
+      uuid: () => jobIdFromGenerator(Services.uuid.generateUUID().toString()),
       log: (message) => Zotero.logError(message),
-      // Same-scope binding: native-merge.js is loadSubScript-ed into the same
-      // scope before this file, so the var above is visible without globalThis.
-      merge: LiteratureNativeMerge.createDesktop({ Zotero, log: (message) => Zotero.logError(message) }),
+      // Same-scope binding when native-merge.js loaded successfully; otherwise
+      // native-merge jobs are rejected and ping / metrics-backfill still run.
+      merge: (typeof LiteratureNativeMerge !== "undefined" && LiteratureNativeMerge
+        && typeof LiteratureNativeMerge.createDesktop === "function")
+        ? LiteratureNativeMerge.createDesktop({ Zotero, log: (message) => Zotero.logError(message) })
+        : null,
     });
   }
   return Object.freeze({ create, createDesktop, planHash });

@@ -116,22 +116,28 @@ held. The item context menu provides the same commands under **Set Priority**.
 After each batch, a progress popup reports updated, unchanged, read-only
 skipped, and failed counts.
 
-## Workbench job channel (ping and native-merge)
+## Workbench job channel (ping, native-merge, and metrics-backfill requests)
 
 The add-on polls `<dataDir>/plugin-jobs/` every two seconds for workbench jobs,
-asks for confirmation in Zotero, and writes a matching acknowledgement. Two job
-types exist: `ping` is only a connectivity test and never changes items, and
+asks for confirmation in Zotero, and writes a matching acknowledgement. Three
+job types exist: `ping` is only a connectivity test and never changes items;
 `native-merge` executes an approved dedupe plan through Zotero's own
-`Zotero.Items.merge` after an explicit confirmation dialog (see below). This
-channel is only for workbench jobs and does not replace the Zotero 10 local
-write API. It opens no HTTP endpoint and stores no Zotero, EasyScholar, or
-other API keys.
+`Zotero.Items.merge` after an explicit confirmation dialog (see below); and
+`metrics-backfill` is a plugin-authored preview or confirmed-apply request
+(see the menu section) that the ping loop never claims, confirms, or rejects —
+the running workbench runtime answers it with a `<job_id>.result.json`. This channel is only for
+workbench jobs and does not replace the Zotero 10 local write API. It opens no
+HTTP endpoint and stores no Zotero, EasyScholar, or other API keys.
 
-The channel is optional at startup: the metrics runtime starts first and
-independently, and only then does the add-on load the channel module inside a
-try/catch. If anything in the channel setup fails, the columns are unaffected
-and the error is logged under `Workbench jobs channel:` (message and stack) in
-Zotero's Error Console and debug output. `bootstrap.js` never calls
+Each startup piece is isolated in its own try/catch: metrics columns start
+first and independently; then the jobs channel; native-merge loads inside the
+channel setup in a separate try/catch so a missing executor cannot take down
+ping or preview requests; and the backfill menu starts last, including its
+`loadSubScript`, so a menu failure cannot take down columns or the channel.
+If the channel setup fails, the columns stay up and the error is logged under
+`Workbench jobs channel:` (message and stack) in Zotero's Error Console and
+debug output. Native-merge and menu failures use the `Workbench native-merge:`
+and `Workbench metrics backfill menu:` prefixes. `bootstrap.js` never calls
 `Components.utils.importGlobalProperties`; it uses the bootstrap scope's
 existing `IOUtils`/`PathUtils` globals with guarded ES module imports as a
 fallback, and falls back from `Timer.sys.mjs` to the main window's interval
@@ -148,7 +154,7 @@ Custom installations must launch Zotero and the runtime with the same
 `defaultDataDir`). Tests inject a temporary dataDir.
 
 Each `<job_id>.job.json` contains `schema_version: 1`, a UUID-v4 `job_id`,
-`job_type` (`"ping"` or `"native-merge"`), ISO `created_at`, a pinned
+`job_type` (`"ping"`, `"native-merge"`, or `"metrics-backfill"`), ISO `created_at`, a pinned
 `payload`, and `plan_hash`. The hash is lowercase SHA-256 of
 `JSON.stringify([schema_version, job_id, job_type, created_at, payload])` in
 that order; it checks integrity, not authentication. Extra fields and any other
@@ -202,6 +208,36 @@ successful cluster an `accepted` receipt with the progress so far is written, so
 an interrupted job resumes without re-merging finished clusters. A plan file is
 only ever read from directly inside `<dataDir>/dedupe-plans/`, with symlink and
 size (1 MiB) checks; channel files are capped at 32 KiB.
+
+## Metrics backfill menu (preview, then confirm write)
+
+Right-click entries in the item list and collection pane — **Backfill Metrics
+for Selected Items** and **Backfill Metrics for Current Collection** — queue a
+preview request through the job channel. After an explicit confirmation dialog
+in Zotero, the add-on writes a `metrics-backfill` job whose payload is exactly
+the selected item keys (deduplicated, ≤100) or the collection key; it never
+includes items' `Extra` text, local API versions, or any key or secret.
+
+The running workbench runtime notices the job, rebuilds the same plan as
+`zotero_backfill_metrics` in **`dry_run`**, and answers with a
+`<job_id>.result.json` (counts, `plan_hash`, readable error; never a secret).
+The add-on polls for that result and shows the preview in a Zotero progress
+popup (`N would update · M skipped · plan_hash …`). A second confirmation
+dialog then offers to write that exact plan (update/skip counts and the
+`plan_hash` prefix). Cancel writes nothing. Confirm queues a follow-up
+`metrics-backfill` job with `mode: "apply"` and `confirm_plan_hash` equal to
+the preview's `plan_hash`. The runtime applies it through the same reviewed
+`backfillMetrics` path (hash gate, receipt, idempotence), writes a receipt
+under `<dataDir>/receipts/metrics-backfill-<job_id>.json`, and returns the
+receipt path to the add-on. If the library changed after the preview, the
+fresh plan hash will not match and the write is refused — preview again.
+The ping loop never claims, confirms, or rejects these request jobs.
+
+The MCP tool `zotero_backfill_metrics` is unchanged: it still defaults to
+`dry_run`, and an agent-side apply still requires `confirm_plan_hash` plus an
+explicit `receipt_path`. The EasyScholar key stays on the workbench setup
+page — the add-on never reads, stores, or transmits it. Test the menu on a
+disposable collection first; a declined dialog leaves no job file behind.
 
 ## Build and test
 

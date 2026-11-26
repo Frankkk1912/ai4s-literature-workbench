@@ -548,8 +548,52 @@ var LiteratureMetrics = (function () {
     priorityMenuNode = menu;
   }
 
+  function namespacedDataKey(dataKey) {
+    try {
+      if (typeof CSS !== "undefined" && CSS.escape) return CSS.escape(PLUGIN_ID + "-" + dataKey);
+    }
+    catch (_error) { /* fall through */ }
+    return PLUGIN_ID + "-" + dataKey;
+  }
+
+  // Zotero prefixes the returned dataKey with pluginID (CSS.escape). A later
+  // PluginAPI shutdown observer can wipe the manager without going through our
+  // stop(), leaving a stale stored key. isCustomColumn is the live check.
+  function columnIsLive(dataKey) {
+    if (!dataKey || !Zotero.ItemTreeManager) return false;
+    if (typeof Zotero.ItemTreeManager.isCustomColumn === "function") {
+      return Zotero.ItemTreeManager.isCustomColumn(dataKey);
+    }
+    return true;
+  }
+
+  // registerColumn returns false (and does not throw) on a duplicate or invalid
+  // option. The previous start() ignored that, so the jobs channel could come
+  // up while the item list had no metrics columns.
+  function tryRegisterColumn(options) {
+    let key = Zotero.ItemTreeManager.registerColumn(options);
+    if (!key) {
+      try { Zotero.ItemTreeManager.unregisterColumn(options.dataKey); } catch (_error) { /* ignore */ }
+      try { Zotero.ItemTreeManager.unregisterColumn(namespacedDataKey(options.dataKey)); } catch (_error) { /* ignore */ }
+      key = Zotero.ItemTreeManager.registerColumn(options);
+    }
+    if (!key) {
+      log("ItemTreeManager.registerColumn returned false for " + options.dataKey, "error");
+      return null;
+    }
+    return key;
+  }
+
   function registerYear(year) {
-    if (!validYear(year) || registeredColumns.has(year) || !Zotero.ItemTreeManager) return;
+    if (!validYear(year) || !Zotero.ItemTreeManager) return;
+    const existing = registeredColumns.get(year);
+    if (existing && existing.length && existing.every(columnIsLive)) return;
+    if (existing) {
+      for (const dataKey of existing) {
+        try { Zotero.ItemTreeManager.unregisterColumn(dataKey); } catch (_error) { /* ignore */ }
+      }
+      registeredColumns.delete(year);
+    }
     const keys = [];
     const definitions = [
       {
@@ -578,7 +622,7 @@ var LiteratureMetrics = (function () {
       },
     ];
     for (const definition of definitions) {
-      const dataKey = Zotero.ItemTreeManager.registerColumn({
+      const dataKey = tryRegisterColumn({
         dataKey: "metrics-" + definition.kind + "-" + year,
         label: definition.label,
         pluginID: PLUGIN_ID,
@@ -620,8 +664,9 @@ var LiteratureMetrics = (function () {
   }
 
   function registerCitationColumn() {
-    if (citationColumnKey || !Zotero.ItemTreeManager) return;
-    citationColumnKey = Zotero.ItemTreeManager.registerColumn({
+    if (!Zotero.ItemTreeManager) return;
+    if (citationColumnKey && columnIsLive(citationColumnKey)) return;
+    citationColumnKey = tryRegisterColumn({
       dataKey: "citation-count",
       label: "Citations",
       pluginID: PLUGIN_ID,
@@ -638,8 +683,9 @@ var LiteratureMetrics = (function () {
   }
 
   function registerPublicationMetricsColumn() {
-    if (publicationColumnKey || !Zotero.ItemTreeManager) return;
-    publicationColumnKey = Zotero.ItemTreeManager.registerColumn({
+    if (!Zotero.ItemTreeManager) return;
+    if (publicationColumnKey && columnIsLive(publicationColumnKey)) return;
+    publicationColumnKey = tryRegisterColumn({
       dataKey: "publication-metrics",
       label: "Journal Metrics",
       pluginID: PLUGIN_ID,
@@ -658,8 +704,9 @@ var LiteratureMetrics = (function () {
   }
 
   function registerArticleTypeColumn() {
-    if (articleTypeColumnKey || !Zotero.ItemTreeManager) return;
-    articleTypeColumnKey = Zotero.ItemTreeManager.registerColumn({
+    if (!Zotero.ItemTreeManager) return;
+    if (articleTypeColumnKey && columnIsLive(articleTypeColumnKey)) return;
+    articleTypeColumnKey = tryRegisterColumn({
       dataKey: "article-type",
       label: "Article Type",
       pluginID: PLUGIN_ID,
@@ -676,8 +723,9 @@ var LiteratureMetrics = (function () {
   }
 
   function registerPriorityColumn() {
-    if (priorityColumnKey || !Zotero.ItemTreeManager) return;
-    priorityColumnKey = Zotero.ItemTreeManager.registerColumn({
+    if (!Zotero.ItemTreeManager) return;
+    if (priorityColumnKey && columnIsLive(priorityColumnKey)) return;
+    priorityColumnKey = tryRegisterColumn({
       dataKey: "priority",
       label: "Priority",
       pluginID: PLUGIN_ID,
@@ -694,8 +742,9 @@ var LiteratureMetrics = (function () {
   }
 
   function registerAgentTagsColumn() {
-    if (agentTagsColumnKey || !Zotero.ItemTreeManager) return;
-    agentTagsColumnKey = Zotero.ItemTreeManager.registerColumn({
+    if (!Zotero.ItemTreeManager) return;
+    if (agentTagsColumnKey && columnIsLive(agentTagsColumnKey)) return;
+    agentTagsColumnKey = tryRegisterColumn({
       dataKey: "agent-tags",
       label: "Agent Tags",
       pluginID: PLUGIN_ID,
@@ -712,8 +761,9 @@ var LiteratureMetrics = (function () {
   }
 
   function registerAiSummaryColumn() {
-    if (aiSummaryColumnKey || !Zotero.ItemTreeManager) return;
-    aiSummaryColumnKey = Zotero.ItemTreeManager.registerColumn({
+    if (!Zotero.ItemTreeManager) return;
+    if (aiSummaryColumnKey && columnIsLive(aiSummaryColumnKey)) return;
+    aiSummaryColumnKey = tryRegisterColumn({
       dataKey: "ai-summary",
       label: "AI Summary",
       pluginID: PLUGIN_ID,
@@ -769,18 +819,43 @@ var LiteratureMetrics = (function () {
     }
   }
 
-  async function start() {
-    if (started) return;
-    if (!Zotero.ItemTreeManager) throw new Error("Zotero ItemTreeManager is unavailable; Zotero 7+ is required.");
-    started = true;
-    // Register only years that actually occur in managed payloads. Retrieval
-    // year must never create a metric-year column by itself.
+  function ensureFixedColumns() {
     registerCitationColumn();
     registerPublicationMetricsColumn();
     registerArticleTypeColumn();
     registerAgentTagsColumn();
     registerAiSummaryColumn();
     registerPriorityColumn();
+  }
+
+  function reensureYearColumns() {
+    for (const year of [...registeredColumns.keys()]) {
+      const keys = registeredColumns.get(year);
+      if (keys && keys.length && keys.every(columnIsLive)) continue;
+      if (keys) {
+        for (const dataKey of keys) {
+          try { Zotero.ItemTreeManager.unregisterColumn(dataKey); } catch (_error) { /* ignore */ }
+        }
+        registeredColumns.delete(year);
+      }
+      registerYear(year);
+    }
+  }
+
+  // Idempotent: a second call (for example from onMainWindowLoad) re-registers
+  // any columns that failed the first time or were wiped by a plugin shutdown
+  // observer, without hooking the notifier twice.
+  async function start() {
+    if (!Zotero.ItemTreeManager) throw new Error("Zotero ItemTreeManager is unavailable; Zotero 7+ is required.");
+    // Register only years that actually occur in managed payloads. Retrieval
+    // year must never create a metric-year column by itself.
+    ensureFixedColumns();
+    if (started) {
+      reensureYearColumns();
+      Zotero.ItemTreeManager.refreshColumns();
+      return;
+    }
+    started = true;
     mainWindow = Zotero.getMainWindow ? Zotero.getMainWindow() : null;
     registerPriorityShortcuts(mainWindow);
     registerPriorityMenu(mainWindow);

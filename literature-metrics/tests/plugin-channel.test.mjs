@@ -270,6 +270,7 @@ function bootstrapHarness(options = {}) {
   const errors = [];
   const debugs = [];
   let channelArgs = null;
+  let menuSettings = null;
   const scope = {
     Zotero: {
       initializationPromise: Promise.resolve(),
@@ -294,6 +295,7 @@ function bootstrapHarness(options = {}) {
     if (uri.endsWith("native-merge.js")) {
       // bootstrap.js must load the merge executor into the same scope before
       // plugin-channel.js, whose createDesktop binds the same-scope var.
+      if (options.nativeMergeLoadError) throw new Error(options.nativeMergeLoadError);
       target.LiteratureNativeMerge = { createDesktop: () => ({
         validatePlan: () => {},
         execute: async () => ({ status: "rejected", error: "not wired in harness", clusters: [] }),
@@ -310,6 +312,13 @@ function bootstrapHarness(options = {}) {
         };
       } };
     }
+    if (uri.endsWith("metrics-backfill-menu.js")) {
+      if (options.menuLoadError) throw new Error(options.menuLoadError);
+      target.LiteratureMetricsBackfillMenu = {
+        start: (settings) => { calls.push("menu start"); menuSettings = settings; if (options.menuStartError) throw new Error(options.menuStartError); },
+        stop: async () => calls.push("menu stop"),
+      };
+    }
     if (uri.endsWith("literature-metrics.js")) {
       if (options.metricsLoadError) throw new Error(options.metricsLoadError);
       target.LiteratureMetrics = {
@@ -320,7 +329,7 @@ function bootstrapHarness(options = {}) {
   } } };
   vm.createContext(scope);
   vm.runInContext(source("bootstrap.js"), scope);
-  return { scope, calls, errors, debugs, channelArgs: () => channelArgs };
+  return { scope, calls, errors, debugs, channelArgs: () => channelArgs, menuSettings: () => menuSettings };
 }
 
 function assertLogged(entries, marker) {
@@ -329,15 +338,27 @@ function assertLogged(entries, marker) {
   assert.match(entries[0], /\n\s*at /, "the logged error must include a stack");
 }
 
-test("bootstrap starts metrics first, then the channel; shutdown reverses the order", async () => {
-  const { scope, calls, errors, debugs, channelArgs } = bootstrapHarness({ globals: { IOUtils: {}, PathUtils: {} } });
+test("bootstrap starts metrics first, then the channel, then the menu; shutdown reverses the order", async () => {
+  const { scope, calls, errors, debugs, menuSettings } = bootstrapHarness({ globals: { IOUtils: {}, PathUtils: {} } });
   await scope.startup({ rootURI: "fake/" });
-  assert.deepEqual(calls, ["metrics start", "channel start"]);
+  assert.deepEqual(calls, ["metrics start", "channel start", "menu start"]);
+  assert.ok(menuSettings().channel, "the menu receives the live jobs channel");
+  assert.equal(typeof menuSettings().schedule, "function");
+  assert.equal(typeof menuSettings().cancel, "function");
+  assert.equal(typeof menuSettings().confirm, "function");
   assert.deepEqual(errors, []);
   assert.deepEqual(debugs, []);
   await scope.shutdown();
-  assert.deepEqual(calls, ["metrics start", "channel start", "channel stop", "metrics stop"]);
-  assert.ok(channelArgs().IOUtils && channelArgs().PathUtils, "bootstrap globals are reused, not imported destructively");
+  assert.deepEqual(calls, ["metrics start", "channel start", "menu start", "menu stop", "channel stop", "metrics stop"]);
+});
+
+test("onMainWindowLoad re-runs metrics start so columns can recover after the item tree exists", async () => {
+  const { scope, calls, errors } = bootstrapHarness({ globals: { IOUtils: {}, PathUtils: {} } });
+  await scope.startup({ rootURI: "fake/", id: "literature-metrics@frank-ai4s.local", version: "0.2.1" });
+  assert.equal(typeof scope.onMainWindowLoad, "function");
+  await scope.onMainWindowLoad({ rootURI: "fake/", id: "literature-metrics@frank-ai4s.local", version: "0.2.1" });
+  assert.deepEqual(calls, ["metrics start", "channel start", "menu start", "metrics start"]);
+  assert.deepEqual(errors, []);
 });
 
 for (const failure of ["channelLoadError", "createDesktopError", "channelStartError"]) {
@@ -349,9 +370,33 @@ for (const failure of ["channelLoadError", "createDesktopError", "channelStartEr
     assertLogged(debugs, new RegExp(`Workbench jobs channel: ${failure} simulated`));
     await scope.shutdown();
     assert.equal(calls.at(-1), "metrics stop", "metrics are still torn down");
+    assert.ok(!calls.includes("menu start"), "the menu never registers when the channel failed to start");
     if (failure === "channelStartError") assert.ok(calls.includes("channel stop"), "a half-started channel is still stopped");
   });
 }
+
+test("a native-merge load failure is isolated and does not take down columns, the channel, or the menu", async () => {
+  const { scope, calls, errors, debugs } = bootstrapHarness({ nativeMergeLoadError: "nativeMergeLoadError simulated", globals: { IOUtils: {}, PathUtils: {} } });
+  await scope.startup({ rootURI: "fake/" });
+  assert.deepEqual(calls, ["metrics start", "channel start", "menu start"]);
+  assertLogged(errors, /Workbench native-merge: nativeMergeLoadError simulated/);
+  assertLogged(debugs, /Workbench native-merge: nativeMergeLoadError simulated/);
+  await scope.shutdown();
+  assert.deepEqual(calls, ["metrics start", "channel start", "menu start", "menu stop", "channel stop", "metrics stop"]);
+});
+
+test("a menu load or start failure is isolated and does not take down columns or the channel", async () => {
+  for (const failure of ["menuLoadError", "menuStartError"]) {
+    const { scope, calls, errors, debugs } = bootstrapHarness({ [failure]: `${failure} simulated`, globals: { IOUtils: {}, PathUtils: {} } });
+    await scope.startup({ rootURI: "fake/" });
+    assert.deepEqual(calls, failure === "menuStartError" ? ["metrics start", "channel start", "menu start"] : ["metrics start", "channel start"]);
+    assertLogged(errors, new RegExp(`Workbench metrics backfill menu: ${failure} simulated`));
+    assertLogged(debugs, new RegExp(`Workbench metrics backfill menu: ${failure} simulated`));
+    await scope.shutdown();
+    assert.ok(calls.includes("channel stop"), "the channel is still torn down");
+    assert.equal(calls.at(-1), "metrics stop", "metrics are still torn down");
+  }
+});
 
 test("an unexpected metrics-startup failure is logged with its stack and does not escape", async () => {
   for (const failure of ["metricsLoadError", "metricsStartError"]) {
@@ -374,7 +419,7 @@ test("channel IOUtils/PathUtils fall back to guarded ES module imports without i
     },
   });
   await scope.startup({ rootURI: "fake/" });
-  assert.deepEqual(calls, ["metrics start", "channel start"]);
+  assert.deepEqual(calls, ["metrics start", "channel start", "menu start"]);
   assert.deepEqual(errors, []);
   assert.equal(channelArgs().IOUtils, IOUtilsMarker);
   assert.equal(channelArgs().PathUtils, PathUtilsMarker);
@@ -389,7 +434,7 @@ test("the channel falls back to the main-window interval timer when Timer.sys.mj
   const { scope, calls, errors, channelArgs } = bootstrapHarness({ timerError: "Timer.sys.mjs unavailable", zotero: { getMainWindow: () => window } });
   await scope.startup({ rootURI: "fake/" });
   assert.deepEqual(errors, []);
-  assert.deepEqual(calls, ["metrics start", "channel start"]);
+  assert.deepEqual(calls, ["metrics start", "channel start", "menu start"]);
   channelArgs().schedule(() => {}, 2000);
   assert.deepEqual(intervals, [2000]);
   channelArgs().cancel(41);
@@ -399,7 +444,7 @@ test("the channel falls back to a re-arming setTimeout loop when no window timer
   const { scope, calls, errors, channelArgs } = bootstrapHarness({ timerError: "Timer.sys.mjs unavailable", globals: { setTimeout, clearTimeout } });
   await scope.startup({ rootURI: "fake/" });
   assert.deepEqual(errors, []);
-  assert.deepEqual(calls, ["metrics start", "channel start"]);
+  assert.deepEqual(calls, ["metrics start", "channel start", "menu start"]);
   let fires = 0;
   const handle = channelArgs().schedule(() => { fires += 1; }, 5);
   await new Promise((resolve) => setTimeout(resolve, 20));
@@ -448,6 +493,188 @@ test("the channel export lives on the loadSubScript scope, not on globalThis", (
   const job = ping();
   assert.equal(planHash(job), job.plan_hash, "planHash keeps the SHA-256 contract via the same-scope LiteratureAiSummaries");
 });
+
+test("plugin-channel still loads and hashes jobs when native-merge is absent", () => {
+  const scope = { crypto: { randomUUID, getRandomValues: (arr) => arr.fill(7) } };
+  loadSubScriptLike(source("src/ai-summaries.js"), scope);
+  loadSubScriptLike(source("src/plugin-channel.js"), scope);
+  assert.ok(scope.LiteraturePluginChannel, "the channel export must still land on the scope");
+  assert.equal(scope.LiteratureNativeMerge, undefined);
+  const created = [];
+  const channel = scope.LiteraturePluginChannel.create({
+    files: {
+      async ensureDir() {},
+      async writePresence() { created.push("presence"); },
+      async list() { return []; },
+      async read() { return null; },
+      async write() {},
+      async remove() {},
+      async exists() { return false; },
+    },
+    confirm: async () => true,
+    merge: null,
+    schedule: () => 1,
+    cancel() {},
+    log() {},
+    now: () => "2026-11-26T12:00:00.000Z",
+    uuid: () => "11111111-1111-4111-8111-111111111111",
+  });
+  // planHash is used internally when creating/validating; just starting is enough
+  // to prove create() does not throw without LiteratureNativeMerge.
+  assert.equal(typeof channel.start, "function");
+  assert.equal(typeof channel.submitMetricsBackfillJob, "function");
+});
+
+
+test("the ping loop never claims, confirms, or rejects a metrics-backfill request job", async () => {
+  const f = fixture();
+  await f.channel.start();
+  const request = { schema_version: 1, job_id: randomUUID(), job_type: "metrics-backfill", created_at: new Date().toISOString(), payload: { collection_key: "334VW86H" } };
+  request.plan_hash = createHash("sha256").update(JSON.stringify([
+    request.schema_version, request.job_id, request.job_type, request.created_at, request.payload,
+  ])).digest("hex");
+  f.add(request);
+  f.add(ping());
+  await f.tick();
+  assert.equal(f.prompts.length, 1, "only the ping asks for confirmation");
+  for (const [name, job] of f.records) {
+    if (!name.endsWith(".job.json")) continue;
+    if (job.job_type === "metrics-backfill") {
+      assert.equal(f.records.has(`${job.job_id}.ack.json`), false, "request jobs get no ack from the ping loop");
+      assert.equal(f.records.has(`${job.job_id}.claim.json`), false, "request jobs are never claimed");
+    }
+  }
+  const pingAcks = [...f.records.values()].filter((record) => record.status === "completed");
+  assert.equal(pingAcks.length, 1, "the ping itself is still processed normally");
+  await f.channel.stop();
+});
+
+// Real Gecko nsIUUIDGenerator.toString() wraps a possibly-uppercase UUID in braces.
+function geckoGenerateUUID() {
+  return { toString: () => `{${randomUUID().toUpperCase()}}` };
+}
+
+// Exercise createDesktop's real path() allowlist, not the in-memory fixture writer.
+function desktopBackfillHarness(generateUUID = geckoGenerateUUID) {
+  const paths = posix;
+  const home = "/test-home";
+  let root;
+  const records = new Map();
+  const Components = {
+    interfaces: { nsIFile: {} },
+    classes: { "@mozilla.org/file/local;1": { createInstance: () => ({ initWithPath() {}, isSymlink: () => false }) } },
+  };
+  const IOUtils = {
+    async makeDirectory(path, options) { root = path; assert.equal(options.permissions, 0o700); },
+    async stat(path) { return { type: path === root ? "directory" : "regular", size: 200 }; },
+    async exists(path) { return records.has(path); },
+    async getChildren() { return [...records.keys()]; },
+    async readJSON(path) { return records.get(path); },
+    async writeJSON(path, value, options) { assert.equal(options.mode, "create"); assert.ok(path.endsWith(".tmp")); records.set(path, value); },
+    async setPermissions(_path, mode) { assert.equal(mode, 0o600); },
+    async move(from, to) { records.set(to, records.get(from)); records.delete(from); },
+    async remove(path) { records.delete(path); },
+  };
+  const channel = moduleContext().createDesktop({
+    Zotero: { isWin: false, isMac: true, getMainWindow: () => ({}), logError() {} },
+    Services: { env: { get: () => "" }, dirsvc: { get: () => ({ path: home }) },
+      uuid: { generateUUID }, prompt: { confirm: () => true } },
+    Components, IOUtils, PathUtils: { join: paths.join, filename: paths.basename }, schedule: () => 1, cancel() {},
+  });
+  return { channel, records, paths, root: () => root };
+}
+
+test("submitMetricsBackfillJob writes allowlisted filenames for item_keys and collection_key even when Gecko UUIDs have braces and uppercase", async () => {
+  const SAFE_NAME = /^[a-f0-9-]{36}\.(job|ack|claim|result)\.json$/;
+  const JOB_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
+  const { channel, records, paths, root } = desktopBackfillHarness();
+  await channel.start();
+  const payloads = [
+    { collection_key: "334VW86H" },
+    { item_keys: ["3DI5B43M", "C5XDZY48"] },
+  ];
+  for (const payload of payloads) {
+    const job = await channel.submitMetricsBackfillJob(payload);
+    assert.match(job.job_id, JOB_ID, `job_id must be a lowercase UUID v4, got ${job.job_id}`);
+    assert.equal(job.job_id.includes("{") || job.job_id.includes("}") || /[A-F]/.test(job.job_id), false);
+    assert.deepEqual(job.payload, payload);
+    const jobName = `${job.job_id}.job.json`;
+    const resultName = `${job.job_id}.result.json`;
+    assert.match(jobName, SAFE_NAME);
+    assert.match(resultName, SAFE_NAME);
+    assert.equal(jobName.includes("/") || jobName.includes("\\"), false);
+    assert.deepEqual(records.get(paths.join(root(), jobName)), job, "submit must write through the real filename allowlist");
+    records.set(paths.join(root(), resultName), { job_id: job.job_id, status: "completed" });
+    const result = await channel.readMetricsBackfillResult(job.job_id);
+    assert.equal(result.job_id, job.job_id);
+    await channel.discardMetricsBackfillJob(job.job_id);
+    assert.equal(records.has(paths.join(root(), jobName)), false);
+    assert.equal(records.has(paths.join(root(), resultName)), false);
+  }
+  await channel.stop();
+});
+
+test("createDesktop still rejects job ids that cannot be normalized to a UUID v4 filename", async () => {
+  for (const raw of ["{not-a-uuid}", "../evil", "a/b", "presence.json", ""]) {
+    const { channel } = desktopBackfillHarness(() => ({ toString: () => raw }));
+    await channel.start();
+    await assert.rejects(channel.submitMetricsBackfillJob({ collection_key: "334VW86H" }), /Unsafe channel job id/);
+    await channel.stop();
+  }
+});
+
+test("submitMetricsBackfillJob writes allowlisted apply jobs with confirm_plan_hash for item_keys and collection_key", async () => {
+  const SAFE_NAME = /^[a-f0-9-]{36}\.(job|ack|claim|result)\.json$/;
+  const PLAN_HASH = "sha256:" + "d".repeat(64);
+  const { channel, records, paths, root } = desktopBackfillHarness();
+  await channel.start();
+  const payloads = [
+    { collection_key: "334VW86H", mode: "apply", confirm_plan_hash: PLAN_HASH },
+    { item_keys: ["3DI5B43M", "C5XDZY48"], mode: "apply", confirm_plan_hash: PLAN_HASH },
+  ];
+  for (const payload of payloads) {
+    const job = await channel.submitMetricsBackfillJob(payload);
+    assert.match(`${job.job_id}.job.json`, SAFE_NAME);
+    assert.deepEqual(job.payload, payload);
+    assert.equal(job.job_type, "metrics-backfill");
+    const expected = createHash("sha256").update(JSON.stringify([
+      job.schema_version, job.job_id, job.job_type, job.created_at, job.payload,
+    ])).digest("hex");
+    assert.equal(job.plan_hash, expected);
+    assert.doesNotMatch(JSON.stringify(job), /api[_-]?key|secret|token|password|easyscholar|receipt_path/i);
+    assert.deepEqual(records.get(paths.join(root(), `${job.job_id}.job.json`)), job);
+    await channel.discardMetricsBackfillJob(job.job_id);
+  }
+  await assert.rejects(channel.submitMetricsBackfillJob({ collection_key: "334VW86H", mode: "apply" }), /Invalid metrics-backfill request payload/);
+  await assert.rejects(channel.submitMetricsBackfillJob({
+    collection_key: "334VW86H", mode: "apply", confirm_plan_hash: "d".repeat(64),
+  }), /Invalid metrics-backfill request payload/);
+  await channel.stop();
+});
+
+test("the ping loop never claims an apply metrics-backfill job", async () => {
+  const f = fixture();
+  await f.channel.start();
+  const request = {
+    schema_version: 1,
+    job_id: randomUUID(),
+    job_type: "metrics-backfill",
+    created_at: new Date().toISOString(),
+    payload: { collection_key: "334VW86H", mode: "apply", confirm_plan_hash: "sha256:" + "e".repeat(64) },
+  };
+  request.plan_hash = createHash("sha256").update(JSON.stringify([
+    request.schema_version, request.job_id, request.job_type, request.created_at, request.payload,
+  ])).digest("hex");
+  f.add(request);
+  f.add(ping());
+  await f.tick();
+  assert.equal(f.prompts.length, 1, "only the ping asks for confirmation");
+  assert.equal(f.records.has(`${request.job_id}.ack.json`), false);
+  assert.equal(f.records.has(`${request.job_id}.claim.json`), false);
+  assert.equal(f.records.has(`${request.job_id}.job.json`), true);
+  await f.channel.stop();
+});
+
 
 // ---- native-merge jobs: the channel drives the real merge executor ----
 

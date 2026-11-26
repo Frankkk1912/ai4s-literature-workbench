@@ -241,3 +241,100 @@ test("removes obsolete year columns and renders Journal Metrics on one line", as
   assert.equal(q1.children[0].textContent, "Q1");
   assert.notEqual(q1.children[0].style.backgroundColor, q4.children[0].style.backgroundColor);
 });
+
+
+function loadMetricsModule(Zotero) {
+  const context = { Zotero };
+  vm.createContext(context);
+  vm.runInContext(payloadSource, context, { filename: "metrics-payload.js" });
+  vm.runInContext(articleTypesSource, context, { filename: "article-types.js" });
+  vm.runInContext(semanticTagsSource, context, { filename: "semantic-tags.js" });
+  vm.runInContext(aiSummariesSource, context, { filename: "ai-summaries.js" });
+  vm.runInContext(prioritiesSource, context, { filename: "priorities.js" });
+  vm.runInContext(addOnSource, context, { filename: "literature-metrics.js" });
+  return context;
+}
+
+function columnManagerHarness({ seedKeys = [], alwaysFail = false, items = [[1, extra("2025")]] } = {}) {
+  const definitions = new Map();
+  const unregistered = [];
+  const errors = [];
+  let observerRegistrations = 0;
+  for (const key of seedKeys) definitions.set(key, { dataKey: key, seeded: true });
+  const itemExtra = new Map(items);
+  const Zotero = {
+    ItemTreeManager: {
+      registerColumn(definition) {
+        if (alwaysFail) return false;
+        if (definitions.has(definition.dataKey)) return false;
+        definitions.set(definition.dataKey, definition);
+        return definition.dataKey;
+      },
+      unregisterColumn(dataKey) {
+        unregistered.push(dataKey);
+        definitions.delete(dataKey);
+      },
+      isCustomColumn(dataKey) { return definitions.has(dataKey); },
+      refreshColumns() {},
+    },
+    Libraries: { getAll: () => [{ libraryID: 1 }] },
+    Search: function Search() {
+      this.addCondition = () => {};
+      this.search = async () => [...itemExtra.keys()];
+    },
+    Items: {
+      getAsync: async (ids) => ids.map((id) => ({
+        id,
+        isRegularItem: () => true,
+        getField: (field) => field === "extra" ? itemExtra.get(id) : "",
+        getTags: () => [],
+      })),
+    },
+    Notifier: {
+      registerObserver() { observerRegistrations += 1; return observerRegistrations; },
+      unregisterObserver() {},
+    },
+    debug() {},
+    logError(message) { errors.push(String(message)); },
+  };
+  return { Zotero, definitions, unregistered, errors, observerRegistrations: () => observerRegistrations };
+}
+
+test("retries registerColumn after a leftover dataKey conflict so columns still appear", async () => {
+  const h = columnManagerHarness({ seedKeys: ["priority", "citation-count"] });
+  const context = loadMetricsModule(h.Zotero);
+  await context.LiteratureMetrics.start();
+  assert.equal(h.errors.length, 0, `register should recover without errors, got ${h.errors.join("; ")}`);
+  assert.ok(h.unregistered.includes("priority"));
+  assert.ok(h.unregistered.includes("citation-count"));
+  assert.equal(h.definitions.get("priority").label, "Priority");
+  assert.equal(h.definitions.get("citation-count").label, "Citations");
+  assert.equal(h.definitions.get("publication-metrics").label, "Journal Metrics");
+  assert.ok(h.definitions.has("metrics-if-2025"));
+});
+
+test("a second start re-registers columns wiped from ItemTreeManager without hooking the notifier twice", async () => {
+  const h = columnManagerHarness();
+  const context = loadMetricsModule(h.Zotero);
+  await context.LiteratureMetrics.start();
+  assert.ok(h.definitions.has("priority"));
+  assert.ok(h.definitions.has("metrics-if-2025"));
+  assert.equal(h.observerRegistrations(), 1);
+  h.definitions.clear();
+  assert.equal(h.Zotero.ItemTreeManager.isCustomColumn("priority"), false);
+  await context.LiteratureMetrics.start();
+  assert.equal(h.definitions.get("priority").label, "Priority");
+  assert.equal(h.definitions.get("citation-count").label, "Citations");
+  assert.ok(h.definitions.has("metrics-if-2025"), "year columns must come back after a manager wipe");
+  assert.equal(h.observerRegistrations(), 1, "notifier must not be registered again");
+  assert.equal(h.errors.length, 0);
+});
+
+test("a persistent registerColumn failure is logged and does not throw out of start", async () => {
+  const h = columnManagerHarness({ alwaysFail: true });
+  const context = loadMetricsModule(h.Zotero);
+  await context.LiteratureMetrics.start();
+  assert.ok(h.errors.some((message) => /registerColumn returned false for priority/.test(message)));
+  assert.ok(h.errors.some((message) => /registerColumn returned false for citation-count/.test(message)));
+  assert.equal(h.definitions.size, 0);
+});
