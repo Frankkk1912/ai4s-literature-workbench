@@ -35,6 +35,28 @@ Confirm candidates and complete merges in Zotero Desktop. Zotero's native merge
 preserves collection, tag, and citation relationships that cannot be reproduced
 through the public Local or Web APIs.
 
+## V1 dedupe merge-plan workflow
+
+`zotero_apply_dedupe_plan` turns a saved `zotero_find_duplicates` report (or a
+batch collection key, scanned first) into a reviewable, hashed merge plan.
+
+- Dry-run re-checks read-only that every key still exists, reports current
+  versions and batch membership, and never writes Zotero or any file.
+- Each cluster names the retained master, the keys to merge in, and what the
+  native merge keeps: child attachments and notes (re-parented to the master),
+  the tag and collection unions, and relations including the `dc:replaces`
+  entries the native merge records for each merged-away item.
+- Merged-away items only ever move to the Zotero trash and can be restored
+  from there; permanent deletion is forbidden.
+- Clusters whose recommended master is outside the batch get an
+  add-master-to-collection step first, so the batch does not lose the work when
+  in-scope copies are merged away.
+- Apply only saves the plan file under the MCP data directory and validates its
+  `plan_hash`; it never writes Zotero. Executing the merge needs Zotero native
+  merge, so apply returns `needs_plugin` / `native_merge_required` instead of
+  falling back to trashing items. `zotero_trash_items` and `zotero_delete_items`
+  are not part of the workbench profile.
+
 ## Evidence import-plan workflow
 
 `zotero_apply_import_plan` consumes the file-based plan produced by
@@ -167,7 +189,7 @@ This exposes only `zotero_whoami`, `zotero_search_items`, `zotero_get_item`,
 `zotero_list_collections`, `zotero_get_fulltext`, `zotero_fulltext_context`,
 `zotero_apply_fulltext_handoff`, `zotero_apply_import_plan`,
 `zotero_apply_metrics_plan`, `zotero_apply_citation_plan`, `zotero_find_duplicates`,
-`zotero_semantic_tag_context`, `zotero_apply_semantic_tags`,
+`zotero_apply_dedupe_plan`, `zotero_semantic_tag_context`, `zotero_apply_semantic_tags`,
 `zotero_cleanup_auto_tags`, `zotero_semantic_tag_vocabulary`,
 `zotero_tag_manager`, `zotero_sync_literature_project`,
 `zotero_ai_summary_context`, and `zotero_apply_ai_summaries`. Schema validation, collection creation, batch item
