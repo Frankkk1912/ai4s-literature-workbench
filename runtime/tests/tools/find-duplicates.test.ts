@@ -50,9 +50,9 @@ describe('zotero_find_duplicates', () => {
   it('compares a collection batch against the whole library and persists an audit report', async () => {
     const searchItems = vi.fn(async (query: any) => {
       if (query.collectionKey === 'COLL0001') {
-        return { data: [batch], totalResults: 1, lastModifiedVersion: 8 };
+        return { data: [batch], totalResults: 1, lastModifiedVersion: 8, source: 'cloud' };
       }
-      return { data: [batch, existing], totalResults: 2, lastModifiedVersion: 8 };
+      return { data: [batch, existing], totalResults: 2, lastModifiedVersion: 8, source: 'cloud' };
     });
     const ctx = await context(searchItems);
 
@@ -66,6 +66,7 @@ describe('zotero_find_duplicates', () => {
       expect.objectContaining({ top: true, includeTrashed: false }),
     );
     expect(result.structuredContent?.clusterCount).toBe(1);
+    expect(result.structuredContent).toMatchObject({ source: 'cloud', libraryVersion: 8 });
     expect(result.structuredContent?.reportId).toMatch(/^duplicates-/);
     const reportPath = result.structuredContent?.reportPath as string;
     const report = JSON.parse(await readFile(reportPath, 'utf8'));

@@ -31,7 +31,15 @@ function fakeCtx(): ToolContext {
         totalResults: 1,
         lastModifiedVersion: 2114,
       })),
-      getItem: vi.fn(async () => ({ key: 'ABCD1234', data: { itemType: 'journalArticle', title: 'Deep Learning' } })),
+      getItem: vi.fn(async () => ({
+        key: 'ABCD1234',
+        data: { itemType: 'journalArticle', title: 'Deep Learning' },
+      })),
+      getItemWithMetadata: vi.fn(async () => ({
+        data: { key: 'ABCD1234', data: { itemType: 'journalArticle', title: 'Deep Learning' } },
+        source: 'cloud',
+        lastModifiedVersion: 2114,
+      })),
       getItemChildren: vi.fn(async () => ({ data: [], totalResults: 0, lastModifiedVersion: 0 })),
       listCollections: vi.fn(async () => ({
         data: [{ key: 'COLL', data: { name: 'Reading' } }],
@@ -40,14 +48,31 @@ function fakeCtx(): ToolContext {
       })),
     } as any,
     schema: {
-      getSchema: vi.fn(async () => ({ version: 39, itemTypes: [{ itemType: 'book', fields: [{ field: 'title' }] }] })),
+      getSchema: vi.fn(async () => ({
+        version: 39,
+        itemTypes: [{ itemType: 'book', fields: [{ field: 'title' }] }],
+      })),
       itemTypeNames: vi.fn(async () => ['book']),
     } as any,
     web: {} as any,
-    styles: { resolveId: (n: string) => n, fetchStyle: async () => '', fetchLocale: async () => '' } as any,
+    styles: {
+      resolveId: (n: string) => n,
+      fetchStyle: async () => '',
+      fetchLocale: async () => '',
+    } as any,
     translation: { isUp: async () => false } as any,
-    search: { isEmpty: true, embedderName: 'none', status: () => ({}), query: async () => [] } as any,
-    scholar: { lookup: async () => null, references: async () => [], citations: async () => [], related: async () => [] } as any,
+    search: {
+      isEmpty: true,
+      embedderName: 'none',
+      status: () => ({}),
+      query: async () => [],
+    } as any,
+    scholar: {
+      lookup: async () => null,
+      references: async () => [],
+      citations: async () => [],
+      related: async () => [],
+    } as any,
     toolCatalog: tools.map((t) => ({ name: t.name, title: t.title, description: t.description })),
     logger: { debug() {}, info() {}, warn() {}, error() {} },
   };
@@ -149,7 +174,10 @@ describe('Literature Zotero MCP server (in-process)', () => {
 
   it('discovers tools via search_tools', async () => {
     const { client } = await connect();
-    const res: any = await client.callTool({ name: 'search_tools', arguments: { query: 'bibliography' } });
+    const res: any = await client.callTool({
+      name: 'search_tools',
+      arguments: { query: 'bibliography' },
+    });
     const names = (res.structuredContent.tools as any[]).map((t) => t.name);
     expect(names).toContain('zotero_bibliography');
     expect(names).toContain('zotero_format_bibliography');
@@ -168,7 +196,10 @@ describe('Literature Zotero MCP server (in-process)', () => {
 
   it('renders a prompt with arguments', async () => {
     const { client } = await connect();
-    const res: any = await client.getPrompt({ name: 'zotero-cite', arguments: { item_keys: 'ABCD', style: 'IEEE' } });
+    const res: any = await client.getPrompt({
+      name: 'zotero-cite',
+      arguments: { item_keys: 'ABCD', style: 'IEEE' },
+    });
     expect(res.messages[0].content.text).toMatch(/IEEE/);
   });
 });

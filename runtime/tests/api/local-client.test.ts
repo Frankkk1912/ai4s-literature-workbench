@@ -49,6 +49,12 @@ describe('LocalApiClient', () => {
     expect(r.data).toHaveLength(1);
   });
 
+  it('returns the library header, not the item version, in item metadata reads', async () => {
+    const client = makeLocal(vi.fn(async () => new Response(JSON.stringify({ key: 'K1', version: 3 }), { headers: { 'Last-Modified-Version': '1200' } })));
+    expect(await client.getItemWithMetadata('K1')).toEqual({ data: { key: 'K1', version: 3 }, lastModifiedVersion: 1200 });
+    expect(await client.getItem('K1')).toEqual({ key: 'K1', version: 3 });
+  });
+
   describe('probe', () => {
     it('reports ok, and whether this Zotero accepts writes', async () => {
       const fetchImpl = vi.fn(

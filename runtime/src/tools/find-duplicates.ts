@@ -24,11 +24,17 @@ async function listScope(
   ctx: ToolContext,
   query: { library?: LibraryRef; collectionKey?: string; tag?: string },
   cap: number,
-): Promise<{ items: any[]; totalResults: number; libraryVersion?: number }> {
+): Promise<{
+  items: any[];
+  totalResults: number;
+  libraryVersion?: number;
+  source?: 'local' | 'cloud';
+}> {
   const items: any[] = [];
   let start = 0;
   let totalResults = 0;
   let libraryVersion: number | undefined;
+  let source: 'local' | 'cloud' | undefined;
   do {
     const result = await ctx.router.searchItems({
       ...query,
@@ -39,6 +45,7 @@ async function listScope(
     });
     totalResults = result.totalResults;
     libraryVersion = result.lastModifiedVersion;
+    source = result.source;
     if (totalResults > cap) {
       throw new Error(
         `Selected scope contains ${totalResults} items, which exceeds the explicit limit of ${cap}. Narrow the batch or raise limit.`,
@@ -48,7 +55,7 @@ async function listScope(
     start += result.data.length;
     if (!result.data.length) break;
   } while (start < totalResults);
-  return { items, totalResults, libraryVersion };
+  return { items, totalResults, libraryVersion, source };
 }
 
 const findDuplicates: ToolDefinition = {
@@ -136,6 +143,9 @@ const findDuplicates: ToolDefinition = {
       items_scanned: fullLibrary.items.length,
       batch_items_scanned: batch.items.length,
       library_version: fullLibrary.libraryVersion,
+      source: fullLibrary.source,
+      batch_source: batch.source,
+      batch_library_version: batch.libraryVersion,
       cluster_count: clusters.length,
       confidence_counts: {
         high: clusters.filter((cluster) => cluster.confidence === 'high').length,
@@ -166,6 +176,10 @@ const findDuplicates: ToolDefinition = {
       {
         reportId,
         reportPath,
+        source: fullLibrary.source,
+        libraryVersion: fullLibrary.libraryVersion,
+        batchSource: batch.source,
+        batchLibraryVersion: batch.libraryVersion,
         clusterCount: clusters.length,
         confidenceCounts: report.confidence_counts,
         itemsScanned: report.items_scanned,

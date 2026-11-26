@@ -20,9 +20,19 @@ const sampleItem = {
 
 describe('zotero_search_items', () => {
   it('returns concise projections by default', async () => {
-    const router = vi.fn(async () => ({ data: [sampleItem], totalResults: 1, lastModifiedVersion: 2114 }));
+    const router = vi.fn(async () => ({
+      data: [sampleItem],
+      totalResults: 1,
+      lastModifiedVersion: 2114,
+      source: 'local',
+    }));
     const res = await searchItems.handler({ q: 'deep learning' }, ctx(router));
     expect(router).toHaveBeenCalled();
+    expect(res.structuredContent).toMatchObject({
+      source: 'local',
+      libraryVersion: 2114,
+      totalResults: 1,
+    });
     const items = res.structuredContent?.items as any[];
     expect(items[0].title).toBe('Deep Learning');
     expect(items[0].key).toBe('ABCD1234');
@@ -31,14 +41,22 @@ describe('zotero_search_items', () => {
   });
 
   it('includes technical fields when response_format=detailed', async () => {
-    const router = vi.fn(async () => ({ data: [sampleItem], totalResults: 1, lastModifiedVersion: 2114 }));
+    const router = vi.fn(async () => ({
+      data: [sampleItem],
+      totalResults: 1,
+      lastModifiedVersion: 2114,
+    }));
     const res = await searchItems.handler({ q: 'x', response_format: 'detailed' }, ctx(router));
     const items = res.structuredContent?.items as any[];
     expect(items[0].version).toBe(2114);
   });
 
   it('exposes item fields in the TEXT content the model sees, not only structuredContent', async () => {
-    const router = vi.fn(async () => ({ data: [sampleItem], totalResults: 1, lastModifiedVersion: 2114 }));
+    const router = vi.fn(async () => ({
+      data: [sampleItem],
+      totalResults: 1,
+      lastModifiedVersion: 2114,
+    }));
     const res = await searchItems.handler({ q: 'deep learning' }, ctx(router));
     const text = (res.content ?? []).map((c: { text: string }) => c.text).join('\n');
     expect(text).toContain('ABCD1234'); // item key — needed to chain into get_item/bibliography
@@ -78,7 +96,11 @@ describe('zotero_search_items', () => {
   });
 
   it('does not broaden when the default search already has hits', async () => {
-    const router = vi.fn(async () => ({ data: [sampleItem], totalResults: 1, lastModifiedVersion: 1 }));
+    const router = vi.fn(async () => ({
+      data: [sampleItem],
+      totalResults: 1,
+      lastModifiedVersion: 1,
+    }));
     await searchItems.handler({ q: 'deep learning' }, ctx(router));
     expect(router).toHaveBeenCalledTimes(1);
   });
