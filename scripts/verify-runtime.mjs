@@ -41,6 +41,7 @@ const expected = [
   'zotero_apply_import_plan',
   'zotero_apply_metrics_plan',
   'zotero_apply_semantic_tags',
+  'zotero_backfill_metrics',
   'zotero_cleanup_auto_tags',
   'zotero_find_duplicates',
   'zotero_fulltext_context',

@@ -94,7 +94,7 @@ async function connect() {
 }
 
 describe('Literature Zotero MCP server (in-process)', () => {
-  it('lists all forty-seven tools', async () => {
+  it('lists all forty-eight tools', async () => {
     const { client } = await connect();
     const { tools: listed } = await client.listTools();
     const names = listed.map((t) => t.name).sort();
@@ -113,6 +113,7 @@ describe('Literature Zotero MCP server (in-process)', () => {
       'zotero_apply_metrics_plan',
       'zotero_apply_semantic_tags',
       'zotero_attachment',
+      'zotero_backfill_metrics',
       'zotero_bibliography',
       'zotero_cleanup_auto_tags',
       'zotero_create_items',

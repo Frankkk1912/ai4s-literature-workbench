@@ -43,6 +43,7 @@ describe('read-only mode tool set', () => {
       'zotero_attachment',
       'zotero_import',
       'zotero_apply_import_plan',
+      'zotero_backfill_metrics',
       'zotero_apply_ai_summaries',
     ]) {
       expect(names).not.toContain(t);
@@ -53,7 +54,7 @@ describe('read-only mode tool set', () => {
 describe('workbench tool profile', () => {
   const config = { toolProfile: 'workbench', readOnly: false, oauth: { enabled: false } } as any;
 
-  it('exposes the three setup tools and only the twenty workflow-facing tools', () => {
+  it('exposes the three setup tools and only the twenty-one workflow-facing tools', () => {
     expect(selectActiveTools(config).map((tool) => tool.name)).toEqual([
       'setup_status',
       'open_setup',
@@ -68,6 +69,7 @@ describe('workbench tool profile', () => {
       'zotero_apply_dedupe_plan',
       'zotero_apply_import_plan',
       'zotero_apply_metrics_plan',
+      'zotero_backfill_metrics',
       'zotero_apply_fulltext_handoff',
       'zotero_apply_citation_plan',
       'zotero_semantic_tag_context',
@@ -94,6 +96,7 @@ describe('workbench tool profile', () => {
     const names = selectActiveTools({ ...config, readOnly: true }).map((tool) => tool.name);
     expect(names).not.toContain('zotero_apply_import_plan');
     expect(names).not.toContain('zotero_apply_metrics_plan');
+    expect(names).not.toContain('zotero_backfill_metrics');
     expect(names).not.toContain('zotero_apply_citation_plan');
     expect(names).not.toContain('zotero_apply_semantic_tags');
     expect(names).not.toContain('zotero_cleanup_auto_tags');

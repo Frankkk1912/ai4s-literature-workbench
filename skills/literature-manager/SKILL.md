@@ -137,7 +137,32 @@ After reviewing the exact plan hash, dry-run and then apply it through
 `zotero_apply_import_plan`. Apply mode requires the hash, receipt path, and a
 write-capable Zotero Web API key.
 
-Create a metrics-only backfill plan from an item snapshot and an audited CSV:
+To refresh IF/JCR/CAS metrics for items that already exist in a collection,
+prefer the one-step MCP tool `zotero_backfill_metrics`. It needs no item
+snapshot and no evidence file: it reads the items and their versions from the
+Zotero cloud Web API (api.zotero.org), queries EasyScholar by journal name
+with the locally configured key and shared cache, and builds the same hashed
+plan internally.
+
+1. Call it with `collection_key` (or selected `item_keys`) and no `mode`;
+   the default is a no-write dry run. Review the returned update/skip counts,
+   preprint skips, and the `plan_hash`.
+2. Only after Frank approves the exact `plan_hash`, call again with
+   `mode: apply`, `confirm_plan_hash`, and a `receipt_path`. Any version or
+   EasyScholar data change makes the rebuilt hash differ and the apply is
+   refused; re-run the dry run and confirm the new hash.
+3. Pass `plan_path` in the dry run if Frank wants to inspect the plan JSON.
+
+Do not hand-assemble the old `fetch-items --local` snapshot plus
+`plan-easyscholar-metrics-backfill` chain for this anymore: the one-step tool
+uses the same EasyScholar client, cache, and reviewed `executeMetricsPlan`
+apply path. The MCP writes the year-specific payload into `Extra` and
+synchronizes only current `JCR:*`/`CAS:*` tags; it preserves all other tags
+and user Extra text.
+
+The CSV path remains for metrics that come from an audited spreadsheet (for
+example a reviewed Web of Science export) instead of EasyScholar. Create a
+metrics-only backfill plan from an item snapshot and that audited CSV:
 
 ```bash
 uv run literature-manager/scripts/zotero_literature_manager.py plan-metrics-backfill \
@@ -314,9 +339,12 @@ the `AI4S-Summary` Extra contract.
    writing.
 9. Run `apply-sync --dry-run`; only then run a non-dry write if Frank approved
    the exact plan.
-10. Run `plan-metrics-backfill` only for an explicitly requested refresh of
-    existing items/collections; inspect skipped matches, then dry-run and
-    explicitly approve `zotero_apply_metrics_plan`.
+10. For an explicitly requested refresh of existing items or collections,
+    call `zotero_backfill_metrics` with the collection key (or item keys) —
+    the default mode is a no-write dry run. Inspect the update/skip counts,
+    then apply only after Frank approves the exact `plan_hash`. Use the CSV
+    `plan-metrics-backfill` path only when the metrics come from an audited
+    spreadsheet, and `zotero_apply_metrics_plan` to execute that saved plan.
 11. When Agent Tags are requested, run the semantic-tag workflow after import or
    directly on existing items/collection. Re-read context on any vocabulary or
    item version conflict.
