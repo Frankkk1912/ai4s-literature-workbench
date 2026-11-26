@@ -37,6 +37,7 @@ import findDuplicates from './find-duplicates.js';
 import applyDedupePlan from './apply-dedupe-plan.js';
 import applyImportPlan from './apply-import-plan.js';
 import applyMetricsPlan from './apply-metrics-plan.js';
+import backfillMetrics from './backfill-metrics.js';
 import applyCitationPlan from './apply-citation-plan.js';
 import semanticTagContext from './semantic-tag-context.js';
 import applySemanticTags from './apply-semantic-tags.js';
@@ -94,6 +95,7 @@ export const tools: ToolDefinition[] = [
   applyDedupePlan,
   applyImportPlan,
   applyMetricsPlan,
+  backfillMetrics,
   applyFulltextHandoff,
   applyCitationPlan,
   semanticTagContext,

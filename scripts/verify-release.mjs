@@ -8,13 +8,12 @@
 //      exit 0 (scripts/verify-launchers.mjs); the archive still leaves out the
 //      developer-only scripts/onboard.mjs and scripts/bootstrap.mjs
 //   4. the Zotero .mcpb, started as its manifest says with an unset optional key,
-//      lists the 23 workbench tools; the fulltext .mcpb starts from an unrelated cwd
+//      lists the 24 workbench tools; the fulltext .mcpb starts from an unrelated cwd
 //      and lists the exact six fulltext tools
 //
 //   node scripts/verify-release.mjs <release-dir>
 //
 // Needs `unzip` on Linux and macOS; Windows uses the bsdtar that ships with it.
-import { spawn } from 'node:child_process';
 import { spawnCommand } from './spawn-command.mjs';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
@@ -204,10 +203,10 @@ try {
 
   const bundleRun = spawnCommand(process.execPath, [join(repoRoot, 'scripts', 'verify-bundles.mjs'), '--plugin-dir', pluginDir], { encoding: 'utf8' });
   process.stdout.write(`${bundleRun.stdout.trimEnd().replace(/^/gm, '  [archive] ')}\n`);
-  if (bundleRun.status !== 0) {
-    report('plugin archive bundles start and list their tools', false, bundleRun.stderr || 'see the [archive] lines above');
-  } else {
+  if (bundleRun.status === 0) {
     report('plugin archive bundles start and list their tools', true);
+  } else {
+    report('plugin archive bundles start and list their tools', false, bundleRun.stderr || 'see the [archive] lines above');
   }
 
   await check('the archive still omits the developer-only scripts', () => {
@@ -222,7 +221,7 @@ try {
   process.stdout.write(`${launcherRun.stdout.trimEnd().replace(/^/gm, '  [archive] ')}\n`);
   report('plugin archive launchers run the bundle with --setup', launcherRun.status === 0, launcherRun.stderr || 'see the [archive] lines above');
 
-  await check('Zotero .mcpb starts as its manifest says and lists the 23 workbench tools', async () => {
+  await check('Zotero .mcpb starts as its manifest says and lists the 24 workbench tools', async () => {
     const mcpbDir = join(work, 'mcpb');
     extract(join(releaseDir, zoteroMcpbName), mcpbDir);
     const manifest = JSON.parse(readFileSync(join(mcpbDir, 'manifest.json'), 'utf8'));
@@ -261,7 +260,7 @@ try {
     try {
       await Promise.race([client.connect(transport), new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out after 60s.')), 60_000))]);
       const { tools } = await client.listTools();
-      if (tools.length !== 23) throw new Error(`Expected 23 tools, got ${tools.length}.`);
+      if (tools.length !== 24) throw new Error(`Expected 24 tools, got ${tools.length}.`);
       const whoami = await client.callTool({ name: 'zotero_whoami', arguments: {} });
       const text = JSON.stringify(whoami);
       if (text.includes('user_config')) throw new Error(`The unset key reached the server as a real value: ${text.slice(0, 300)}`);

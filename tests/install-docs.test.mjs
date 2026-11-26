@@ -28,7 +28,7 @@ test("the runtime's workbench list, verify-bundles and verify-runtime name the s
 	const runtime = namesAfter(read("runtime/src/server.ts"), "WORKBENCH_TOOL_NAMES = new Set(");
 	const bundles = namesAfter(read("scripts/verify-bundles.mjs"), "const EXPECTED_RUNTIME_TOOLS");
 	const verifyRuntime = namesAfter(read("scripts/verify-runtime.mjs"), "const expected");
-	assert.equal(runtime.length, 23);
+	assert.equal(runtime.length, 24);
 	assert.ok(sameList(runtime, bundles), "scripts/verify-bundles.mjs is out of step with WORKBENCH_TOOL_NAMES");
 	assert.ok(sameList(runtime, verifyRuntime), "scripts/verify-runtime.mjs is out of step with WORKBENCH_TOOL_NAMES");
 	assert.ok(runtime.includes("setup_status") && runtime.includes("open_setup") && runtime.includes("install_search_helper"));
