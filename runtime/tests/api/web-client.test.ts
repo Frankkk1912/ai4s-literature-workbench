@@ -67,6 +67,12 @@ describe('WebApiClient', () => {
     );
   });
 
+  it('keeps item and library versions distinct in metadata reads', async () => {
+    const client = makeClient(vi.fn(async () => new Response(JSON.stringify({ key: 'K1', version: 3 }), { headers: { 'Last-Modified-Version': '42' } })));
+    expect(await client.getItemWithMetadata({ type: 'user', id: 1 }, 'K1')).toEqual({ data: { key: 'K1', version: 3 }, lastModifiedVersion: 42 });
+    expect(await client.getItem({ type: 'user', id: 1 }, 'K1')).toEqual({ key: 'K1', version: 3 });
+  });
+
   it('throws ZoteroApiError with an actionable message on failure', async () => {
     const fetchImpl = vi.fn(async () => new Response('nope', { status: 404 }));
     await expect(makeClient(fetchImpl).getItem({ type: 'user', id: 1 }, 'XYZ')).rejects.toThrow(

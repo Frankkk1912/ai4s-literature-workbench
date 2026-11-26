@@ -1,5 +1,5 @@
 import { RateLimitedFetcher } from './http.js';
-import type { ItemQuery, ListResult } from './web-client.js';
+import type { ItemQuery, ItemResult, ListResult } from './web-client.js';
 
 /**
  * What a probe of the desktop connection found.
@@ -19,7 +19,10 @@ export interface LocalProbe {
 
 /** A non-2xx answer from the desktop connection. */
 export class LocalApiError extends Error {
-  constructor(readonly status: number, path: string) {
+  constructor(
+    readonly status: number,
+    path: string,
+  ) {
     super(`Local API ${status} for ${path}`);
     this.name = 'LocalApiError';
   }
@@ -91,7 +94,9 @@ export class LocalApiClient {
         version: headers.get('x-zotero-version') ?? undefined,
       };
     } catch (err) {
-      return { state: err instanceof LocalApiError && err.status === 403 ? 'forbidden' : 'unreachable' };
+      return {
+        state: err instanceof LocalApiError && err.status === 403 ? 'forbidden' : 'unreachable',
+      };
     }
   }
 
@@ -101,7 +106,10 @@ export class LocalApiClient {
 
   async getItemChildren(key: string, query: ItemQuery = {}): Promise<ListResult> {
     const { top: _t, collectionKey: _c, ...rest } = query;
-    const { json, headers } = await this.getJson(`/users/0/items/${key}/children`, this.buildQuery(rest as any));
+    const { json, headers } = await this.getJson(
+      `/users/0/items/${key}/children`,
+      this.buildQuery(rest as any),
+    );
     return this.toListResult(json, headers);
   }
 
@@ -109,13 +117,23 @@ export class LocalApiClient {
     const { top: _t, collectionKey, ...rest } = query;
     const base = collectionKey ? `/collections/${collectionKey}` : '';
     const segment = query.top ? `${base}/items/top` : `${base}/items`;
-    const { json, headers } = await this.getJson(`/users/0${segment}`, this.buildQuery(rest as any));
+    const { json, headers } = await this.getJson(
+      `/users/0${segment}`,
+      this.buildQuery(rest as any),
+    );
     return this.toListResult(json, headers);
   }
 
   async getItem(key: string, query: { include?: string; format?: string } = {}): Promise<any> {
-    const { json } = await this.getJson(`/users/0/items/${key}`, this.buildQuery(query));
-    return json;
+    return (await this.getItemWithMetadata(key, query)).data;
+  }
+
+  async getItemWithMetadata(
+    key: string,
+    query: { include?: string; format?: string } = {},
+  ): Promise<ItemResult> {
+    const { json, headers } = await this.getJson(`/users/0/items/${key}`, this.buildQuery(query));
+    return { data: json, lastModifiedVersion: Number(headers.get('last-modified-version')) || 0 };
   }
 
   async listCollections(
@@ -123,7 +141,10 @@ export class LocalApiClient {
   ): Promise<ListResult> {
     const segment = query.top ? '/collections/top' : '/collections';
     const { top: _t, ...rest } = query;
-    const { json, headers } = await this.getJson(`/users/0${segment}`, this.buildQuery(rest as any));
+    const { json, headers } = await this.getJson(
+      `/users/0${segment}`,
+      this.buildQuery(rest as any),
+    );
     return this.toListResult(json, headers);
   }
 }

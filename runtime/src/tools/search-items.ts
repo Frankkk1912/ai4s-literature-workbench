@@ -34,21 +34,37 @@ const searchItems: ToolDefinition = {
   name: 'zotero_search_items',
   title: 'Search Zotero items',
   description:
-    'Search or list items in a Zotero library or collection. Quick search via `q` (`qmode`: titleCreatorYear=default, matches title/creator/year only; everything=also searches notes & attachment full text). For presence checks ("is X in my library?"): a default-mode `q` that matches nothing auto-retries once in `everything` mode, so terms appearing only inside PDF text don\'t false-negative — pin `qmode` explicitly to disable. An empty `everything` result is reported as strong-but-not-conclusive, since un-indexed/scanned/un-synced PDFs aren\'t full-text searchable. Also supports boolean `itemType` filters (use `||` for OR, repeat or `&&` for AND, leading `-` to negate, e.g. "journalArticle || book", "-attachment"), boolean `tag` filters (same syntax; escape a literal leading hyphen as "\\-"), `since` (version) for incremental queries, `sort`/`direction`, and `limit`/`start` paging. Set `response_format` to "detailed" to also return technical fields (version, tags, collections, DOI, url) needed before chaining a write; the default "concise" returns high-signal projections (key, itemType, title, creators, date). Reads are served from the fast desktop local API when available, otherwise the cloud Web API. Returns `totalResults` so you can tell when to page rather than assuming you saw everything. For conceptual/"papers about X" queries by meaning rather than exact fields, use zotero_semantic_search instead.',
+    'Search or list items in a Zotero library or collection. Quick search via `q` (`qmode`: titleCreatorYear=default, matches title/creator/year only; everything=also searches notes & attachment full text). For presence checks ("is X in my library?"): a default-mode `q` that matches nothing auto-retries once in `everything` mode, so terms appearing only inside PDF text don\'t false-negative — pin `qmode` explicitly to disable. An empty `everything` result is reported as strong-but-not-conclusive, since un-indexed/scanned/un-synced PDFs aren\'t full-text searchable. Also supports boolean `itemType` filters (use `||` for OR, repeat or `&&` for AND, leading `-` to negate, e.g. "journalArticle || book", "-attachment"), boolean `tag` filters (same syntax; escape a literal leading hyphen as "\\-"), `since` (version) for incremental queries, `sort`/`direction`, and `limit`/`start` paging. Set `response_format` to "detailed" to also return technical fields (version, tags, collections, DOI, url) needed before chaining a write; the default "concise" returns high-signal projections (key, itemType, title, creators, date). Reads prefer the desktop local API when available; after cloud writes they prefer cloud until local catches up or a 30-second timeout expires. Returns source and libraryVersion for provenance. Returns `totalResults` so you can tell when to page rather than assuming you saw everything. For conceptual/"papers about X" queries by meaning rather than exact fields, use zotero_semantic_search instead.',
   inputSchema: {
     q: z.string().optional().describe('Quick/full-text search string.'),
     qmode: z.enum(['titleCreatorYear', 'everything']).optional(),
-    itemType: z.string().optional().describe('Boolean itemType filter, e.g. "journalArticle || book".'),
+    itemType: z
+      .string()
+      .optional()
+      .describe('Boolean itemType filter, e.g. "journalArticle || book".'),
     tag: z.string().optional().describe('Boolean tag filter, e.g. "to-read && 2024".'),
     collectionKey: z.string().optional().describe('Restrict to a collection by key.'),
     top: z.boolean().optional().describe('Only top-level items (exclude child notes/attachments).'),
-    since: z.number().int().optional().describe('Return items modified after this library version.'),
+    since: z
+      .number()
+      .int()
+      .optional()
+      .describe('Return items modified after this library version.'),
     includeTrashed: z.boolean().optional(),
     sort: z.string().optional(),
     direction: z.enum(['asc', 'desc']).optional(),
-    limit: z.number().int().min(1).max(MAX_LIMIT).optional().describe('Max items (default 25, max 100).'),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_LIMIT)
+      .optional()
+      .describe('Max items (default 25, max 100).'),
     start: z.number().int().min(0).optional(),
-    response_format: z.enum(['concise', 'detailed']).optional().describe('Detail level of returned items.'),
+    response_format: z
+      .enum(['concise', 'detailed'])
+      .optional()
+      .describe('Detail level of returned items.'),
     library_type: z.enum(['user', 'group']).optional(),
     library_id: z.number().int().optional(),
   },
@@ -116,6 +132,7 @@ const searchItems: ToolDefinition = {
         items,
         totalResults: result.totalResults,
         libraryVersion: result.lastModifiedVersion,
+        source: result.source,
         qmode: effectiveQmode,
         broadened,
       },

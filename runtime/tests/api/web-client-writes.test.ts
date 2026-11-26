@@ -82,6 +82,50 @@ describe('WebApiClient writes', () => {
     );
   });
 
+  it('does not notify the router for failed or unchanged-only batches', async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ failed: { 0: { code: 412, message: 'conflict' } } }), { headers: { 'Last-Modified-Version': '9' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ unchanged: { 0: 'K1' } }), { headers: { 'Last-Modified-Version': '9' } }))
+      .mockResolvedValueOnce(new Response('conflict', { status: 412 }));
+    const client = makeClient(fetchImpl);
+    const listener = vi.fn();
+    client.onCloudWrite(listener);
+    await client.writeItems(lib, [{ key: 'K1', version: 3 }]);
+    await client.writeItems(lib, [{ key: 'K1', version: 9 }]);
+    await expect(client.patchItem(lib, 'K1', { title: 'T' }, 3)).rejects.toThrow();
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('notifies for a partially successful batch, even if a later chunk fails', async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ successful: { 0: { key: 'K1', version: 10 } }, failed: { 1: { code: 400, message: 'invalid' } } }), { headers: { 'Last-Modified-Version': '10' } }))
+      .mockResolvedValueOnce(new Response('conflict', { status: 412 }));
+    const client = makeClient(fetchImpl);
+    const listener = vi.fn();
+    client.onCloudWrite(listener);
+    await expect(client.writeItems(lib, Array.from({ length: 51 }, () => ({ title: 'T' })))).rejects.toThrow();
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith(lib, 10);
+  });
+
+  it('uses a pending marker when a successful write has no version header', async () => {
+    const client = makeClient(vi.fn(async () => new Response(null, { status: 204 })));
+    const listener = vi.fn();
+    client.onCloudWrite(listener);
+    await client.patchItem(lib, 'K1', { deleted: 1 }, 3);
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith(lib, 0);
+  });
+
+  it('does not report writes to a custom endpoint as cloud writes', async () => {
+    const client = new WebApiClient({ baseUrl: 'https://example.test', fetcher: new RateLimitedFetcher({ fetchImpl: vi.fn(async () => new Response(null, { status: 204 })) }) });
+    const listener = vi.fn();
+    client.onCloudWrite(listener);
+    await client.patchItem(lib, 'K1', { title: 'T' }, 3);
+    expect(client.isCloud).toBe(false);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
   it('deleteItems sends a comma itemKey list and the precondition header', async () => {
     const fetchImpl = vi.fn(async (url: string, init: RequestInit) => {
       expect(init.method).toBe('DELETE');

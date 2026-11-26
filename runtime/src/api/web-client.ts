@@ -22,6 +22,11 @@ export interface ListResult<T = any> {
   lastModifiedVersion: number;
 }
 
+export interface ItemResult {
+  data: any;
+  lastModifiedVersion: number;
+}
+
 export interface WriteResult {
   successful: Array<{ index: number; key: string; version?: number }>;
   unchanged: string[];
@@ -61,6 +66,26 @@ export class WebApiClient {
   private readonly baseUrl: string;
   private readonly fetcher: RateLimitedFetcher;
   private readonly contactEmail?: string;
+  private cloudWriteListener?: (library: LibraryRef, version: number) => void;
+
+  /** True only for the real Zotero cloud, never the desktop writer or a proxy. */
+  get isCloud(): boolean {
+    return new URL(this.baseUrl).origin === DEFAULT_BASE;
+  }
+
+  onCloudWrite(listener: (library: LibraryRef, version: number) => void): void {
+    this.cloudWriteListener = listener;
+  }
+
+  private wrote(path: string, version: number): void {
+    if (!this.isCloud) return;
+    const match = /^\/(users|groups)\/(\d+)\//.exec(path);
+    if (match)
+      this.cloudWriteListener?.(
+        { type: match[1] === 'users' ? 'user' : 'group', id: Number(match[2]) },
+        version,
+      );
+  }
 
   constructor(opts: WebApiClientOptions = {}) {
     this.apiKey = opts.apiKey;
@@ -160,8 +185,22 @@ export class WebApiClient {
     key: string,
     query: { include?: string; format?: string } = {},
   ): Promise<any> {
-    const { json } = await this.getJson(this.prefix(lib) + `/items/${key}`, this.buildQuery(query));
-    return json;
+    return (await this.getItemWithMetadata(lib, key, query)).data;
+  }
+
+  async getItemWithMetadata(
+    lib: LibraryRef,
+    key: string,
+    query: { include?: string; format?: string } = {},
+  ): Promise<ItemResult> {
+    const { json, headers } = await this.getJson(
+      this.prefix(lib) + `/items/${key}`,
+      this.buildQuery(query),
+    );
+    return {
+      data: json,
+      lastModifiedVersion: numOrUndef(headers.get('last-modified-version')) ?? 0,
+    };
   }
 
   async getItemChildren(lib: LibraryRef, key: string, query: ItemQuery = {}): Promise<ListResult> {
@@ -225,7 +264,14 @@ export class WebApiClient {
   /** Export items in a bibliographic format (bibtex/ris/csljson/csv/mods/tei/...). Returns raw text. */
   async exportItems(
     lib: LibraryRef,
-    params: { format: string; itemKey?: string[]; collectionKey?: string; q?: string; itemType?: string; limit?: number },
+    params: {
+      format: string;
+      itemKey?: string[];
+      collectionKey?: string;
+      q?: string;
+      itemType?: string;
+      limit?: number;
+    },
   ): Promise<string> {
     const segment = params.collectionKey ? `/collections/${params.collectionKey}/items` : '/items';
     const query = this.buildQuery({
@@ -271,16 +317,29 @@ export class WebApiClient {
   async setFullText(
     lib: LibraryRef,
     key: string,
-    body: { content: string; indexedChars?: number; totalChars?: number; indexedPages?: number; totalPages?: number },
+    body: {
+      content: string;
+      indexedChars?: number;
+      totalChars?: number;
+      indexedPages?: number;
+      totalPages?: number;
+    },
   ): Promise<void> {
-    const res = await this.fetcher.fetch(`${this.baseUrl}${this.prefix(lib)}/items/${key}/fulltext`, {
-      method: 'PUT',
-      headers: { ...this.headers(), 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    const res = await this.fetcher.fetch(
+      `${this.baseUrl}${this.prefix(lib)}/items/${key}/fulltext`,
+      {
+        method: 'PUT',
+        headers: { ...this.headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
     if (!res.ok) {
       const b = await res.text().catch(() => '');
-      throw new ZoteroApiError({ status: res.status, message: actionableMessage(res.status, b, res.headers), body: b });
+      throw new ZoteroApiError({
+        status: res.status,
+        message: actionableMessage(res.status, b, res.headers),
+        body: b,
+      });
     }
   }
 
@@ -296,7 +355,10 @@ export class WebApiClient {
     type: 'items' | 'collections' | 'searches' | 'tags',
     since?: number,
   ): Promise<Record<string, number>> {
-    const { json } = await this.getJson(this.prefix(lib) + `/${type}`, this.buildQuery({ format: 'versions', since }));
+    const { json } = await this.getJson(
+      this.prefix(lib) + `/${type}`,
+      this.buildQuery({ format: 'versions', since }),
+    );
     return json;
   }
 
@@ -331,7 +393,11 @@ export class WebApiClient {
     });
     if (!res.ok) {
       const b = await res.text().catch(() => '');
-      throw new ZoteroApiError({ status: res.status, message: actionableMessage(res.status, b, res.headers), body: b });
+      throw new ZoteroApiError({
+        status: res.status,
+        message: actionableMessage(res.status, b, res.headers),
+        body: b,
+      });
     }
     return res.json();
   }
@@ -344,11 +410,19 @@ export class WebApiClient {
     });
     if (res.status !== 201 && !res.ok) {
       const b = await res.text().catch(() => '');
-      throw new ZoteroApiError({ status: res.status, message: `File storage upload failed (${res.status}). ${b.slice(0, 200)}` });
+      throw new ZoteroApiError({
+        status: res.status,
+        message: `File storage upload failed (${res.status}). ${b.slice(0, 200)}`,
+      });
     }
   }
 
-  async registerUpload(lib: LibraryRef, key: string, uploadKey: string, replaceMd5?: string): Promise<void> {
+  async registerUpload(
+    lib: LibraryRef,
+    key: string,
+    uploadKey: string,
+    replaceMd5?: string,
+  ): Promise<void> {
     const headers: Record<string, string> = {
       ...this.headers(),
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -362,7 +436,11 @@ export class WebApiClient {
     });
     if (!res.ok) {
       const b = await res.text().catch(() => '');
-      throw new ZoteroApiError({ status: res.status, message: actionableMessage(res.status, b, res.headers), body: b });
+      throw new ZoteroApiError({
+        status: res.status,
+        message: actionableMessage(res.status, b, res.headers),
+        body: b,
+      });
     }
   }
 
@@ -376,7 +454,11 @@ export class WebApiClient {
     });
     if (!res.ok) {
       const b = await res.text().catch(() => '');
-      throw new ZoteroApiError({ status: res.status, message: actionableMessage(res.status, b, res.headers), body: b });
+      throw new ZoteroApiError({
+        status: res.status,
+        message: actionableMessage(res.status, b, res.headers),
+        body: b,
+      });
     }
     return {
       bytes: new Uint8Array(await res.arrayBuffer()),
@@ -389,7 +471,10 @@ export class WebApiClient {
 
   /** Read the library's current version (used as a precondition for deletes/mixed writes). */
   async currentLibraryVersion(lib: LibraryRef): Promise<number> {
-    const { headers } = await this.getJson(this.prefix(lib) + '/items', this.buildQuery({ limit: 1 }));
+    const { headers } = await this.getJson(
+      this.prefix(lib) + '/items',
+      this.buildQuery({ limit: 1 }),
+    );
     return numOrUndef(headers.get('last-modified-version')) ?? 0;
   }
 
@@ -419,7 +504,12 @@ export class WebApiClient {
   }
 
   /** Partial single-item update (PATCH). Returns the new library version. 412 on stale version. */
-  async patchItem(lib: LibraryRef, key: string, patch: Record<string, unknown>, version: number): Promise<number> {
+  async patchItem(
+    lib: LibraryRef,
+    key: string,
+    patch: Record<string, unknown>,
+    version: number,
+  ): Promise<number> {
     const res = await this.fetcher.fetch(`${this.baseUrl}${this.prefix(lib)}/items/${key}`, {
       method: 'PATCH',
       headers: {
@@ -438,7 +528,9 @@ export class WebApiClient {
         body,
       });
     }
-    return numOrUndef(res.headers.get('last-modified-version')) ?? version;
+    const newVersion = numOrUndef(res.headers.get('last-modified-version')) ?? 0;
+    this.wrote(this.prefix(lib) + `/items/${key}`, newVersion);
+    return newVersion || version;
   }
 
   async deleteItems(lib: LibraryRef, keys: string[], libraryVersion: number): Promise<void> {
@@ -446,7 +538,12 @@ export class WebApiClient {
   }
 
   async deleteCollections(lib: LibraryRef, keys: string[], libraryVersion: number): Promise<void> {
-    await this.deleteByKeys(this.prefix(lib) + '/collections', 'collectionKey', keys, libraryVersion);
+    await this.deleteByKeys(
+      this.prefix(lib) + '/collections',
+      'collectionKey',
+      keys,
+      libraryVersion,
+    );
   }
 
   async deleteSearches(lib: LibraryRef, keys: string[], libraryVersion: number): Promise<void> {
@@ -457,7 +554,11 @@ export class WebApiClient {
     return randomBytes(16).toString('hex');
   }
 
-  private async postArray(path: string, objects: any[], libraryVersion?: number): Promise<WriteResult> {
+  private async postArray(
+    path: string,
+    objects: any[],
+    libraryVersion?: number,
+  ): Promise<WriteResult> {
     const merged: WriteResult = {
       successful: [],
       unchanged: [],
@@ -467,7 +568,10 @@ export class WebApiClient {
     let currentVersion = libraryVersion ?? 0;
     let offset = 0;
     for (const c of chunk(objects, 50)) {
-      const headers: Record<string, string> = { ...this.headers(), 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = {
+        ...this.headers(),
+        'Content-Type': 'application/json',
+      };
       const withVersion = c.filter((o) => o && typeof o.version === 'number').length;
       if (withVersion === c.length && c.length > 0) {
         // all updates: per-object version provides concurrency; no extra header needed
@@ -490,11 +594,14 @@ export class WebApiClient {
           body,
         });
       }
-      const json = await res.json();
+      const json: any = await res.json();
       this.mergeWriteBody(merged, json, offset);
       const newV = numOrUndef(res.headers.get('last-modified-version'));
       if (newV !== undefined) currentVersion = newV;
       merged.newLibraryVersion = currentVersion;
+      // Notify per chunk: earlier successful writes still count if a later chunk fails.
+      if (Object.keys(json.successful ?? json.success ?? {}).length > 0)
+        this.wrote(path, newV ?? 0);
       offset += c.length;
     }
     return merged;
@@ -542,6 +649,7 @@ export class WebApiClient {
           body,
         });
       }
+      this.wrote(path, numOrUndef(res.headers.get('last-modified-version')) ?? 0);
     }
   }
 }
