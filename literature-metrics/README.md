@@ -116,6 +116,59 @@ held. The item context menu provides the same commands under **Set Priority**.
 After each batch, a progress popup reports updated, unchanged, read-only
 skipped, and failed counts.
 
+## Workbench job channel (ping only)
+
+The add-on polls `<dataDir>/plugin-jobs/` every two seconds for workbench jobs,
+asks for confirmation in Zotero, and writes a matching acknowledgement; `ping`
+is only a connectivity test and never changes items. This channel is only for
+workbench jobs and does not replace the Zotero 10 local write API. It opens no
+HTTP endpoint and stores no Zotero, EasyScholar, or other API keys.
+
+The channel is optional at startup: the metrics runtime starts first and
+independently, and only then does the add-on load the channel module inside a
+try/catch. If anything in the channel setup fails, the columns are unaffected
+and the error is logged under `Workbench jobs channel:` (message and stack) in
+Zotero's Error Console and debug output. `bootstrap.js` never calls
+`Components.utils.importGlobalProperties`; it uses the bootstrap scope's
+existing `IOUtils`/`PathUtils` globals with guarded ES module imports as a
+fallback, and falls back from `Timer.sys.mjs` to the main window's interval
+timer or a re-arming `setTimeout` loop. A missing path in the symlink check is
+treated as "not a symlink" rather than an error.
+
+The directory follows the existing runtime dataDir: on macOS the default is
+`~/Library/Application Support/literature-zotero-mcp/plugin-jobs/`; on Windows
+it is `%APPDATA%/literature-zotero-mcp/plugin-jobs/`, and on Linux
+`${XDG_DATA_HOME:-~/.local/share}/literature-zotero-mcp/plugin-jobs/`.
+Custom installations must launch Zotero and the runtime with the same
+`LITERATURE_ZOTERO_MCP_DATA_DIR` (or legacy `ZOTEUS_DATA_DIR`) override
+(`LITERATURE_ZOTERO_MCP_DATA_DIR` takes precedence, matching the runtime
+`defaultDataDir`). Tests inject a temporary dataDir.
+
+Each `<job_id>.job.json` contains `schema_version: 1`, a UUID-v4 `job_id`,
+`job_type: "ping"`, ISO `created_at`, empty `payload: {}`, and `plan_hash`.
+The hash is lowercase SHA-256 of
+`JSON.stringify([schema_version, job_id, job_type, created_at, payload])` in
+that order; it checks integrity, not authentication. Extra fields and nonempty
+payloads are rejected. `<job_id>.ack.json` contains `job_id`, matching
+`plan_hash`, `status` (`accepted`, `rejected`, `completed`, or `failed`),
+`finished_at`, and `error` for rejection/failure. This ping implementation
+writes only `completed` or `rejected`. Terminal receipts are not replayed.
+
+The internal runtime helper `createPluginChannel(dataDir)` in
+`runtime/src/features/plugin-channel/index.ts` exposes `createPingJob()`,
+`listUnfinishedJobs()`, `readAck(job)`, and `waitForAck(job, timeoutMs)`; no MCP
+tool is added. The plugin creates an owner-private jobs directory and refreshes
+`presence.json` on every scan. Before showing the confirmation dialog it writes
+a `<job_id>.claim.json` marker and removes it together with the acknowledgement:
+the modal dialog blocks Zotero's event loop, so the heartbeat pauses, and a
+claimed job keeps `waitForAck` waiting instead of failing on a stale heartbeat.
+A missing directory, or an absent/stale heartbeat with no outstanding claim,
+still gives an immediate desktop-unavailable error. `waitForAck` defaults to 30
+seconds (maximum 120 seconds), then reports a pending confirmation timeout
+without removing the job. Shutdown cancels polling, withdraws claims, and
+removes presence. No library content belongs in these files; the ping payload
+must stay empty.
+
 ## Build and test
 
 Node.js 22.13+ is required for local validation. The build uses one locked,
