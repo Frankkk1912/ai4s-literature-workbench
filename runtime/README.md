@@ -197,7 +197,7 @@ LITERATURE_ZOTERO_MCP_TOOL_PROFILE=workbench
 This exposes only `zotero_whoami`, `zotero_search_items`, `zotero_get_item`,
 `zotero_list_collections`, `zotero_get_fulltext`, `zotero_fulltext_context`,
 `zotero_apply_fulltext_handoff`, `zotero_apply_import_plan`,
-`zotero_apply_metrics_plan`, `zotero_apply_citation_plan`, `zotero_find_duplicates`,
+`zotero_apply_metrics_plan`, `zotero_backfill_metrics`, `zotero_apply_citation_plan`, `zotero_find_duplicates`,
 `zotero_apply_dedupe_plan`, `zotero_semantic_tag_context`, `zotero_apply_semantic_tags`,
 `zotero_cleanup_auto_tags`, `zotero_semantic_tag_vocabulary`,
 `zotero_tag_manager`, `zotero_sync_literature_project`,
