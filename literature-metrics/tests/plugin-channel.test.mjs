@@ -269,6 +269,7 @@ function bootstrapHarness(options = {}) {
   const errors = [];
   const debugs = [];
   let channelArgs = null;
+  let menuSettings = null;
   const scope = {
     Zotero: {
       initializationPromise: Promise.resolve(),
@@ -301,6 +302,12 @@ function bootstrapHarness(options = {}) {
         };
       } };
     }
+    if (uri.endsWith("metrics-backfill-menu.js")) {
+      target.LiteratureMetricsBackfillMenu = {
+        start: (settings) => { calls.push("menu start"); menuSettings = settings; },
+        stop: async () => calls.push("menu stop"),
+      };
+    }
     if (uri.endsWith("literature-metrics.js")) {
       if (options.metricsLoadError) throw new Error(options.metricsLoadError);
       target.LiteratureMetrics = {
@@ -311,7 +318,7 @@ function bootstrapHarness(options = {}) {
   } } };
   vm.createContext(scope);
   vm.runInContext(source("bootstrap.js"), scope);
-  return { scope, calls, errors, debugs, channelArgs: () => channelArgs };
+  return { scope, calls, errors, debugs, channelArgs: () => channelArgs, menuSettings: () => menuSettings };
 }
 
 function assertLogged(entries, marker) {
@@ -320,15 +327,18 @@ function assertLogged(entries, marker) {
   assert.match(entries[0], /\n\s*at /, "the logged error must include a stack");
 }
 
-test("bootstrap starts metrics first, then the channel; shutdown reverses the order", async () => {
-  const { scope, calls, errors, debugs, channelArgs } = bootstrapHarness({ globals: { IOUtils: {}, PathUtils: {} } });
+test("bootstrap starts metrics first, then the channel, then the menu; shutdown reverses the order", async () => {
+  const { scope, calls, errors, debugs, menuSettings } = bootstrapHarness({ globals: { IOUtils: {}, PathUtils: {} } });
   await scope.startup({ rootURI: "fake/" });
-  assert.deepEqual(calls, ["metrics start", "channel start"]);
+  assert.deepEqual(calls, ["metrics start", "channel start", "menu start"]);
+  assert.ok(menuSettings().channel, "the menu receives the live jobs channel");
+  assert.equal(typeof menuSettings().schedule, "function");
+  assert.equal(typeof menuSettings().cancel, "function");
+  assert.equal(typeof menuSettings().confirm, "function");
   assert.deepEqual(errors, []);
   assert.deepEqual(debugs, []);
   await scope.shutdown();
-  assert.deepEqual(calls, ["metrics start", "channel start", "channel stop", "metrics stop"]);
-  assert.ok(channelArgs().IOUtils && channelArgs().PathUtils, "bootstrap globals are reused, not imported destructively");
+  assert.deepEqual(calls, ["metrics start", "channel start", "menu start", "menu stop", "channel stop", "metrics stop"]);
 });
 
 for (const failure of ["channelLoadError", "createDesktopError", "channelStartError"]) {
@@ -340,6 +350,7 @@ for (const failure of ["channelLoadError", "createDesktopError", "channelStartEr
     assertLogged(debugs, new RegExp(`Workbench jobs channel: ${failure} simulated`));
     await scope.shutdown();
     assert.equal(calls.at(-1), "metrics stop", "metrics are still torn down");
+    assert.ok(!calls.includes("menu start"), "the menu never registers when the channel failed to start");
     if (failure === "channelStartError") assert.ok(calls.includes("channel stop"), "a half-started channel is still stopped");
   });
 }
@@ -365,7 +376,7 @@ test("channel IOUtils/PathUtils fall back to guarded ES module imports without i
     },
   });
   await scope.startup({ rootURI: "fake/" });
-  assert.deepEqual(calls, ["metrics start", "channel start"]);
+  assert.deepEqual(calls, ["metrics start", "channel start", "menu start"]);
   assert.deepEqual(errors, []);
   assert.equal(channelArgs().IOUtils, IOUtilsMarker);
   assert.equal(channelArgs().PathUtils, PathUtilsMarker);
@@ -380,7 +391,7 @@ test("the channel falls back to the main-window interval timer when Timer.sys.mj
   const { scope, calls, errors, channelArgs } = bootstrapHarness({ timerError: "Timer.sys.mjs unavailable", zotero: { getMainWindow: () => window } });
   await scope.startup({ rootURI: "fake/" });
   assert.deepEqual(errors, []);
-  assert.deepEqual(calls, ["metrics start", "channel start"]);
+  assert.deepEqual(calls, ["metrics start", "channel start", "menu start"]);
   channelArgs().schedule(() => {}, 2000);
   assert.deepEqual(intervals, [2000]);
   channelArgs().cancel(41);
@@ -390,7 +401,7 @@ test("the channel falls back to a re-arming setTimeout loop when no window timer
   const { scope, calls, errors, channelArgs } = bootstrapHarness({ timerError: "Timer.sys.mjs unavailable", globals: { setTimeout, clearTimeout } });
   await scope.startup({ rootURI: "fake/" });
   assert.deepEqual(errors, []);
-  assert.deepEqual(calls, ["metrics start", "channel start"]);
+  assert.deepEqual(calls, ["metrics start", "channel start", "menu start"]);
   let fires = 0;
   const handle = channelArgs().schedule(() => { fires += 1; }, 5);
   await new Promise((resolve) => setTimeout(resolve, 20));
@@ -435,4 +446,27 @@ test("the channel export lives on the loadSubScript scope, not on globalThis", (
   assert.equal(typeof planHash, "function");
   const job = ping();
   assert.equal(planHash(job), job.plan_hash, "planHash keeps the SHA-256 contract via the same-scope LiteratureAiSummaries");
+});
+
+test("the ping loop never claims, confirms, or rejects a metrics-backfill request job", async () => {
+  const f = fixture();
+  await f.channel.start();
+  const request = { schema_version: 1, job_id: randomUUID(), job_type: "metrics-backfill", created_at: new Date().toISOString(), payload: { collection_key: "334VW86H" } };
+  request.plan_hash = createHash("sha256").update(JSON.stringify([
+    request.schema_version, request.job_id, request.job_type, request.created_at, request.payload,
+  ])).digest("hex");
+  f.add(request);
+  f.add(ping());
+  await f.tick();
+  assert.equal(f.prompts.length, 1, "only the ping asks for confirmation");
+  for (const [name, job] of f.records) {
+    if (!name.endsWith(".job.json")) continue;
+    if (job.job_type === "metrics-backfill") {
+      assert.equal(f.records.has(`${job.job_id}.ack.json`), false, "request jobs get no ack from the ping loop");
+      assert.equal(f.records.has(`${job.job_id}.claim.json`), false, "request jobs are never claimed");
+    }
+  }
+  const pingAcks = [...f.records.values()].filter((record) => record.status === "completed");
+  assert.equal(pingAcks.length, 1, "the ping itself is still processed normally");
+  await f.channel.stop();
 });

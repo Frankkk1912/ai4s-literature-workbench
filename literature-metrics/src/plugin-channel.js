@@ -5,6 +5,22 @@ var LiteraturePluginChannel = (function () {
   "use strict";
   const ID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
   const HASH = /^[a-f0-9]{64}$/;
+  const KEY8 = /^[A-Z0-9]{8}$/;
+
+  // Pinned metrics-backfill request payload: exactly one of a collection key or
+  // selected item keys. No secrets, no Extra blobs, no local API versions, no
+  // mode: requests are preview-only; apply always goes through the MCP tool.
+  function validBackfillPayload(payload) {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
+    const keys = Object.keys(payload);
+    if (keys.length !== 1) return false;
+    if (keys[0] === "collection_key") return KEY8.test(payload.collection_key);
+    if (keys[0] === "item_keys") {
+      return Array.isArray(payload.item_keys) && payload.item_keys.length > 0 && payload.item_keys.length <= 100
+        && payload.item_keys.every((key) => KEY8.test(key));
+    }
+    return false;
+  }
 
   function planHash(job) {
     // Same-scope binding: ai-summaries.js is loaded into the same loadSubScript
@@ -38,7 +54,7 @@ var LiteraturePluginChannel = (function () {
     }
   }
 
-  function create({ files, confirm, schedule, cancel, log, now = () => new Date().toISOString() }) {
+  function create({ files, confirm, schedule, cancel, log, now = () => new Date().toISOString(), uuid = () => crypto.randomUUID() }) {
     let running = false;
     let timer = null;
     let scanning = null;
@@ -54,6 +70,10 @@ var LiteraturePluginChannel = (function () {
           const job = await files.read(name);
           if (!running) break;
           if (!job || job.job_id !== id || !HASH.test(job.plan_hash)) continue;
+          // metrics-backfill requests are authored by the plugin itself and consumed
+          // by the workbench runtime; this ping loop must never claim, confirm, or
+          // reject them. A matching result file is their only reply channel.
+          if (job.job_type === "metrics-backfill") continue;
           const ackName = `${id}.ack.json`;
           const existing = await files.read(ackName);
           if (!running) break;
@@ -93,6 +113,32 @@ var LiteraturePluginChannel = (function () {
       scanning = scanOnce().catch(() => log("Could not scan workbench jobs directory.")).finally(() => { scanning = null; });
       return scanning;
     }
+    // Plugin-authored preview request: the workbench runtime consumes it with
+    // zotero_backfill_metrics (always dry_run) and answers with a result file.
+    async function submitMetricsBackfillJob(payload) {
+      if (!running) throw new Error("Jobs channel is not running.");
+      if (!validBackfillPayload(payload)) throw new Error("Invalid metrics-backfill request payload.");
+      const job = {
+        schema_version: 1,
+        job_id: uuid(),
+        job_type: "metrics-backfill",
+        created_at: now(),
+        payload,
+      };
+      job.plan_hash = planHash(job);
+      await files.write(`${job.job_id}.job.json`, job);
+      return job;
+    }
+    async function readMetricsBackfillResult(jobId) {
+      if (!ID.test(jobId)) throw new Error("Unsafe metrics-backfill job id.");
+      const result = await files.read(`${jobId}.result.json`);
+      return result && result.job_id === jobId ? result : null;
+    }
+    async function discardMetricsBackfillJob(jobId) {
+      if (!ID.test(jobId)) throw new Error("Unsafe metrics-backfill job id.");
+      await files.remove(`${jobId}.job.json`);
+      await files.remove(`${jobId}.result.json`);
+    }
     async function start() {
       if (running) return;
       await files.initialize();
@@ -112,7 +158,7 @@ var LiteraturePluginChannel = (function () {
       claims.clear();
       await files.remove("presence.json");
     }
-    return Object.freeze({ start, stop, scan });
+    return Object.freeze({ start, stop, scan, submitMetricsBackfillJob, readMetricsBackfillResult, discardMetricsBackfillJob });
   }
 
   function createDesktop({ Zotero, Services, Components, IOUtils, PathUtils, schedule, cancel }) {
@@ -127,7 +173,7 @@ var LiteraturePluginChannel = (function () {
     const dataDir = env("LITERATURE_ZOTERO_MCP_DATA_DIR") || env("ZOTEUS_DATA_DIR") || defaultDir;
     const root = PathUtils.join(dataDir, "plugin-jobs");
     const path = (name) => {
-      if (name !== "presence.json" && !/^[a-f0-9-]{36}\.(job|ack|claim)\.json$/.test(name)) throw new Error("Unsafe channel filename.");
+      if (name !== "presence.json" && !/^[a-f0-9-]{36}\.(job|ack|claim|result)\.json$/.test(name)) throw new Error("Unsafe channel filename.");
       return PathUtils.join(root, name);
     };
     async function directory() {
@@ -162,6 +208,7 @@ var LiteraturePluginChannel = (function () {
     };
     return create({ files, schedule, cancel,
       confirm: (title, text) => Services.prompt.confirm(Zotero.getMainWindow(), title, text),
+      uuid: () => Services.uuid.generateUUID().toString(),
       log: (message) => Zotero.logError(message),
     });
   }

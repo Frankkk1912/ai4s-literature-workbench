@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { checkFeed } from "./update-feed.mjs";
 
 const root = resolve(import.meta.dirname, "..");
-const required = ["manifest.json", "bootstrap.js", "src/metrics-payload.js", "src/article-types.js", "src/semantic-tags.js", "src/ai-summaries.js", "src/priorities.js", "src/plugin-channel.js", "src/literature-metrics.js", "README.md", "LICENSE"];
+const required = ["manifest.json", "bootstrap.js", "src/metrics-payload.js", "src/article-types.js", "src/semantic-tags.js", "src/ai-summaries.js", "src/priorities.js", "src/plugin-channel.js", "src/metrics-backfill-menu.js", "src/literature-metrics.js", "README.md", "LICENSE"];
 for (const relative of required) {
   if (!existsSync(resolve(root, relative))) throw new Error(`Missing required add-on file: ${relative}`);
 }
@@ -24,7 +24,7 @@ const feed = JSON.parse(readFileSync(resolve(root, "update.json"), "utf8"));
 const feedProblems = checkFeed({ manifest, feed });
 if (feedProblems.length > 0) throw new Error(`update.json is out of step with the add-on:\n- ${feedProblems.join("\n- ")}`);
 
-for (const relative of ["bootstrap.js", "src/metrics-payload.js", "src/article-types.js", "src/semantic-tags.js", "src/ai-summaries.js", "src/priorities.js", "src/plugin-channel.js", "src/literature-metrics.js"]) {
+for (const relative of ["bootstrap.js", "src/metrics-payload.js", "src/article-types.js", "src/semantic-tags.js", "src/ai-summaries.js", "src/priorities.js", "src/plugin-channel.js", "src/metrics-backfill-menu.js", "src/literature-metrics.js"]) {
   const result = spawnSync(process.execPath, ["--check", resolve(root, relative)], { encoding: "utf8" });
   if (result.status !== 0) throw new Error(`${relative} failed syntax validation:\n${result.stderr || result.stdout}`);
 }

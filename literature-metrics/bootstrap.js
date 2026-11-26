@@ -10,6 +10,7 @@
 var { Services } = ChromeUtils.importESModule("resource://gre/modules/Services.sys.mjs");
 var LiteratureMetricsRuntime = null;
 var WorkbenchPluginChannel = null;
+var MetricsBackfillMenu = null;
 
 // Startup failures must never escape unlogged again: report them to both the
 // Error Console (logError) and the debug output (debug), with the full error
@@ -107,6 +108,7 @@ async function startJobsChannel(data, scope) {
     cancel: timer.cancel,
   });
   await WorkbenchPluginChannel.start();
+  return WorkbenchPluginChannel;
 }
 
 async function startup(data) {
@@ -122,17 +124,39 @@ async function startup(data) {
     Services.scriptloader.loadSubScript(data.rootURI + "src/ai-summaries.js", scope);
     Services.scriptloader.loadSubScript(data.rootURI + "src/priorities.js", scope);
     Services.scriptloader.loadSubScript(data.rootURI + "src/literature-metrics.js", scope);
+    Services.scriptloader.loadSubScript(data.rootURI + "src/metrics-backfill-menu.js", scope);
     LiteratureMetricsRuntime = scope.LiteratureMetrics;
     // Metrics start FIRST and independently: the columns must appear even if
     // every step of the jobs channel below fails.
     await LiteratureMetricsRuntime.start({ id: data.id, version: data.version, rootURI: data.rootURI });
+    // The channel is returned only when its start() fully succeeded, so the menu
+    // never registers against a half-started channel whose submit would fail.
+    let jobsChannel = null;
     try {
-      await startJobsChannel(data, scope);
+      jobsChannel = await startJobsChannel(data, scope);
     }
     catch (error) {
       // Log loudly but keep the metrics columns alive; shutdown still attempts
       // a channel stop if start() got far enough to need cleanup.
       reportStartupProblem("Workbench jobs channel:", error);
+    }
+    // The backfill menu starts LAST and in its own try/catch, so a menu failure
+    // can take down neither the metrics columns nor the jobs channel. Without a
+    // live channel it stays unregistered instead of adding dead menu entries.
+    try {
+      if (jobsChannel && scope.LiteratureMetricsBackfillMenu) {
+        const menuTimer = resolveChannelTimer();
+        scope.LiteratureMetricsBackfillMenu.start({
+          channel: jobsChannel,
+          schedule: menuTimer.schedule,
+          cancel: menuTimer.cancel,
+          confirm: (title, text) => Services.prompt.confirm(Zotero.getMainWindow(), title, text),
+        });
+        MetricsBackfillMenu = scope.LiteratureMetricsBackfillMenu;
+      }
+    }
+    catch (error) {
+      reportStartupProblem("Workbench metrics backfill menu:", error);
     }
   }
   catch (error) {
@@ -143,6 +167,11 @@ async function startup(data) {
 }
 
 async function shutdown() {
+  if (MetricsBackfillMenu) {
+    try { await MetricsBackfillMenu.stop(); }
+    catch (error) { reportStartupProblem("Workbench metrics backfill menu:", error); }
+    MetricsBackfillMenu = null;
+  }
   if (WorkbenchPluginChannel) {
     try { await WorkbenchPluginChannel.stop(); }
     catch (error) { reportStartupProblem("Workbench jobs channel:", error); }

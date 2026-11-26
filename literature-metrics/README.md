@@ -116,7 +116,7 @@ held. The item context menu provides the same commands under **Set Priority**.
 After each batch, a progress popup reports updated, unchanged, read-only
 skipped, and failed counts.
 
-## Workbench job channel (ping only)
+## Workbench job channel (ping + metrics-backfill requests)
 
 The add-on polls `<dataDir>/plugin-jobs/` every two seconds for workbench jobs,
 asks for confirmation in Zotero, and writes a matching acknowledgement; `ping`
@@ -168,6 +168,29 @@ seconds (maximum 120 seconds), then reports a pending confirmation timeout
 without removing the job. Shutdown cancels polling, withdraws claims, and
 removes presence. No library content belongs in these files; the ping payload
 must stay empty.
+
+## Metrics backfill menu (preview only)
+
+Right-click entries in the item list and collection pane — **Backfill Metrics
+for Selected Items** and **Backfill Metrics for Current Collection** — queue a
+preview request through the job channel. After an explicit confirmation dialog
+in Zotero, the add-on writes a `metrics-backfill` job whose payload is exactly
+the selected item keys (deduplicated, ≤100) or the collection key; it never
+includes items' `Extra` text, local API versions, or any key or secret.
+
+The running workbench runtime notices the job, rebuilds the same plan as
+`zotero_backfill_metrics` in **`dry_run` only**, and answers with a
+`<job_id>.result.json` (counts, `plan_hash`, readable error; never a secret).
+The add-on polls for that result, shows the preview in a Zotero progress popup
+(`N would update · M skipped · plan_hash …`), and cleans up the job files. The
+ping loop never claims, confirms, or rejects these request jobs.
+
+Nothing is ever applied from Zotero: applying a preview is a separate,
+explicit MCP call (`zotero_backfill_metrics` with `mode: "apply"` and the
+`confirm_plan_hash` reported by the dry run). The EasyScholar key stays on the
+workbench setup page — the add-on never reads, stores, or transmits it. Test
+the menu on a disposable collection first; a declined dialog leaves no job
+file behind.
 
 ## Build and test
 
