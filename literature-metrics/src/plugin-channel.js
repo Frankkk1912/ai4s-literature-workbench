@@ -1,10 +1,15 @@
-globalThis.LiteraturePluginChannel = (function () {
+// "var" so Services.scriptloader.loadSubScript attaches the export to the
+// caller's scope; assigning to globalThis would miss the scope and crash startup.
+// eslint-disable-next-line no-unused-vars -- this var IS the module export
+var LiteraturePluginChannel = (function () {
   "use strict";
   const ID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
   const HASH = /^[a-f0-9]{64}$/;
 
   function planHash(job) {
-    return globalThis.LiteratureAiSummaries.sha256(JSON.stringify([
+    // Same-scope binding: ai-summaries.js is loaded into the same loadSubScript
+    // scope before this file, so the var above is visible without globalThis.
+    return LiteratureAiSummaries.sha256(JSON.stringify([
       job.schema_version, job.job_id, job.job_type, job.created_at, job.payload,
     ]));
   }

@@ -5,7 +5,7 @@
         {
           "version": "0.2.1",
           "update_link": "https://github.com/Frankkk1912/ai4s-literature-workbench/releases/download/v0.2.1/literature-metrics-0.2.1.xpi",
-          "update_hash": "sha256:583082679ec62c537166f11bb50df9bd17a1415255059f9e9b55dd380757b954",
+          "update_hash": "sha256:adf0836494c637fb82e35978659bc059979a60bcc6520f6067c248e725cff19a",
           "applications": {
             "zotero": {
               "strict_min_version": "7.0",

@@ -401,3 +401,38 @@ test("the channel falls back to a re-arming setTimeout loop when no window timer
   assert.equal(fires, frozen, "cancel stops the re-arming loop");
   await scope.shutdown();
 });
+
+// Services.scriptloader.loadSubScript evaluates a file with the caller's scope
+// object as the variable target while its globalThis is a DIFFERENT object. A
+// plain vm.createContext({}) makes globalThis === context, so it would not
+// have caught the real bug where the export landed on globalThis instead of
+// the scope. This harness reproduces the loadSubScript separation in Node.
+function loadSubScriptLike(code, scope) {
+  const otherGlobal = {};
+  const context = vm.createContext(scope);
+  Object.defineProperty(context, "globalThis", { value: otherGlobal, writable: true, configurable: true });
+  vm.runInContext(code, context);
+  return otherGlobal;
+}
+
+test("loadSubScript-style loading keeps globalThis separate from the scope", () => {
+  const probeScope = {};
+  const probeOther = loadSubScriptLike("var seen = globalThis;", probeScope);
+  assert.notEqual(probeScope.seen, probeScope, "the harness really separates globalThis from the loadSubScript scope");
+  assert.equal(probeScope.seen, probeOther);
+});
+
+test("the channel export lives on the loadSubScript scope, not on globalThis", () => {
+  const scope = {};
+  const otherGlobal = loadSubScriptLike(source("src/ai-summaries.js"), scope);
+  loadSubScriptLike(source("src/plugin-channel.js"), scope);
+  assert.ok(scope.LiteraturePluginChannel, "the export must land on the loadSubScript scope");
+  assert.equal(otherGlobal.LiteraturePluginChannel, undefined, "switching back to a globalThis export must fail this test");
+  assert.equal(otherGlobal.LiteratureAiSummaries, undefined, "ai-summaries must also be a scope binding");
+  const { create, createDesktop, planHash } = scope.LiteraturePluginChannel;
+  assert.equal(typeof create, "function");
+  assert.equal(typeof createDesktop, "function");
+  assert.equal(typeof planHash, "function");
+  const job = ping();
+  assert.equal(planHash(job), job.plan_hash, "planHash keeps the SHA-256 contract via the same-scope LiteratureAiSummaries");
+});
