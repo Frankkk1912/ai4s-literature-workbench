@@ -139,8 +139,8 @@ function planOf(result: any): any {
 }
 
 describe('zotero_apply_dedupe_plan', () => {
-  it('is explicitly read-only and never claims idempotence', () => {
-    expect(applyDedupePlan.annotations?.readOnlyHint).toBe(true);
+  it('is not read-only (apply writes a local plan file) and never claims idempotence', () => {
+    expect(applyDedupePlan.annotations?.readOnlyHint).toBe(false);
     expect(applyDedupePlan.annotations?.destructiveHint).toBe(false);
     expect(applyDedupePlan.annotations?.idempotentHint).toBe(false);
   });

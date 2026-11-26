@@ -87,7 +87,7 @@ async function verifySavedPlan(
 
 const applyDedupePlan: ToolDefinition = {
   name: 'zotero_apply_dedupe_plan',
-  title: 'Plan and dry-run a Zotero duplicate merge without writing Zotero',
+  title: 'Dry-run or apply a Zotero duplicate merge plan without writing Zotero',
   description:
     'Turns a zotero_find_duplicates report (or a batch collection key, scanned first) into a reviewable, hashed merge plan. dry_run re-checks read-only that every key still exists, reports current versions and batch membership, and describes exactly what a native Zotero merge would keep (attachments, notes, tags, collections, and relations including dc:replaces) and which merged-away items would move to the trash (recoverable; permanent deletion is forbidden). It never writes Zotero. Clusters whose recommended master is outside the batch get an add-master-to-collection step first. apply only saves and validates the plan file under the data directory and returns needs_plugin/native_merge_required, because executing the merge needs Zotero native merge; it must never be replaced by trashing items by hand. zotero_trash_items and zotero_delete_items are not part of the workbench profile.',
   inputSchema: {
@@ -131,7 +131,7 @@ const applyDedupePlan: ToolDefinition = {
     library_id: z.number().int().optional(),
   },
   annotations: {
-    readOnlyHint: true,
+    readOnlyHint: false,
     destructiveHint: false,
     idempotentHint: false,
     openWorldHint: true,

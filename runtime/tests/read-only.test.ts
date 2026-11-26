@@ -105,11 +105,11 @@ describe('workbench tool profile', () => {
     expect(names).toContain('zotero_ai_summary_context');
     expect(names).toContain('zotero_fulltext_context');
     expect(names).toContain('zotero_list_collections');
-    expect(names).toContain('zotero_apply_dedupe_plan');
+    expect(names).not.toContain('zotero_apply_dedupe_plan');
     // The three setup tools stay: they never touch the library.
     expect(names).toContain('setup_status');
     expect(names).toContain('open_setup');
     expect(names).toContain('install_search_helper');
-    expect(names).toHaveLength(13);
+    expect(names).toHaveLength(12);
   });
 });

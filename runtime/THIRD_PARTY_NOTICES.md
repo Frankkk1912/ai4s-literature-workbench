@@ -21,8 +21,9 @@ Material changes in this derivative include:
 
 - independent project, package, MCP server, log, and data-directory naming;
 - the read-only `zotero_find_duplicates` MCP tool;
-- the read-only `zotero_apply_dedupe_plan` MCP tool for hashed, dry-run merge
-  plans (apply saves and validates the plan file only and never writes Zotero);
+- the `zotero_apply_dedupe_plan` MCP tool for hashed merge plans (dry-run is
+  read-only against Zotero; apply saves and validates a local plan file and
+  never writes Zotero);
 - persistent duplicate-candidate audit reports;
 - batch-versus-library duplicate detection and master-record recommendations;
 - documentation that requires final merges to use Zotero Desktop.
