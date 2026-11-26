@@ -85,6 +85,9 @@ function resolveChannelTimer() {
 // that API can throw in Zotero plugin sandboxes and once killed the whole
 // startup, taking the metrics columns down with it.
 async function startJobsChannel(data, scope) {
+  // native-merge.js must load first: plugin-channel.js's createDesktop binds the
+  // same-scope LiteratureNativeMerge var for native-merge jobs.
+  Services.scriptloader.loadSubScript(data.rootURI + "src/native-merge.js", scope);
   Services.scriptloader.loadSubScript(data.rootURI + "src/plugin-channel.js", scope);
   // In Zotero 7+ bootstrap scopes IOUtils and PathUtils are already globals;
   // fall back to a guarded ES module import only when they are missing.

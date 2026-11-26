@@ -1,12 +1,15 @@
-import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import applyDedupePlan from '../../src/tools/apply-dedupe-plan.js';
 import { ZoteroApiError } from '../../src/api/errors.js';
+import { channelPlanHash } from '../../src/features/plugin-channel/index.js';
 
 const reportPath = fileURLToPath(new URL('../fixtures/dedupe-report.json', import.meta.url));
+const smokeReportPath = fileURLToPath(new URL('../fixtures/dedupe-report-smoke.json', import.meta.url));
 
 interface FreshOverrides {
   version?: number;
@@ -136,6 +139,78 @@ function seedFresh(lib: ReturnType<typeof library>) {
 
 function planOf(result: any): any {
   return result.structuredContent.plan;
+}
+
+/** The fixture library state for the guard-collection (334VW86H) smoke report. */
+function seedSmokeFresh(lib: ReturnType<typeof library>) {
+  lib.items.set(
+    'SMOKE001',
+    freshItem('SMOKE001', { version: 3, numChildren: 1, title: 'Smoke paper', doi: '10.1000/smoke-pair', date: '2026-11-01', collections: ['334VW86H'] }),
+  );
+  lib.items.set(
+    'SMOKE002',
+    freshItem('SMOKE002', { version: 2, title: 'Smoke paper', doi: '10.1000/smoke-pair', date: '2026-11-01', tags: [{ tag: 'AI4S:Import' }, { tag: 'domain:cvd' }], collections: ['334VW86H'] }),
+  );
+  lib.items.set(
+    'OUTSIDE1',
+    freshItem('OUTSIDE1', {
+      version: 5, title: 'Outside smoke master', doi: '10.1000/smoke-outside', date: '2025-09-01',
+      collections: [], tags: [{ tag: 'domain:cvd' }],
+      creators: [{ creatorType: 'author', firstName: 'O.', lastName: 'Writer' }],
+    }),
+  );
+  lib.items.set(
+    'SMOKE003',
+    freshItem('SMOKE003', {
+      version: 2, title: 'Outside smoke master', doi: '10.1000/smoke-outside', date: '2025-09-01',
+      collections: ['334VW86H'], creators: [{ creatorType: 'author', firstName: 'O.', lastName: 'Writer' }],
+    }),
+  );
+}
+
+/** A live plugin channel directory: presence heartbeat plus an ack writer. */
+async function pluginOnline(ctx: any): Promise<{ root: string; ack: (job: any, fields?: any) => Promise<void> }> {
+  const root = join(ctx.config.dataDir, 'plugin-jobs');
+  await mkdir(root, { recursive: true });
+  await writeFile(join(root, 'presence.json'), JSON.stringify({ schema_version: 1, updated_at: new Date().toISOString() }));
+  return {
+    root,
+    ack: async (job: any, fields = {}) => {
+      await writeFile(
+        join(root, `${job.job_id}.ack.json`),
+        JSON.stringify({
+          job_id: job.job_id, plan_hash: job.plan_hash, status: 'completed', finished_at: new Date().toISOString(),
+          clusters: [
+            { cluster_id: 'duplicate-0001', status: 'success', master_key: 'SMOKE001', merged_keys: ['SMOKE002'], added_to_collection: false },
+            { cluster_id: 'duplicate-0002', status: 'success', master_key: 'OUTSIDE1', merged_keys: ['SMOKE003'], added_to_collection: true },
+          ],
+          ...fields,
+        }),
+      );
+    },
+  };
+}
+
+/** Wait until the plugin channel shows an unacknowledged native-merge job, then return it. */
+async function waitForJob(root: string): Promise<any> {
+  for (let attempt = 0; attempt < 500; attempt++) {
+    const names = (await readdir(root)).filter((name) => name.endsWith('.job.json'));
+    for (const name of names) {
+      const id = name.slice(0, -9);
+      if ((await readdir(root)).includes(`${id}.ack.json`)) continue;
+      const job = JSON.parse(await readFile(join(root, name), 'utf8'));
+      if (job.job_type === 'native-merge') return job;
+    }
+    await new Promise((done) => setTimeout(done, 10));
+  }
+  throw new Error('no native-merge job appeared in the plugin channel');
+}
+
+async function dryRunSmokePlanHash(lib: ReturnType<typeof library>): Promise<{ ctx: any; planHash: string }> {
+  const ctx = await lib.context();
+  const result = await applyDedupePlan.handler({ report_path: smokeReportPath }, ctx);
+  expect(result.isError).toBeUndefined();
+  return { ctx, planHash: (result.structuredContent as any).plan_hash };
 }
 
 describe('zotero_apply_dedupe_plan', () => {
@@ -280,44 +355,183 @@ describe('zotero_apply_dedupe_plan', () => {
     expect(result.content[0].text).toMatch(/generated for library/);
   });
 
-  it('apply saves and validates the plan file only, and returns needs_plugin', async () => {
+  it('apply requires the user-approved expected_plan_hash', async () => {
     const lib = library();
     seedFresh(lib);
     const ctx = await lib.context();
+    const result = await applyDedupePlan.handler({ report_path: reportPath, mode: 'apply' }, ctx);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toMatch(/mode: "apply".*requires `expected_plan_hash`/s);
+    // Nothing was written: no plan file, no plugin job.
+    expect(await readdir(ctx.config.dataDir)).toEqual([]);
+  });
+
+  it('apply refuses a plan for any collection other than the smoke-test collection', async () => {
+    const lib = library();
+    seedFresh(lib);
+    const ctx = await lib.context();
+    const dry = await applyDedupePlan.handler({ report_path: reportPath }, ctx);
+    const planHash = (dry.structuredContent as any).plan_hash;
     const result = await applyDedupePlan.handler(
-      { report_path: reportPath, mode: 'apply' },
+      { report_path: reportPath, mode: 'apply', expected_plan_hash: planHash },
       ctx,
     );
-    expect(result.isError).toBeUndefined();
-    const structured = result.structuredContent as any;
-    expect(structured.status).toBe('needs_plugin');
-    expect(structured.native_merge_required).toBe(true);
-    expect(structured.zotero_writes).toBe(false);
-    expect(structured.plan_hash).toMatch(/^sha256:[0-9a-f]{64}$/);
-    expect(structured.plan_path).toMatch(/dedupe-plans[/\\]dedupe-plan-/);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toMatch(/restricted to the smoke-test collection AI4S-smoke-sync-20261126 \(334VW86H\)/);
+    // Refusal happens before any plan file or plugin job is written.
+    expect(await readdir(ctx.config.dataDir)).toEqual([]);
+  });
 
-    const saved = JSON.parse(await readFile(structured.plan_path, 'utf8'));
-    expect(saved.plan_hash).toBe(structured.plan_hash);
-    expect(saved.plan_id).toBe(structured.plan_id);
-    expect(saved.clusters).toHaveLength(2);
-    expect(await readdir(join(ctx.config.dataDir, 'dedupe-plans'))).toHaveLength(1);
-    // No library writes.
+  it('dry-run never creates a plugin job even when the plugin is online', async () => {
+    const lib = library();
+    seedSmokeFresh(lib);
+    const ctx = await lib.context();
+    const online = await pluginOnline(ctx);
+    const result = await applyDedupePlan.handler({ report_path: smokeReportPath }, ctx);
+    expect(result.isError).toBeUndefined();
+    expect(await readdir(online.root)).toEqual(['presence.json']);
+    expect(await readdir(ctx.config.dataDir)).toEqual(['plugin-jobs']);
     for (const spy of Object.values(lib.writes)) expect(spy).not.toHaveBeenCalled();
   });
 
-  it('re-validates a saved plan by hash and rejects a mismatched expected hash', async () => {
+  it('apply saves the plan, creates a native-merge job, and returns complete after the receipt', async () => {
     const lib = library();
-    seedFresh(lib);
+    seedSmokeFresh(lib);
     const ctx = await lib.context();
-    const applied = await applyDedupePlan.handler(
-      { report_path: reportPath, mode: 'apply' },
+    const online = await pluginOnline(ctx);
+    const dry = await applyDedupePlan.handler({ report_path: smokeReportPath }, ctx);
+    const planHash = (dry.structuredContent as any).plan_hash;
+
+    const running = applyDedupePlan.handler(
+      { report_path: smokeReportPath, mode: 'apply', expected_plan_hash: planHash },
       ctx,
     );
-    const planPath = (applied.structuredContent as any).plan_path;
-    const planHash = (applied.structuredContent as any).plan_hash;
+    const job = await waitForJob(online.root);
+    expect(job.plan_hash).toBe(channelPlanHash(job));
+    expect(job.payload).toEqual({
+      plan_path: expect.stringMatching(/dedupe-plans[/\\]dedupe-plan-/),
+      plan_hash: planHash,
+      collection_key: '334VW86H',
+    });
+    // The saved plan the job references matches the approved hash.
+    const savedPlan = JSON.parse(await readFile(job.payload.plan_path, 'utf8'));
+    expect(savedPlan.plan_hash).toBe(planHash);
+    expect(savedPlan.batch_selector.collection_key).toBe('334VW86H');
+    await online.ack(job);
+    const result = await running;
+    expect(result.isError).toBeUndefined();
+    const structured = result.structuredContent as any;
+    expect(structured.status).toBe('complete');
+    expect(structured.mode).toBe('apply');
+    expect(structured.zotero_writes).toBe(true);
+    expect(structured.merged_items_destination).toBe('trash');
+    expect(structured.recoverable).toBe(true);
+    expect(structured.permanent_delete).toBe(false);
+    expect(structured.clusters).toHaveLength(2);
+    expect(structured.clusters[1]).toMatchObject({ master_key: 'OUTSIDE1', added_to_collection: true });
+    // The MCP server itself still never writes Zotero: the merge ran in the plugin.
+    for (const spy of Object.values(lib.writes)) expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('apply reports rejected when the user declines in Zotero', async () => {
+    const lib = library();
+    seedSmokeFresh(lib);
+    const ctx = await lib.context();
+    const online = await pluginOnline(ctx);
+    const { planHash } = await dryRunSmokePlanHash(lib);
+    const running = applyDedupePlan.handler(
+      { report_path: smokeReportPath, mode: 'apply', expected_plan_hash: planHash },
+      ctx,
+    );
+    const job = await waitForJob(online.root);
+    await online.ack(job, {
+      status: 'rejected', error: 'User declined the native merge.', clusters: [],
+    });
+    const result = await running;
+    expect(result.isError).toBeUndefined();
+    const structured = result.structuredContent as any;
+    expect(structured.status).toBe('rejected');
+    expect(structured.error).toBe('User declined the native merge.');
+    expect(structured.zotero_writes).toBe(false);
+  });
+
+  it('apply reports failed with per-cluster errors when a cluster fails', async () => {
+    const lib = library();
+    seedSmokeFresh(lib);
+    const ctx = await lib.context();
+    const online = await pluginOnline(ctx);
+    const { planHash } = await dryRunSmokePlanHash(lib);
+    const running = applyDedupePlan.handler(
+      { report_path: smokeReportPath, mode: 'apply', expected_plan_hash: planHash },
+      ctx,
+    );
+    const job = await waitForJob(online.root);
+    await online.ack(job, {
+      status: 'failed',
+      error: '1 of 2 cluster(s) failed; see the per-cluster errors.',
+      clusters: [
+        { cluster_id: 'duplicate-0001', status: 'success', master_key: 'SMOKE001', merged_keys: ['SMOKE002'], added_to_collection: false },
+        { cluster_id: 'duplicate-0002', status: 'failed', error: 'Item SMOKE003 is not present in this Zotero library.' },
+      ],
+    });
+    const result = await running;
+    expect(result.isError).toBe(true);
+    const structured = result.structuredContent as any;
+    expect(structured.status).toBe('failed');
+    expect(structured.clusters[1].error).toMatch(/SMOKE003/);
+    expect(result.content[0].text).toMatch(/1 of 2 cluster\(s\) failed/);
+  });
+
+  it('apply fails clearly when the desktop plugin is not running', async () => {
+    const lib = library();
+    seedSmokeFresh(lib);
+    const ctx = await lib.context();
+    const { planHash } = await dryRunSmokePlanHash(lib);
+    const result = await applyDedupePlan.handler(
+      { report_path: smokeReportPath, mode: 'apply', expected_plan_hash: planHash },
+      ctx,
+    );
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toMatch(/Desktop plugin unavailable/);
+    // The plan file is saved (retryable once Zotero is open), but no job was created.
+    expect(await readdir(ctx.config.dataDir)).toEqual(['dedupe-plans']);
+    expect(await readdir(join(ctx.config.dataDir, 'dedupe-plans'))).toHaveLength(1);
+  });
+
+  it('a mismatched expected_plan_hash is refused before any job is created', async () => {
+    const lib = library();
+    seedSmokeFresh(lib);
+    const ctx = await lib.context();
+    const online = await pluginOnline(ctx);
+    const result = await applyDedupePlan.handler(
+      { report_path: smokeReportPath, mode: 'apply', expected_plan_hash: `sha256:${'0'.repeat(64)}` },
+      ctx,
+    );
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toMatch(/hash mismatch.*re-run the dry run/);
+    expect(await readdir(online.root)).toEqual(['presence.json']);
+    // The refusal happened before any plan file was saved.
+    expect((await readdir(ctx.config.dataDir)).includes('dedupe-plans')).toBe(false);
+  });
+
+  it('re-validates a saved smoke plan by hash; apply on plan_path executes through the plugin', async () => {
+    const lib = library();
+    seedSmokeFresh(lib);
+    const ctx = await lib.context();
+    const online = await pluginOnline(ctx);
+    const { planHash } = await dryRunSmokePlanHash(lib);
+    const running = applyDedupePlan.handler(
+      { report_path: smokeReportPath, mode: 'apply', expected_plan_hash: planHash },
+      ctx,
+    );
+    const job = await waitForJob(online.root);
+    await online.ack(job);
+    const applied = await running;
+    const planPath = (applied.structuredContent as any).plan_path as string;
+    expect((applied.structuredContent as any).status).toBe('complete');
 
     const wrong = await applyDedupePlan.handler(
-      { plan_path: planPath, expected_plan_hash: 'sha256:' + '0'.repeat(64) },
+      { plan_path: planPath, expected_plan_hash: `sha256:${'0'.repeat(64)}` },
       ctx,
     );
     expect(wrong.isError).toBe(true);
@@ -328,25 +542,33 @@ describe('zotero_apply_dedupe_plan', () => {
     expect((again.structuredContent as any).plan_hash).toBe(planHash);
     expect((again.structuredContent as any).mode).toBe('dry_run');
 
-    const applyAgain = await applyDedupePlan.handler(
+    // The first job's receipt is terminal, so this apply creates a fresh job for the same plan.
+    const applyAgainRunning = applyDedupePlan.handler(
       { plan_path: planPath, expected_plan_hash: planHash, mode: 'apply' },
       ctx,
     );
+    await online.ack(await waitForJob(online.root));
+    const applyAgain = await applyAgainRunning;
     expect(applyAgain.isError).toBeUndefined();
-    expect((applyAgain.structuredContent as any).status).toBe('needs_plugin');
-    // Re-validating an existing plan writes nothing new.
+    expect((applyAgain.structuredContent as any).status).toBe('complete');
+    expect((applyAgain.structuredContent as any).plan_path).toBe(planPath);
+    // Re-validating an existing plan writes no second plan file.
     expect(await readdir(join(ctx.config.dataDir, 'dedupe-plans'))).toHaveLength(1);
   });
 
   it('rejects a tampered plan file whose hash no longer matches its content', async () => {
     const lib = library();
-    seedFresh(lib);
+    seedSmokeFresh(lib);
     const ctx = await lib.context();
-    const applied = await applyDedupePlan.handler(
-      { report_path: reportPath, mode: 'apply' },
+    const online = await pluginOnline(ctx);
+    const { planHash } = await dryRunSmokePlanHash(lib);
+    const running = applyDedupePlan.handler(
+      { report_path: smokeReportPath, mode: 'apply', expected_plan_hash: planHash },
       ctx,
     );
-    const planPath = (applied.structuredContent as any).plan_path as string;
+    const job = await waitForJob(online.root);
+    await online.ack(job);
+    const planPath = ((await running).structuredContent as any).plan_path as string;
     const tamperedPath = join(ctx.config.dataDir, 'tampered-plan.json');
     const saved = JSON.parse(await readFile(planPath, 'utf8'));
     saved.clusters[0].merge_keys = ['SOMEONE1'];
@@ -358,17 +580,65 @@ describe('zotero_apply_dedupe_plan', () => {
 
   it('rejects a plan file whose items no longer exist', async () => {
     const lib = library();
-    seedFresh(lib);
+    seedSmokeFresh(lib);
     const ctx = await lib.context();
-    const applied = await applyDedupePlan.handler(
-      { report_path: reportPath, mode: 'apply' },
+    const online = await pluginOnline(ctx);
+    const { planHash } = await dryRunSmokePlanHash(lib);
+    const running = applyDedupePlan.handler(
+      { report_path: smokeReportPath, mode: 'apply', expected_plan_hash: planHash },
       ctx,
     );
-    const planPath = (applied.structuredContent as any).plan_path;
-    lib.items.delete('INSCO03');
+    const job = await waitForJob(online.root);
+    await online.ack(job);
+    const planPath = ((await running).structuredContent as any).plan_path as string;
+    lib.items.delete('SMOKE003');
     const result = await applyDedupePlan.handler({ plan_path: planPath }, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toMatch(/stale.*INSCO03/s);
+    expect(result.content[0].text).toMatch(/stale.*SMOKE003/s);
+  });
+
+  it('reuses a still-pending native-merge job instead of stacking a second one', async () => {
+    const lib = library();
+    seedSmokeFresh(lib);
+    const ctx = await lib.context();
+    const online = await pluginOnline(ctx);
+    const { planHash } = await dryRunSmokePlanHash(lib);
+    const running = applyDedupePlan.handler(
+      { report_path: smokeReportPath, mode: 'apply', expected_plan_hash: planHash },
+      ctx,
+    );
+    const job = await waitForJob(online.root);
+    await online.ack(job);
+    const applied = await running;
+    const planPath = (applied.structuredContent as any).plan_path as string;
+
+    // Simulate a retry after an ack timeout: a pending job for the same plan exists.
+    const pending = {
+      schema_version: 1,
+      job_id: randomUUID(),
+      job_type: 'native-merge',
+      created_at: new Date().toISOString(),
+      payload: { plan_path: planPath, plan_hash: planHash, collection_key: '334VW86H' },
+    };
+    (pending as any).plan_hash = channelPlanHash(pending as any);
+    await writeFile(join(online.root, `${pending.job_id}.job.json`), JSON.stringify(pending));
+    const jobsBefore = (await readdir(online.root)).filter((name) => name.endsWith('.job.json')).length;
+
+    // Refresh the heartbeat: the presence file must not go stale while the test runs.
+    await writeFile(join(online.root, 'presence.json'), JSON.stringify({ schema_version: 1, updated_at: new Date().toISOString() }));
+    const retrying = applyDedupePlan.handler(
+      { plan_path: planPath, expected_plan_hash: planHash, mode: 'apply' },
+      ctx,
+    );
+    // Give the handler time to run its pending-job lookup, then satisfy it: the
+    // retry must wait on the existing pending job, not create a second one.
+    await new Promise((done) => setTimeout(done, 150));
+    await online.ack(pending);
+    const retried = await retrying;
+    expect(retried.isError).toBeUndefined();
+    expect((retried.structuredContent as any).status).toBe('complete');
+    const jobsAfter = (await readdir(online.root)).filter((name) => name.endsWith('.job.json')).length;
+    expect(jobsAfter).toBe(jobsBefore, 'the retry reuses the pending job and creates no new one');
   });
 
   it('scans a collection first when no report is given, without writing a report file', async () => {

@@ -60,7 +60,7 @@
 
 ## 🧰 Core Modules & Architecture
 
-Three specialized skills handle the pipeline: `literature-research` runs retrieval and ranking, `literature-manager` manages Zotero syncing and cleanup, and `literature-writing` handles evidence-traced drafting. On first run, `ai4s-setup` inspects your environment and reports what is ready. Under the hood, the Zotero MCP server exposes 23 tools—12 of which remain active in read-only mode without modifying your library (two of those solely launch the local key setup page or download the search helper).
+Three specialized skills handle the pipeline: `literature-research` runs retrieval and ranking, `literature-manager` manages Zotero syncing and cleanup, and `literature-writing` handles evidence-traced drafting. On first run, `ai4s-setup` inspects your environment and reports what is ready. Under the hood, the Zotero MCP server exposes 24 tools—12 of which remain active in read-only mode without modifying your library (two of those solely launch the local key setup page or download the search helper).
 
 ### 🔎 Retrieval & Ranking
 
