@@ -6,7 +6,7 @@ import { syncLiteratureProject } from '../features/project-sync/sync.js';
 const syncLiteratureProjectTool: ToolDefinition = {
   name: 'zotero_sync_literature_project',
   title: 'Sync a literature project to Zotero',
-  description: 'Synchronize one literature-research report and its selected ranked evidence into a persistent Zotero collection. Normal exact-ID creates/reuses, EasyScholar-enriched metrics, and an AI4S-owned Current Report Note are applied idempotently without user-facing plan files. IF/5-Year IF/JCR/CAS render from versioned Extra; current JCR/CAS also synchronize as native tags. Missing metrics do not block bibliographic import.',
+  description: 'Synchronize one literature-research report and its selected ranked evidence into a persistent Zotero collection. Normal exact-ID creates/reuses, EasyScholar-enriched metrics, and an AI4S-owned Current Report Note use Web API lists with local identifier matching, without user-facing plan files. IF/5-Year IF/JCR/CAS render from versioned Extra; current JCR/CAS also synchronize as native tags. Missing metrics do not block bibliographic import.',
   inputSchema: {
     project_slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
     collection_name: z.string().min(1).optional().describe('Required on first sync; later runs reuse the private project binding.'),
@@ -18,7 +18,7 @@ const syncLiteratureProjectTool: ToolDefinition = {
     confirm_review_id: z.string().regex(/^[0-9a-f]{64}$/).optional().describe('Only used after explicit approval of a reported large-create review.'),
     library_type: z.enum(['user', 'group']).optional(), library_id: z.number().int().optional(),
   },
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   handler: async (args, ctx) => {
     const result = await syncLiteratureProject(ctx, requireCloudLibrary(ctx, args), {
       projectSlug: args.project_slug, collectionName: args.collection_name, searchDate: args.search_date,

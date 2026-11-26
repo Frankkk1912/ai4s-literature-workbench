@@ -272,7 +272,7 @@ the `AI4S-Summary` Extra contract.
 2. For a recurring report project, use `zotero_sync_literature_project` with
    the search-record `report.md`, EasyScholar-enriched ranked evidence, project
    slug, and search date. Exact DOI/PMID operations and available create/reuse
-   metrics proceed idempotently and return a compact result.
+   metrics use local identifier matching over Web API lists and return a compact result.
 3. Stop and ask Frank only if project sync reports a high-risk case. A large
    create batch can resume after one explicit confirmation; identity and
    ownership conflicts require resolution.

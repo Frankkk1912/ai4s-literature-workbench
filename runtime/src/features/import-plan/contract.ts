@@ -33,7 +33,7 @@ export interface ImportPlan {
     tags: string[];
   };
   matching: {
-    mode: 'local-api' | 'snapshot' | 'unchecked';
+    mode: 'local-api' | 'web-api-local-match' | 'snapshot' | 'unchecked';
     source_library_version: number | null;
     candidate_limit: number;
     unchecked_create: boolean;
@@ -167,7 +167,7 @@ export function validateImportPlan(value: unknown): ImportPlan {
   value.target.tags = sortedUnique(value.target.tags, 'target.tags');
   if (!isObject(value.matching)) throw new Error('matching must be an object');
   exactKeys(value.matching, ['mode', 'source_library_version', 'candidate_limit', 'unchecked_create'], 'matching');
-  if (!['local-api', 'snapshot', 'unchecked'].includes(value.matching.mode)) throw new Error('Invalid matching.mode');
+  if (!['local-api', 'web-api-local-match', 'snapshot', 'unchecked'].includes(value.matching.mode)) throw new Error('Invalid matching.mode');
   if (!Number.isInteger(value.matching.candidate_limit) || value.matching.candidate_limit < 1) {
     throw new Error('matching.candidate_limit must be a positive integer');
   }

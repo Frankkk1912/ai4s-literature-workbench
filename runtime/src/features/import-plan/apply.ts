@@ -118,6 +118,8 @@ async function preflight(
   const reuseItems = new Map<string, any>();
   const blockingIssues: string[] = [];
   if (collectionMatches.length > 1) blockingIssues.push('multiple-exact-collection-matches');
+  // Project sync must not fall back to q=DOI in its dry-run/apply preflight.
+  let webCandidates: any[] | undefined;
 
   for (const action of actions) {
     if (action.decision === 'create') {
@@ -126,18 +128,28 @@ async function preflight(
         itemChecks.set(action.evidence_id, `invalid-item:${validation.errors.join('; ')}`);
         continue;
       }
-      const query = queryForCreate(action);
-      const result = await ctx.web.listItems(lib, {
-        q: query,
-        qmode: 'everything',
-        top: true,
-        includeTrashed: false,
-        limit: plan.matching.candidate_limit,
-      });
-      if (result.totalResults > plan.matching.candidate_limit) {
-        itemChecks.set(action.evidence_id, 'live-candidate-limit-exceeded');
-      } else if (result.data.some((candidate) => exactLiveMatch(action, candidate))) {
-        itemChecks.set(action.evidence_id, 'live-match-for-planned-create');
+      if (plan.matching.mode === 'web-api-local-match') {
+        if (!webCandidates) {
+          webCandidates = [];
+          let hasMore = true;
+          while (hasMore) {
+            const page = await ctx.web.listItems(lib, { top: true, includeTrashed: false, limit: 100, start: webCandidates.length });
+            webCandidates.push(...page.data);
+            hasMore = webCandidates.length < page.totalResults;
+            if (hasMore && !page.data.length) throw new Error('Incomplete Web API item listing');
+          }
+        }
+        if (webCandidates.some((candidate) => exactLiveMatch(action, candidate))) itemChecks.set(action.evidence_id, 'live-match-for-planned-create');
+      } else {
+        const query = queryForCreate(action);
+        const result = await ctx.web.listItems(lib, {
+          q: query, qmode: 'everything', top: true, includeTrashed: false, limit: plan.matching.candidate_limit,
+        });
+        if (result.totalResults > plan.matching.candidate_limit) {
+          itemChecks.set(action.evidence_id, 'live-candidate-limit-exceeded');
+        } else if (result.data.some((candidate) => exactLiveMatch(action, candidate))) {
+          itemChecks.set(action.evidence_id, 'live-match-for-planned-create');
+        }
       }
     } else if (action.decision === 'reuse') {
       const key = String(action.match?.zotero_key ?? '');

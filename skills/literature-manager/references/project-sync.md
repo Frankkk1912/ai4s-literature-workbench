@@ -16,12 +16,12 @@ its synced reading copy. Keep human annotations in a separate Note.
 ## Low-Risk Automatic Path
 
 - Reuse one unique DOI or PMID match.
-- Create a supported record with a DOI or PMID after a complete live query
-  finds no identifier match.
+- Create a supported record with a DOI or PMID after paginated Web API collection and library lists
+  find no local identifier match.
 - Add, but never remove, project tags and collection membership.
 - Create a missing collection with one unambiguous exact name.
 - Create or update the one AI4S-owned report Note.
-- Resume an internal idempotent receipt after a partial transient failure.
+- Resume an internal receipt after a partial transient failure.
 - Write available EasyScholar metrics during the same create/reuse operation:
   merge only the managed `AI4S-Metrics` Extra block, synchronize current
   `JCR:*`/`CAS:*` tags, and preserve all user Extra and unrelated tags.

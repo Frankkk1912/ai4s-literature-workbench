@@ -1595,7 +1595,7 @@ def fetch_easyscholar_rank(
 
 def easyscholar_stable_evidence_id(record: dict[str, Any]) -> str:
     """Return the same stable evidence identity used by literature-manager."""
-    doi = str(record.get("doi") or record.get("DOI") or "").strip().casefold()
+    doi = str(record.get("doi") or record.get("DOI") or "").strip().lower()
     doi = re.sub(r"^https?://(dx\.)?doi\.org/", "", doi)
     doi = re.sub(r"^doi:\s*", "", doi).rstrip(" .")
     if doi:
@@ -1610,7 +1610,7 @@ def easyscholar_stable_evidence_id(record: dict[str, Any]) -> str:
             if source_id:
                 computed = f"source:{source}:{source_id}"
             else:
-                title = re.sub(r"[\W_]+", " ", unicodedata.normalize("NFKC", str(record.get("title") or "")).casefold(), flags=re.UNICODE)
+                title = re.sub(r"[\W_]+", " ", unicodedata.normalize("NFKC", str(record.get("title") or "")).lower(), flags=re.UNICODE)
                 title = compact_space(title)
                 if not title:
                     raise ValueError("evidence record has no stable identifier or usable title")
@@ -2576,7 +2576,30 @@ def format_search_filters(plan: dict[str, Any] | None) -> str:
     return "; ".join(parts) if parts else "none"
 
 
-def load_priority_levels(path: str | Path | None) -> dict[str, int]:
+def priority_key(value: str) -> str:
+    """Normalize DOI/PMID aliases without changing canonical DOI-first IDs."""
+    key = value.strip()
+    pmid = re.fullmatch(r"(?:pmid:\s*)?(\d+)", key, flags=re.IGNORECASE)
+    if pmid:
+        return f"pmid:{pmid.group(1)}"
+    doi = re.sub(r"^https?://(dx\.)?doi\.org/", "", key.lower())
+    doi = re.sub(r"^doi:\s*", "", doi).rstrip(" .")
+    return f"doi:{doi}" if re.match(r"^10\.\d+/", doi) else key
+
+
+def priority_aliases(record: dict[str, Any]) -> set[str]:
+    aliases = {easyscholar_stable_evidence_id(record)}
+    doi = record.get("doi") or record.get("DOI")
+    if doi:
+        aliases.add(priority_key(str(doi)))
+    pmid = record.get("pmid") or record.get("PMID") or record.get("pubmed_id")
+    pmid_match = re.search(r"\d+", str(pmid or ""))
+    if pmid_match:
+        aliases.add(f"pmid:{pmid_match.group(0)}")
+    return aliases
+
+
+def load_priority_levels(path: str | Path | None, records: list[dict[str, Any]] | None = None) -> dict[str, int]:
     if not path or not Path(path).exists():
         return {}
     data = load_json(path)
@@ -2586,16 +2609,41 @@ def load_priority_levels(path: str | Path | None) -> dict[str, int]:
     levels: dict[str, int] = {}
     for evidence_id, value in recommendations.items():
         if isinstance(value, dict) and value.get("priority") in (2, 3):
-            levels[str(evidence_id)] = int(value["priority"])
+            key = priority_key(str(evidence_id))
+            if key in levels and levels[key] != value["priority"]:
+                raise ValueError(f"conflicting priority aliases: {evidence_id}")
+            levels[key] = int(value["priority"])
+    if records is not None:
+        aliases: dict[str, set[str]] = {}
+        for record in records:
+            canonical = easyscholar_stable_evidence_id(record)
+            for alias in priority_aliases(record):
+                aliases.setdefault(alias, set()).add(canonical)
+        resolved: dict[str, int] = {}
+        for key, level in levels.items():
+            ids = aliases.get(key, set())
+            if not ids:
+                print(f"Warning: unmatched priority recommendation key: {key}", file=sys.stderr)
+                continue
+            if len(ids) != 1:
+                raise ValueError(f"ambiguous priority recommendation: {key}")
+            canonical = next(iter(ids))
+            if canonical in resolved and resolved[canonical] != level:
+                raise ValueError(f"conflicting priority aliases for {canonical}")
+            resolved[canonical] = level
+        return resolved
     return levels
 
 
 def priority_level(record: dict[str, Any], levels: dict[str, int]) -> int:
     try:
-        evidence_id = easyscholar_stable_evidence_id(record)
+        aliases = priority_aliases(record)
     except ValueError:
         return 1
-    return levels.get(evidence_id, 1)
+    matches = {level for key, level in levels.items() if priority_key(key) in aliases}
+    if len(matches) > 1:
+        raise ValueError("conflicting priority aliases for evidence record")
+    return next(iter(matches), 1)
 
 
 def inline_code(value: str) -> str:
@@ -2633,7 +2681,7 @@ def command_render_report(args: argparse.Namespace) -> None:
         sibling = Path(args.ranked_json).parent / "priority_recommendations.json"
         if sibling.exists():
             priority_path = sibling
-    levels = load_priority_levels(priority_path)
+    levels = load_priority_levels(priority_path, data.get("records", []))
     lines = [
         "# Literature search record",
         "",

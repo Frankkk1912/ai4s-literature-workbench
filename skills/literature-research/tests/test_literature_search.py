@@ -1978,5 +1978,33 @@ class TestOpenAlexRetrieval(unittest.TestCase):
         self.assertNotIn("campus", serialized.lower())
 
 
+class TestPriorityAliases(unittest.TestCase):
+    def test_doi_first_and_report_aliases(self) -> None:
+        record = {"doi": "https://doi.org/10.1000/CORE. ", "pmid": "12345678", "title": "Core study", "source": "pubmed"}
+        self.assertEqual(ls.easyscholar_stable_evidence_id(record), "doi:10.1000/core")
+        for key in ("doi:10.1000/core", "10.1000/CORE.", "https://doi.org/10.1000/CORE", "pmid:12345678", "12345678"):
+            with self.subTest(key=key), tempfile.TemporaryDirectory() as tmpdir:
+                ranked = Path(tmpdir) / "ranked.json"
+                priority = Path(tmpdir) / "priority.json"
+                report = Path(tmpdir) / "report.md"
+                ls.write_json(ranked, {"records": [record]})
+                ls.write_json(priority, {"recommendations": {key: {"priority": 3}}})
+                self.assertEqual(ls.priority_level(record, {key: 3}), 3)
+                ls.command_render_report(argparse.Namespace(ranked_json=str(ranked), priority_recommendations=str(priority), top_n=5, question="Question", output=str(report)))
+                self.assertIn("| 3 |", report.read_text(encoding="utf-8"))
+
+    def test_unknown_key_warns_and_conflicting_aliases_fail(self) -> None:
+        record = {"doi": "10.1000/core", "pmid": "12345678"}
+        with tempfile.TemporaryDirectory() as tmpdir:
+            priority = Path(tmpdir) / "priority.json"
+            ls.write_json(priority, {"recommendations": {"10.1000/unknown": {"priority": 3}}})
+            with patch("sys.stderr") as stderr:
+                self.assertEqual(ls.load_priority_levels(priority, [record]), {})
+                self.assertIn("unmatched priority recommendation key", str(stderr.write.call_args_list))
+            ls.write_json(priority, {"recommendations": {"10.1000/core": {"priority": 3}, "pmid:12345678": {"priority": 2}}})
+            with self.assertRaisesRegex(ValueError, "conflicting priority aliases"):
+                ls.load_priority_levels(priority, [record])
+
+
 if __name__ == "__main__":
     unittest.main()
