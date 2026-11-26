@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import type { LibraryRef } from '../../api/web-client.js';
 import type { ToolContext } from '../../registry/registry.js';
 import { applyImportPlan, dryRunImportPlan } from '../import-plan/apply.js';
-import { canonicalPlanHash, type ImportPlan, type ImportPlanAction } from '../import-plan/contract.js';
+import { canonicalPlanHash, validateImportReceipt, type ImportPlan, type ImportPlanAction } from '../import-plan/contract.js';
 import { displayMetricYear, isPreprintEvidence, mergeMetricIntoExtra, metricFromEvidence, synchronizeCurrentMetricTags, type EvidenceMetric } from '../evidence-metrics.js';
 import { renderReportMarkdown, sha256 } from './report-renderer.js';
 import { projectReceiptPath, projectStatePath, readProjectState, writeProjectState, type ProjectSyncState } from './state.js';
@@ -140,18 +140,21 @@ async function allCollections(ctx: ToolContext, lib: LibraryRef): Promise<any[]>
 async function allItems(ctx: ToolContext, lib: LibraryRef, collectionKey?: string): Promise<any[]> {
   const output: any[] = [];
   let start = 0;
-  while (true) {
+  let hasMore = true;
+  while (hasMore) {
     const page = await ctx.web.listItems(lib, { collectionKey, top: true, includeTrashed: false, limit: 100, start });
     output.push(...page.data);
-    if (!page.data.length || output.length >= page.totalResults) return output;
+    hasMore = output.length < page.totalResults;
+    if (hasMore && !page.data.length) throw new Error('Incomplete Web API item listing');
     start += page.data.length;
   }
+  return output;
 }
 
-async function actionsFor(ctx: ToolContext, lib: LibraryRef, records: Array<{ id: string; record: Record<string, unknown> }>, tags: string[], collectionKey?: string) {
+async function actionsFor(ctx: ToolContext, lib: LibraryRef, records: Array<{ id: string; record: Record<string, unknown> }>, tags: string[], collectionKey?: string, syncedItems: ProjectSyncState['synced_items'] = {}) {
   const actions: ImportPlanAction[] = [];
   const risks: string[] = [];
-  const collectionItems = collectionKey ? await allItems(ctx, lib, collectionKey) : [];
+  let collectionItems: any[] | undefined;
   let libraryItems: any[] | undefined;
   for (let index = 0; index < records.length; index += 1) {
     const { id, record } = records[index]!;
@@ -166,7 +169,19 @@ async function actionsFor(ctx: ToolContext, lib: LibraryRef, records: Array<{ id
       const live = candidateIdentity(candidate);
       return Boolean((foundIdentity.doi && foundIdentity.doi === live.doi) || (foundIdentity.pmid && foundIdentity.pmid === live.pmid));
     };
-    let exact = collectionItems.filter(matches);
+    let bound: any = null;
+    const saved = syncedItems[id];
+    if (saved) {
+      try { bound = await ctx.web.getItem(lib, saved.item_key); }
+      catch (error: any) { if (error?.status !== 404) throw error; }
+      if (bound && (dataOf(bound).deleted || dataOf(bound).parentItem)) bound = null;
+      if (bound && !matches(bound)) {
+        actions.push({ ...base, decision: 'check', reason_codes: ['bound-item-identifier-mismatch'], item, match: null });
+        risks.push(`${id}:bound-item-identifier-mismatch`); continue;
+      }
+    }
+    if (!bound) collectionItems ??= collectionKey ? await allItems(ctx, lib, collectionKey) : [];
+    let exact = bound ? [bound] : collectionItems!.filter(matches);
     if (!exact.length) {
       libraryItems ??= await allItems(ctx, lib);
       exact = libraryItems.filter(matches);
@@ -175,8 +190,8 @@ async function actionsFor(ctx: ToolContext, lib: LibraryRef, records: Array<{ id
       const live = candidateIdentity(exact[0]);
       const conflicts = Boolean((foundIdentity.doi && live.doi && foundIdentity.doi !== live.doi) || (foundIdentity.pmid && live.pmid && foundIdentity.pmid !== live.pmid));
       if (!conflicts && versionOf(exact[0]) !== null && keyOf(exact[0])) {
-        actions.push({ ...base, decision: 'reuse', reason_codes: ['unique-doi-or-pmid-match'], item,
-          match: { zotero_key: keyOf(exact[0]), zotero_version: versionOf(exact[0]), match_kind: foundIdentity.doi === live.doi ? 'doi' : 'pmid' } });
+        actions.push({ ...base, decision: 'reuse', reason_codes: [bound ? 'state-key-identifier-match' : 'unique-doi-or-pmid-match'], item,
+          match: { zotero_key: keyOf(exact[0]), zotero_version: versionOf(exact[0]), match_kind: bound ? 'state-key' : foundIdentity.doi === live.doi ? 'doi' : 'pmid' } });
         continue;
       }
     }
@@ -184,7 +199,7 @@ async function actionsFor(ctx: ToolContext, lib: LibraryRef, records: Array<{ id
       actions.push({ ...base, decision: 'check', reason_codes: ['multiple-or-conflicting-identifier-matches'], item, match: null });
       risks.push(`${id}:multiple-or-conflicting-identifier-matches`); continue;
     }
-    const titleCandidate = (libraryItems ?? collectionItems).some((candidate) => {
+    const titleCandidate = (libraryItems ?? collectionItems ?? []).some((candidate) => {
       const live = candidateIdentity(candidate);
       return foundIdentity.title && foundIdentity.title === live.title && (!foundIdentity.year || !live.year || foundIdentity.year === live.year);
     });
@@ -228,6 +243,10 @@ export interface ProjectSyncResult {
   status: 'complete' | 'needs_review' | 'blocked'; collectionName: string; collectionKey?: string;
   created: number; reused: number; report: 'created' | 'updated' | 'unchanged' | 'pending'; risks: string[]; reviewId?: string;
   metrics: { updated: number; missing: number; preprintsSkipped: number; displayYear: number; status: string };
+  createReview?: {
+    collection_name: string; collection_key: string | null; collection_exists: boolean;
+    new_items: number; previously_synced: number; evidence_ids: string[];
+  };
 }
 
 export async function syncLiteratureProject(ctx: ToolContext, lib: LibraryRef, input: ProjectSyncInput): Promise<ProjectSyncResult> {
@@ -332,7 +351,7 @@ export async function syncLiteratureProject(ctx: ToolContext, lib: LibraryRef, i
   // metadata, state, and private receipt; Zotero membership uses a stable tag.
   const tags = [projectTag];
   const selected = selectedIds.map((id) => ({ id, record: byId.get(id)! }));
-  const classified = await actionsFor(ctx, lib, selected, tags, collectionKey);
+  const classified = await actionsFor(ctx, lib, selected, tags, collectionKey, state?.synced_items);
   for (const action of classified.actions) {
     const metric = metricsById.get(action.evidence_id);
     if (metric && action.item) {
@@ -347,10 +366,18 @@ export async function syncLiteratureProject(ctx: ToolContext, lib: LibraryRef, i
     if (!itemTags.some((entry: any) => entry?.tag === `AI4S:Priority:${priority.level}`)) itemTags.push({ tag: `AI4S:Priority:${priority.level}` });
     action.priority_recommendation = { level: priority.level, reason_codes: priority.reasons, tag_decision: 'add' };
   }
+  const createIds = classified.actions.filter((action) => action.decision === 'create').map((action) => action.evidence_id);
+  const createCount = createIds.length;
+  const previouslySynced = new Set([...(state?.synced_evidence_ids ?? []), ...Object.keys(state?.synced_items ?? {})]);
+  const previousCreateIds = createIds.filter((id) => previouslySynced.has(id));
+  const createReview = {
+    collection_name: collectionName, collection_key: collectionKey ?? null, collection_exists: Boolean(collectionKey),
+    new_items: createCount, previously_synced: previousCreateIds.length, evidence_ids: previousCreateIds,
+  };
+  if (previousCreateIds.length) return { status: 'needs_review', collectionName, collectionKey, created: 0, reused: 0, report: 'pending', risks: ['previously-synced-would-create', ...compactEvidenceRisks(classified.risks)], createReview, metrics };
   if (classified.risks.length) return { status: 'needs_review', collectionName, collectionKey, created: 0, reused: 0, report: 'pending', risks: compactEvidenceRisks(classified.risks), metrics };
-  const createCount = classified.actions.filter((action) => action.decision === 'create').length;
-  const reviewId = sha256(JSON.stringify({ project: input.projectSlug, collection: collectionName, reportHash, evidenceHash, priorityHash: priorityMetadata?.source_sha256 ?? null, selectedIds }));
-  if (createCount > LARGE_CREATE_THRESHOLD && input.confirmReviewId !== reviewId) return { status: 'needs_review', collectionName, collectionKey, created: 0, reused: 0, report: 'pending', risks: [`large-create-batch:${createCount}`], reviewId, metrics };
+  const reviewId = sha256(JSON.stringify({ project: input.projectSlug, library: lib, collection: collectionName, collectionKey, createIds, reportHash, evidenceHash, priorityHash: priorityMetadata?.source_sha256 ?? null, selectedIds }));
+  if (createCount > LARGE_CREATE_THRESHOLD && input.confirmReviewId !== reviewId) return { status: 'needs_review', collectionName, collectionKey, created: 0, reused: 0, report: 'pending', risks: [`large-create-batch:${createCount}`], createReview, reviewId, metrics };
 
   const plan: ImportPlan = {
     schema_version: '1.0', plan_type: 'zotero-import', created_at: new Date().toISOString(), plan_hash: '',
@@ -365,7 +392,7 @@ export async function syncLiteratureProject(ctx: ToolContext, lib: LibraryRef, i
   if (dryRun.status !== 'ready') return { status: 'needs_review', collectionName, collectionKey, created: 0, reused: 0, report: 'pending', risks: compactEvidenceRisks(dryRun.blockingIssues), metrics };
   const applied = await applyImportPlan(ctx, plan, lib, projectReceiptPath(ctx.config.dataDir, lib, input.projectSlug, plan.plan_hash));
   collectionKey = applied.collectionKey ?? collectionKey;
-  if (!collectionKey || applied.status === 'blocked') return { status: 'blocked', collectionName, collectionKey, created: applied.summary.created ?? 0, reused: applied.summary.reused ?? 0, report: 'pending', risks: applied.blockingIssues, metrics };
+  if (!collectionKey || applied.status !== 'complete') return { status: 'blocked', collectionName, collectionKey, created: applied.summary.created ?? 0, reused: applied.summary.reused ?? 0, report: 'pending', risks: applied.blockingIssues, metrics };
 
   let note: any = null;
   if (state) note = await ctx.web.getItem(lib, state.report_note_key);
@@ -386,11 +413,16 @@ export async function syncLiteratureProject(ctx: ToolContext, lib: LibraryRef, i
   }
   const savedNote = await ctx.web.getItem(lib, noteKey);
   noteVersion = versionOf(savedNote);
+  const receipt = validateImportReceipt(JSON.parse(await readFile(applied.receiptPath!, 'utf8')));
+  const syncedItems: ProjectSyncState['synced_items'] = {};
+  for (const result of receipt.results) {
+    if (['created', 'reused'].includes(result.outcome) && result.zotero_key) syncedItems[result.evidence_id] = { item_key: result.zotero_key, version: result.zotero_version };
+  }
   const nextState: ProjectSyncState = {
-    schema_version: '1.0', project_slug: input.projectSlug, library: lib, collection_name: collectionName, collection_key: collectionKey,
+    schema_version: '1.1', project_slug: input.projectSlug, library: lib, collection_name: collectionName, collection_key: collectionKey,
     report_note_key: noteKey, report_note_version: noteVersion, report_sha256: reportHash,
     report_note_sha256: sha256(String(dataOf(savedNote).note ?? '')), evidence_sha256: evidenceHash,
-    synced_evidence_ids: [...selectedIds].sort(), updated_at: new Date().toISOString(),
+    synced_evidence_ids: [...selectedIds].sort(), synced_items: syncedItems, updated_at: new Date().toISOString(),
   };
   await writeProjectState(statePath, nextState);
   return { status: 'complete', collectionName, collectionKey, created: applied.summary.created ?? 0, reused: applied.summary.reused ?? 0, report, risks: [], metrics };

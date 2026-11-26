@@ -273,9 +273,12 @@ the `AI4S-Summary` Extra contract.
    the search-record `report.md`, EasyScholar-enriched ranked evidence, project
    slug, and search date. Exact DOI/PMID operations and available create/reuse
    metrics use local identifier matching over Web API lists and return a compact result.
-3. Stop and ask Frank only if project sync reports a high-risk case. A large
-   create batch can resume after one explicit confirmation; identity and
-   ownership conflicts require resolution.
+3. On `needs_review`, `large-create-batch`, or
+   `previously-synced-would-create`, stop and ask the user before retrying.
+   Never automatically supply `confirm_review_id` in the same turn. Show the
+   collection name/key, proposed create count, and previously synced IDs.
+   Only a large-create batch can resume after explicit user approval;
+   previously synced creates and identity/ownership conflicts require resolution.
 4. For lower-level work, export or fetch Zotero items to `zotero_items.json`. Prefer local API for a
    desktop library and Web API for synced/group libraries.
 5. Run `dedupe-library` if the user asked for library cleanup or if duplicate

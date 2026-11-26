@@ -1,14 +1,16 @@
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { renderReportMarkdown } from '../../src/features/project-sync/report-renderer.js';
+import { projectStatePath, readProjectState } from '../../src/features/project-sync/state.js';
 import { stableEvidenceId, syncLiteratureProject } from '../../src/features/project-sync/sync.js';
 
 function dataOf(value: any): any { return value?.data ?? value; }
 class FakeWeb {
   hasKey = true; collections: any[] = []; items: any[] = []; version = 1; next = 1;
   listQueries: any[] = [];
+  hideBibliography = false;
   private key(): string { return `K${String(this.next++).padStart(7, '0')}`; }
   async listCollections(_lib: any, query: any = {}) {
     const start = query.start ?? 0; const data = this.collections.slice(start, start + (query.limit ?? 100));
@@ -16,7 +18,7 @@ class FakeWeb {
   }
   async listItems(_lib: any, query: any = {}) {
     this.listQueries.push(structuredClone(query));
-    let found = [...this.items];
+    let found = this.items.filter((item) => !this.hideBibliography || dataOf(item).itemType === 'note');
     if (query.collectionKey) found = found.filter((item) => (dataOf(item).collections ?? []).includes(query.collectionKey));
     if (query.itemType) found = found.filter((item) => dataOf(item).itemType === query.itemType);
     if (query.top) found = found.filter((item) => !dataOf(item).parentItem);
@@ -32,7 +34,7 @@ class FakeWeb {
     return { data, totalResults: found.length, lastModifiedVersion: this.version };
   }
   async getItem(_lib: any, key: string) {
-    const item = this.items.find((candidate) => candidate.key === key); if (!item) throw new Error('not found'); return structuredClone(item);
+    const item = this.items.find((candidate) => candidate.key === key); if (!item) throw Object.assign(new Error('not found'), { status: 404 }); return structuredClone(item);
   }
   async writeCollections(_lib: any, objects: any[]) {
     const successful = objects.map((object, index) => { const key = this.key(); const version = ++this.version; this.collections.push({ key, version, data: { ...object, key, version } }); return { index, key, version }; });
@@ -152,6 +154,50 @@ describe('project sync', () => {
     await expect(syncLiteratureProject(context(files.dir, web), { type: 'user', id: 1 }, { ...files, projectSlug: 'unknown', collectionName: 'Unknown', searchDate: '2026-07-17', priorityRecommendationsPath: priorityPath })).rejects.toThrow(/unknown evidence ID/);
     expect(web.items).toHaveLength(0); expect(web.collections).toHaveLength(0);
   });
+  it('reuses the saved item key even when lists cannot find bibliography', async () => {
+    const files = await fixture([record]); const web = new FakeWeb(); const ctx = context(files.dir, web);
+    const lib = { type: 'user' as const, id: 1 };
+    const input = { ...files, projectSlug: 'by-key', collectionName: 'By Key', searchDate: '2026-07-17' };
+    await syncLiteratureProject(ctx, lib, input);
+    const saved = await readProjectState(projectStatePath(files.dir, lib, input.projectSlug));
+    expect(saved).toMatchObject({ schema_version: '1.1', synced_items: { 'doi:10.1000/test.1': { item_key: web.items[0].key, version: web.items[0].version } } });
+    web.hideBibliography = true;
+    expect(await syncLiteratureProject(ctx, lib, input)).toMatchObject({ status: 'complete', created: 0, reused: 1 });
+    expect(web.items).toHaveLength(2);
+  });
+  it('blocks previously synced creates even with a confirmation token', async () => {
+    const files = await fixture([record]); const web = new FakeWeb(); const ctx = context(files.dir, web); const lib = { type: 'user' as const, id: 1 };
+    const input = { ...files, projectSlug: 'missing-key', collectionName: 'Missing Key', searchDate: '2026-07-17' };
+    const first = await syncLiteratureProject(ctx, lib, input);
+    web.items = web.items.filter((item) => dataOf(item).itemType === 'note'); web.hideBibliography = true;
+    const result = await syncLiteratureProject(ctx, lib, { ...input, confirmReviewId: 'a'.repeat(64) });
+    expect(result).toMatchObject({ status: 'needs_review', created: 0, createReview: { collection_name: 'Missing Key', collection_key: first.collectionKey, collection_exists: true, new_items: 1, previously_synced: 1, evidence_ids: ['doi:10.1000/test.1'] } });
+    expect(result.risks).toContain('previously-synced-would-create'); expect(web.items).toHaveLength(1);
+  });
+  it('reads old 1.0 state, falls back to identifiers, and upgrades it', async () => {
+    const files = await fixture([record]); const web = new FakeWeb(); const ctx = context(files.dir, web); const lib = { type: 'user' as const, id: 1 };
+    const input = { ...files, projectSlug: 'legacy', collectionName: 'Legacy', searchDate: '2026-07-17' };
+    await syncLiteratureProject(ctx, lib, input);
+    const path = projectStatePath(files.dir, lib, input.projectSlug);
+    const old = JSON.parse(await readFile(path, 'utf8')); old.schema_version = '1.0'; delete old.synced_items;
+    await writeFile(path, JSON.stringify(old));
+    expect((await readProjectState(path))?.synced_items).toEqual({});
+    expect(await syncLiteratureProject(ctx, lib, input)).toMatchObject({ status: 'complete', created: 0, reused: 1 });
+    const next = JSON.parse(await readFile(path, 'utf8'));
+    expect(next.schema_version).toBe('1.1'); expect(next.synced_items['doi:10.1000/test.1'].item_key).toBe(web.items[0].key);
+    delete next.synced_items; next.schema_version = '1.0'; await writeFile(path, JSON.stringify(next));
+    web.items = web.items.filter((item) => dataOf(item).itemType === 'note');
+    expect((await syncLiteratureProject(ctx, lib, input)).risks).toContain('previously-synced-would-create');
+  });
+  it('refuses a saved key whose identifiers now conflict', async () => {
+    const files = await fixture([record]); const web = new FakeWeb(); const ctx = context(files.dir, web);
+    const input = { ...files, projectSlug: 'changed-key', collectionName: 'Changed Key', searchDate: '2026-07-17' };
+    await syncLiteratureProject(ctx, { type: 'user', id: 1 }, input);
+    web.items[0].data.extra = 'PMID: 99999999';
+    const result = await syncLiteratureProject(ctx, { type: 'user', id: 1 }, input);
+    expect(result).toMatchObject({ status: 'needs_review', created: 0 });
+    expect(result.risks).toContain('multiple-or-conflicting-identifier-matches:1');
+  });
   it('stops when the managed report was edited in Zotero', async () => {
     const files = await fixture([record]); const web = new FakeWeb(); const ctx = context(files.dir, web);
     const input = { projectSlug: 'manual-edit', collectionName: 'Manual Edit', searchDate: '2026-07-17', reportPath: files.reportPath, evidencePath: files.evidencePath };
@@ -161,7 +207,9 @@ describe('project sync', () => {
   it('requires one review token above fifty creates', async () => {
     const records = Array.from({ length: 51 }, (_, index) => ({ ...record, id: String(index), doi: `10.1000/batch.${index}`, pmid: String(90000000 + index), title: `Study ${index}` }));
     const files = await fixture(records); const web = new FakeWeb();
+    await web.writeCollections({}, [{ name: 'Large Batch' }]);
     const result = await syncLiteratureProject(context(files.dir, web), { type: 'user', id: 1 }, { projectSlug: 'large-batch', collectionName: 'Large Batch', searchDate: '2026-07-17', reportPath: files.reportPath, evidencePath: files.evidencePath });
     expect(result.status).toBe('needs_review'); expect(result.risks).toEqual(['large-create-batch:51']); expect(result.reviewId).toMatch(/^[0-9a-f]{64}$/); expect(web.items).toHaveLength(0);
+    expect(result.createReview).toEqual({ collection_name: 'Large Batch', collection_key: web.collections[0].key, collection_exists: true, new_items: 51, previously_synced: 0, evidence_ids: [] });
   });
 });

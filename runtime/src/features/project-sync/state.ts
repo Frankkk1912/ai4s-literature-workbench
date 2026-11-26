@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import type { LibraryRef } from '../../api/web-client.js';
 
 export interface ProjectSyncState {
-  schema_version: '1.0';
+  schema_version: '1.1';
   project_slug: string;
   library: LibraryRef;
   collection_name: string;
@@ -14,6 +14,7 @@ export interface ProjectSyncState {
   report_note_sha256: string;
   evidence_sha256: string;
   synced_evidence_ids: string[];
+  synced_items: Record<string, { item_key: string; version: number | null }>;
   updated_at: string;
 }
 
@@ -35,8 +36,10 @@ export function projectReceiptPath(dataDir: string, lib: LibraryRef, slug: strin
 export async function readProjectState(path: string): Promise<ProjectSyncState | null> {
   try {
     const value = JSON.parse(await readFile(path, 'utf8')) as ProjectSyncState;
-    if (value.schema_version !== '1.0' || !value.collection_key || !value.report_note_key || !value.report_note_sha256) throw new Error('Invalid project-sync state');
-    return value;
+    if (!['1.0', '1.1'].includes(value.schema_version) || !value.collection_key || !value.report_note_key || !value.report_note_sha256 || !Array.isArray(value.synced_evidence_ids)) throw new Error('Invalid project-sync state');
+    const syncedItems = value.synced_items ?? {};
+    if (typeof syncedItems !== 'object' || Array.isArray(syncedItems) || Object.values(syncedItems).some((item) => !item || typeof item.item_key !== 'string' || !item.item_key || (item.version !== null && !Number.isInteger(item.version)))) throw new Error('Invalid project-sync item mapping');
+    return { ...value, schema_version: '1.1', synced_items: syncedItems };
   } catch (error: any) {
     if (error?.code === 'ENOENT') return null;
     throw error;

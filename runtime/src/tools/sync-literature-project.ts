@@ -31,11 +31,15 @@ const syncLiteratureProjectTool: ToolDefinition = {
       metrics_missing: result.metrics.missing, metrics_preprint_skipped: result.metrics.preprintsSkipped,
       display_metric_year: result.metrics.displayYear, metrics_status: result.metrics.status,
       ...(result.reviewId ? { review_id: result.reviewId } : {}),
+      ...(result.createReview ? { create_review: result.createReview } : {}),
     };
+    const reviewSummary = result.createReview
+      ? ` Would create ${result.createReview.new_items} items in ${result.createReview.collection_exists ? 'existing' : 'new'} collection "${result.collectionName}" (key=${result.createReview.collection_key ?? 'not-created'}); ${result.createReview.previously_synced} were previously synced. Evidence IDs: ${result.createReview.evidence_ids.join(', ') || 'none'}. Ask the user before retrying; do not automatically supply confirm_review_id.`
+      : '';
     const summary = result.status === 'complete'
       ? `Synced "${result.collectionName}": created=${result.created}, reused=${result.reused}, report=${result.report}, metrics=${result.metrics.updated}, missing=${result.metrics.missing}, preprints=${result.metrics.preprintsSkipped}, display_year=${result.metrics.displayYear}.`
       : `Sync needs review: ${result.risks.join(', ')}. Metrics available=${result.metrics.updated}, missing=${result.metrics.missing}, preprints=${result.metrics.preprintsSkipped}.`;
-    return ok(compact, summary);
+    return ok(compact, summary + reviewSummary);
   },
 };
 export default syncLiteratureProjectTool;
