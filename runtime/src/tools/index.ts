@@ -34,6 +34,7 @@ import listTags from './list-tags.js';
 import listCollections from './list-collections.js';
 import tagAudit from './tag-audit.js';
 import findDuplicates from './find-duplicates.js';
+import applyDedupePlan from './apply-dedupe-plan.js';
 import applyImportPlan from './apply-import-plan.js';
 import applyMetricsPlan from './apply-metrics-plan.js';
 import applyCitationPlan from './apply-citation-plan.js';
@@ -90,6 +91,7 @@ export const tools: ToolDefinition[] = [
   listCollections,
   tagAudit,
   findDuplicates,
+  applyDedupePlan,
   applyImportPlan,
   applyMetricsPlan,
   applyFulltextHandoff,

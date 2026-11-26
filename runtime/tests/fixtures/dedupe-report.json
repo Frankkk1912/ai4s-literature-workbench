@@ -1,0 +1,107 @@
+{
+  "report_id": "duplicates-2026-07-12T00-00-00-000Z-fixture01",
+  "created_at": "2026-07-12T00:00:00.000Z",
+  "algorithm_version": "1.0.0",
+  "library": { "type": "user", "id": 12345 },
+  "batch_selector": { "collection_key": "PLANCOL1" },
+  "explicit_limit": 100,
+  "library_scan_safety_cap": 5000,
+  "truncated": false,
+  "source_total_results": 4,
+  "batch_total_results": 3,
+  "items_scanned": 4,
+  "batch_items_scanned": 3,
+  "library_version": 42,
+  "source": "cloud",
+  "batch_source": "cloud",
+  "batch_library_version": 42,
+  "cluster_count": 2,
+  "master_outside_scope_count": 1,
+  "confidence_counts": { "high": 2, "medium": 0, "review": 0 },
+  "policy": {
+    "read_only": true,
+    "native_merge_required": true,
+    "instruction": "Review candidates and merge confirmed duplicates in Zotero Desktop."
+  },
+  "clusters": [
+    {
+      "cluster_id": "duplicate-0001",
+      "batch_item_keys": ["INSCO01", "INSCO02"],
+      "items": [
+        {
+          "key": "INSCO01",
+          "version": 3,
+          "itemType": "journalArticle",
+          "title": "Duplicate paper",
+          "date": "2020-05-01",
+          "creators": [{ "creatorType": "author", "firstName": "A", "lastName": "Author" }],
+          "DOI": "10.1000/plan-dedupe",
+          "tags": [{ "tag": "AI4S:Import" }],
+          "collections": ["PLANCOL1"],
+          "numChildren": 1
+        },
+        {
+          "key": "INSCO02",
+          "version": 3,
+          "itemType": "journalArticle",
+          "title": "Duplicate paper",
+          "date": "2020-05-01",
+          "creators": [{ "creatorType": "author", "firstName": "A", "lastName": "Author" }],
+          "DOI": "10.1000/plan-dedupe",
+          "tags": [{ "tag": "AI4S:Import" }, { "tag": "domain:cvd" }],
+          "collections": ["PLANCOL1"],
+          "numChildren": 0
+        }
+      ],
+      "confidence": "high",
+      "reasons": ["same-doi"],
+      "field_conflicts": [],
+      "recommended_master_key": "INSCO01",
+      "master_reason": "Highest deterministic metadata, child-item, collection, and tag completeness score.",
+      "master_outside_scope": false,
+      "native_merge_required": true
+    },
+    {
+      "cluster_id": "duplicate-0002",
+      "batch_item_keys": ["INSCO03"],
+      "items": [
+        {
+          "key": "OUTSID1",
+          "version": 5,
+          "itemType": "journalArticle",
+          "title": "Outside master paper",
+          "date": "2019-03-01",
+          "creators": [{ "creatorType": "author", "firstName": "B", "lastName": "Writer" }],
+          "DOI": "10.1000/plan-outside",
+          "tags": [{ "tag": "domain:cvd" }],
+          "collections": [],
+          "numChildren": 0
+        },
+        {
+          "key": "INSCO03",
+          "version": 2,
+          "itemType": "journalArticle",
+          "title": "Outside master paper",
+          "date": "2019-03-01",
+          "creators": [{ "creatorType": "author", "firstName": "B", "lastName": "Writer" }],
+          "DOI": "10.1000/plan-outside",
+          "tags": [{ "tag": "AI4S:Import" }],
+          "collections": ["PLANCOL1"],
+          "numChildren": 0
+        }
+      ],
+      "confidence": "high",
+      "reasons": ["same-doi"],
+      "field_conflicts": [],
+      "recommended_master_key": "OUTSID1",
+      "master_reason": "Highest deterministic metadata, child-item, collection, and tag completeness score.",
+      "master_outside_scope": true,
+      "master_scope_steps": [
+        "The recommended master OUTSID1 is not part of the selected batch (collection: PLANCOL1).",
+        "In Zotero Desktop, drag item OUTSID1 into the batch collection (or add the collection to the item's collections field).",
+        "Do not merge or trash the in-scope copies while the master remains outside the batch; otherwise the work would disappear from the batch once the copies are removed. Re-run this tool after adding the master to confirm the flag is cleared."
+      ],
+      "native_merge_required": true
+    }
+  ]
+}

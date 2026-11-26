@@ -51,6 +51,7 @@ export const WORKBENCH_TOOL_NAMES = new Set([
   'zotero_apply_metrics_plan',
   'zotero_apply_citation_plan',
   'zotero_find_duplicates',
+  'zotero_apply_dedupe_plan',
   'zotero_semantic_tag_context',
   'zotero_apply_semantic_tags',
   'zotero_cleanup_auto_tags',

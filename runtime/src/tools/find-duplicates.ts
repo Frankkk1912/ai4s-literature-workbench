@@ -8,7 +8,7 @@ import type { ToolContext, ToolDefinition, ToolHandlerResult } from '../registry
 import { ok } from '../registry/registry.js';
 
 const PAGE_SIZE = 100;
-const LIBRARY_SCAN_MAX_ITEMS = 5000;
+export const LIBRARY_SCAN_MAX_ITEMS = 5000;
 const ALGORITHM_VERSION = '1.0.0';
 const EXCLUDED_TYPES = new Set(['attachment', 'note', 'annotation']);
 
@@ -21,7 +21,7 @@ function isBibliographic(item: any): boolean {
   return !EXCLUDED_TYPES.has(data.itemType) && !data.deleted;
 }
 
-async function listScope(
+export async function listScope(
   ctx: ToolContext,
   query: { library?: LibraryRef; collectionKey?: string; tag?: string },
   cap: number,
@@ -65,7 +65,7 @@ async function listScope(
   return { items, totalResults, libraryVersion, source };
 }
 
-function annotateMasterScope(
+export function annotateMasterScope(
   clusters: ReturnType<typeof findDuplicateClusters>,
   scopeKind: 'collection' | 'tag',
   scopeValue: string,

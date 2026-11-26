@@ -53,7 +53,7 @@ describe('read-only mode tool set', () => {
 describe('workbench tool profile', () => {
   const config = { toolProfile: 'workbench', readOnly: false, oauth: { enabled: false } } as any;
 
-  it('exposes the three setup tools and only the nineteen workflow-facing tools', () => {
+  it('exposes the three setup tools and only the twenty workflow-facing tools', () => {
     expect(selectActiveTools(config).map((tool) => tool.name)).toEqual([
       'setup_status',
       'open_setup',
@@ -65,6 +65,7 @@ describe('workbench tool profile', () => {
       'zotero_fulltext_context',
       'zotero_list_collections',
       'zotero_find_duplicates',
+      'zotero_apply_dedupe_plan',
       'zotero_apply_import_plan',
       'zotero_apply_metrics_plan',
       'zotero_apply_fulltext_handoff',
@@ -104,10 +105,11 @@ describe('workbench tool profile', () => {
     expect(names).toContain('zotero_ai_summary_context');
     expect(names).toContain('zotero_fulltext_context');
     expect(names).toContain('zotero_list_collections');
+    expect(names).toContain('zotero_apply_dedupe_plan');
     // The three setup tools stay: they never touch the library.
     expect(names).toContain('setup_status');
     expect(names).toContain('open_setup');
     expect(names).toContain('install_search_helper');
-    expect(names).toHaveLength(12);
+    expect(names).toHaveLength(13);
   });
 });

@@ -60,7 +60,7 @@
 
 ## 🧰 核心模块与机制
 
-工作台由三个核心 Skill 分工协作：`literature-research` 负责检索与排序，`literature-manager` 负责 Zotero 入库与整理，`literature-writing` 负责基于证据起草；首次运行通过 `ai4s-setup` 检查环境与可用能力。底层共封装了 22 个 Zotero MCP 工具（只读模式下开放 12 个不修改文献库的工具，其中 2 个分别用于打开本地配置页和下载检索辅助程序），直接通过自然语言即可调用。
+工作台由三个核心 Skill 分工协作：`literature-research` 负责检索与排序，`literature-manager` 负责 Zotero 入库与整理，`literature-writing` 负责基于证据起草；首次运行通过 `ai4s-setup` 检查环境与可用能力。底层共封装了 23 个 Zotero MCP 工具（只读模式下开放 13 个不修改文献库的工具，其中 2 个分别用于打开本地配置页和下载检索辅助程序），直接通过自然语言即可调用。
 
 ### 🔎 文献检索与排序
 

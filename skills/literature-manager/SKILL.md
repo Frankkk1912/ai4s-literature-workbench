@@ -231,6 +231,30 @@ uv run literature-manager/scripts/zotero_literature_manager.py apply-sync \
   --output zotero_sync_dry_run.json
 ```
 
+## Duplicate Item Records
+Use the MCP dedupe pipeline for duplicate Zotero records; never invent a key
+list and trash it yourself.
+
+1. Call `zotero_find_duplicates` (read-only) with the batch `collection_key`
+   or import `tag` and an explicit `limit`. It saves an auditable JSON report
+   and never modifies Zotero.
+2. Call `zotero_apply_dedupe_plan` with `mode: "dry_run"` and the report
+   path. The dry run re-checks read-only that every key still exists, reports
+   current versions and batch membership, and returns a `plan_hash`ed merge
+   plan: the retained master, the keys to merge in, what the native merge
+   keeps (child attachments and notes, the tag and collection unions, and
+   relations including `dc:replaces`), and which merged-away items would move
+   to the trash (recoverable; permanent deletion is forbidden). Clusters whose
+   recommended master is outside the batch get an add-master-to-collection
+   step first.
+3. Show the plan and its `plan_hash` to Frank for approval. Do not execute
+   anything before he approves.
+4. `mode: "apply"` only saves and validates the plan file; it never writes
+   Zotero. The merge itself executes only through Zotero's native merge, so
+   apply returns `needs_plugin` / `native_merge_required`; never fall back to
+   trashing items by hand. `zotero_trash_items` and `zotero_delete_items` are
+   not part of the workbench profile.
+
 ## Utility Scripts
 Use `scripts/zotero_literature_manager.py` for repeatable work. All subcommands
 write outputs to files and print only short status messages.
@@ -354,6 +378,11 @@ repeated 429 responses. Local API mode disables the artificial delay.
 - Do not treat Zotero as a substitute for PubMed/WoS/arXiv retrieval.
 - Do not import or tag unmatched records without reviewing DOI/PMID/title-year
   evidence.
+- Do not trash or delete duplicate Zotero records from a key list you made up.
+  Run `zotero_find_duplicates`, dry-run `zotero_apply_dedupe_plan`, show the
+  `plan_hash` to Frank, and let Zotero's native merge execute; merged-away
+  items only ever move to the trash and can be restored. `zotero_trash_items`
+  and `zotero_delete_items` are not part of the workbench profile.
 - Do not run ambiguous, destructive, or broad lower-level library writes
   without a saved plan and dry-run output. Exact-ID recurring project sync is a
   narrow exception: it adds without removing, updates only its AI4S-owned report
