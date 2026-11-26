@@ -237,6 +237,27 @@ At startup the server reads a per-user private file if it exists:
 - Windows: `%LOCALAPPDATA%\\ai4s-literature-workbench\\zotero.env`
 - Linux/WSL: `${XDG_CONFIG_HOME:-~/.config}/ai4s-literature-workbench/zotero.env`
 
+### TLS trust
+
+Certificate verification is on by default and is never disabled silently. To
+trust a school or company gateway that re-signs traffic, export its root
+certificate as a PEM file and point one of these at it:
+
+- `SSL_CERT_FILE` / `REQUESTS_CA_BUNDLE` — the first one set is loaded on top
+  of the built-in roots, both by the Python search scripts and by this
+  server's outbound requests (through its undici dispatcher).
+- `NODE_EXTRA_CA_CERTS` — the same for Node itself; honored at startup and
+  validated loudly when it points at an unreadable file.
+- The Python scripts verify against the system certificate store when the
+  optional `truststore` package is importable (`uv add truststore`); without
+  it they still work on the standard certificates. Node 22.15+ can use the
+  system store by starting with `NODE_USE_SYSTEM_CA=1`.
+
+An invalid CA path is a clear startup error, never a silent skip.
+`LITERATURE_TLS_INSECURE=1|true|yes` disables verification for the process,
+warns loudly in the logs and in `setup_status`, and exists only as an explicit
+last resort on a trusted private network.
+
 Set `LITERATURE_ZOTERO_MCP_ENV_FILE` to point at a different private env file
 if required. Existing process environment variables still win over file values.
 The legacy `~/.config/ai4s-literature-workbench/zotero.env` path remains

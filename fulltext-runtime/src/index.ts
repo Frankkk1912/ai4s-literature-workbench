@@ -5,9 +5,14 @@ import { loadConfig } from './config.js';
 import { OaAdapter } from './providers/oa.js';
 import { createServer } from './server.js';
 import { FulltextStore } from './store.js';
+import { applyTlsTrust } from './lib/tls.js';
 
 async function main(): Promise<void> {
   const config = loadConfig();
+  // TLS trust first: custom CA env vars must be validated and applied before
+  // any outbound fetch (Europe PMC and OA downloads). Verification stays on
+  // unless LITERATURE_TLS_INSECURE is explicitly set (warned loudly).
+  applyTlsTrust();
   const adapter = new OaAdapter({ timeoutMs: config.httpTimeoutMs, maxBytes: config.maxPdfBytes });
   const broker = new FulltextBroker(new FulltextStore(config.dataDir, config.exchangeRoot), adapter);
   await broker.init();

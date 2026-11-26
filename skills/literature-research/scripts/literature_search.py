@@ -27,6 +27,12 @@ try:
 except ImportError:  # pragma: no cover - non-POSIX fallback
     fcntl = None
 
+# Shared TLS trust (system certs, custom CA env vars, explicit insecure).
+# Lives next to this script; the literature-manager script imports it too.
+import workbench_tls
+
+sanitize_url = workbench_tls.sanitize_url
+
 try:
     import msvcrt
 except ImportError:  # pragma: no cover - non-Windows fallback
@@ -281,6 +287,8 @@ class RateLimiter:
             time.sleep(self.min_interval)
 
     def _wait_posix(self) -> None:
+        # wait() calls this only when fcntl exists; the assert states that contract.
+        assert fcntl is not None
         with self.path.open("a+", encoding="utf-8") as handle:
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
             try:
@@ -289,13 +297,15 @@ class RateLimiter:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
     def _wait_windows(self) -> None:
-        # msvcrt.locking works on files opened in binary mode
+        # msvcrt.locking works on files opened in binary mode. The stub is
+        # Windows-only, so the alias keeps cross-platform checks quiet.
+        msvc: Any = msvcrt
         self.path.touch(exist_ok=True)
         with self.path.open("r+b") as handle:
             # Spin until we acquire the lock (bounded retries)
             for _ in range(200):
                 try:
-                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                    msvc.locking(handle.fileno(), msvc.LK_NBLCK, 1)
                     break
                 except OSError:
                     time.sleep(0.02)
@@ -307,7 +317,7 @@ class RateLimiter:
                 now = self._compute_and_write(handle)
             finally:
                 try:
-                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                    msvc.locking(handle.fileno(), msvc.LK_UNLCK, 1)
                 except OSError:
                     pass
 
@@ -332,18 +342,6 @@ class RateLimiter:
         return now
 
 
-def sanitize_url(url: str) -> str:
-    parsed = urllib.parse.urlsplit(url)
-    query = [
-        (key, value)
-        for key, value in urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
-        if key.lower() not in {"api_key", "secretkey", "mailto"}
-    ]
-    return urllib.parse.urlunsplit(
-        (parsed.scheme, parsed.netloc, parsed.path, urllib.parse.urlencode(query), parsed.fragment)
-    )
-
-
 def request_text(url: str, rate_name: str, min_interval: float, retries: int = 3) -> str:
     limiter = RateLimiter(rate_name, min_interval)
     headers = {"User-Agent": USER_AGENT}
@@ -351,7 +349,7 @@ def request_text(url: str, rate_name: str, min_interval: float, retries: int = 3
         limiter.wait()
         try:
             req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=45) as response:
+            with workbench_tls.open_url(req, timeout=45) as response:
                 charset = response.headers.get_content_charset() or "utf-8"
                 return response.read().decode(charset, errors="replace")
         except urllib.error.HTTPError as exc:
@@ -367,12 +365,17 @@ def request_text(url: str, rate_name: str, min_interval: float, retries: int = 3
             raise RuntimeError(f"HTTP {exc.code} from {safe_url}: {body[:1000]}") from exc
         except urllib.error.URLError as exc:
             safe_url = sanitize_url(url)
+            error_class, description = workbench_tls.classify_network_error(exc)
+            if error_class == "tls":
+                # Certificate failures do not fix themselves; retrying just hides
+                # the real message for three rounds. Fail now, with the fix.
+                raise RuntimeError(f"Request to {safe_url} failed: {description}") from exc
             if attempt < retries:
                 delay = 2**attempt
-                print(f"Network error; retrying in {delay}s: {safe_url}", file=sys.stderr)
+                print(f"Network error ({error_class}); retrying in {delay}s: {safe_url}", file=sys.stderr)
                 time.sleep(delay)
                 continue
-            raise RuntimeError(f"Network error from {safe_url}: {exc}") from exc
+            raise RuntimeError(f"Network error ({error_class}) from {safe_url}: {description}") from exc
     raise RuntimeError(f"Request failed after retries: {sanitize_url(url)}")
 
 
@@ -386,7 +389,10 @@ def write_json(path: str | Path, data: Any) -> None:
 
 def load_json(path: str | Path) -> Any:
     with Path(path).open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+        try:
+            return json.load(handle)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"{path} is not valid JSON: {exc}") from exc
 
 
 def load_config(path: Path | None = None) -> dict[str, Any]:
@@ -397,7 +403,10 @@ def load_config(path: Path | None = None) -> dict[str, Any]:
     if target is None or not target.exists():
         return {}
     with target.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+        try:
+            return json.load(handle)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"{target} is not valid JSON: {exc}") from exc
 
 
 def current_date() -> str:
@@ -661,7 +670,10 @@ def command_search_pubmed(args: argparse.Namespace) -> None:
     }
     if api_key:
         params["api_key"] = api_key
-    search_data = json.loads(request_text(pubmed_url("esearch.fcgi", params), "pubmed", interval))
+    try:
+        search_data = json.loads(request_text(pubmed_url("esearch.fcgi", params), "pubmed", interval))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"PubMed returned invalid JSON: {exc}") from exc
     esearch = search_data.get("esearchresult", {})
     ids = esearch.get("idlist", [])
     hit_count: int | None
@@ -867,13 +879,16 @@ def reconstruct_abstract(inverted: Any) -> str:
 
 
 def parse_openalex_work(work: dict[str, Any]) -> dict[str, Any]:
-    ids = work.get("ids") if isinstance(work.get("ids"), dict) else {}
+    raw_ids = work.get("ids")
+    ids = raw_ids if isinstance(raw_ids, dict) else {}
     doi = canonical_doi(work.get("doi") or ids.get("doi") or "")
     pmid = record_pmid({"pmid": ids.get("pmid") or ""})
     openalex_url = str(work.get("id") or ids.get("openalex") or "")
     openalex_id = openalex_url.rstrip("/").split("/")[-1] if openalex_url else ""
-    location = work.get("primary_location") if isinstance(work.get("primary_location"), dict) else {}
-    source = location.get("source") if isinstance(location.get("source"), dict) else {}
+    raw_location = work.get("primary_location")
+    location = raw_location if isinstance(raw_location, dict) else {}
+    raw_source = location.get("source")
+    source = raw_source if isinstance(raw_source, dict) else {}
     issns: list[str] = []
     raw_issns = source.get("issn") or []
     if isinstance(raw_issns, str):
@@ -886,7 +901,8 @@ def parse_openalex_work(work: dict[str, Any]) -> dict[str, Any]:
     for authorship in work.get("authorships") or []:
         if not isinstance(authorship, dict):
             continue
-        author = authorship.get("author") if isinstance(authorship.get("author"), dict) else {}
+        raw_author = authorship.get("author")
+        author = raw_author if isinstance(raw_author, dict) else {}
         name = compact_space(str(author.get("display_name") or ""))
         if name:
             authors.append(name)
@@ -946,10 +962,14 @@ def command_search_openalex(args: argparse.Namespace) -> None:
         if mailto:
             params["mailto"] = mailto
         url = f"{OPENALEX_BASE}?{urllib.parse.urlencode(params)}"
-        payload = json.loads(request_text(url, "openalex", openalex_interval(mailto)))
+        try:
+            payload = json.loads(request_text(url, "openalex", openalex_interval(mailto)))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"OpenAlex returned invalid JSON: {exc}") from exc
         if not isinstance(payload, dict):
             break
-        meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+        raw_meta = payload.get("meta")
+        meta = raw_meta if isinstance(raw_meta, dict) else {}
         if hit_count is None and meta.get("count") is not None:
             try:
                 hit_count = int(meta["count"])
@@ -1842,7 +1862,7 @@ def fetch_s2_batch(
         limiter.wait()
         try:
             req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=60) as response:
+            with workbench_tls.open_url(req, timeout=60) as response:
                 charset = response.headers.get_content_charset() or "utf-8"
                 data = json.loads(response.read().decode(charset, errors="replace"))
         except urllib.error.HTTPError as exc:
@@ -1880,7 +1900,7 @@ def fetch_crossref_citation(doi: str, email: str | None) -> dict[str, Any] | Non
     limiter.wait()
     try:
         req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with workbench_tls.open_url(req, timeout=30) as response:
             charset = response.headers.get_content_charset() or "utf-8"
             data = json.loads(response.read().decode(charset, errors="replace"))
     except Exception as exc:
@@ -2559,10 +2579,12 @@ def format_search_filters(plan: dict[str, Any] | None) -> str:
     if not isinstance(plan, dict):
         return "none"
     parts: list[str] = []
-    openalex_filters = plan.get("openalex_filters") if isinstance(plan.get("openalex_filters"), dict) else {}
+    raw_openalex_filters = plan.get("openalex_filters")
+    openalex_filters = raw_openalex_filters if isinstance(raw_openalex_filters, dict) else {}
     if openalex_filters.get("publication_year"):
         parts.append(f"OpenAlex publication_year:{openalex_filters['publication_year']}")
-    journal = plan.get("journal_filters") if isinstance(plan.get("journal_filters"), dict) else {}
+    raw_journal = plan.get("journal_filters")
+    journal = raw_journal if isinstance(raw_journal, dict) else {}
     if journal.get("cas_zones"):
         parts.append("CAS zones: " + ", ".join(str(zone) for zone in journal["cas_zones"]))
     if journal.get("jcr_zones"):

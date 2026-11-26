@@ -108,6 +108,19 @@ Optional
   Journal partition columns in Zotero: install the add-on (one file)
 ```
 
+The rendered text also has a Network check section: `setup_status` makes one
+key-free, read-only request to each service the workbench actually uses (Zotero
+Web API, PubMed, Europe PMC, EasyScholar, and optional OpenAlex). Show those
+lines when something fails. A certificate (TLS) failure usually means a proxy
+or a school/company gateway re-signs traffic; the rendered text already carries
+the fix — export that root certificate as a PEM file and set SSL_CERT_FILE (the
+search scripts) or NODE_EXTRA_CA_CERTS (the tool servers), then restart. A 4xx
+answer from EasyScholar without a key still counts as reachable. If the user is
+offline by choice, pass `probe_network: false`. When the rendered text lists
+tools hidden by the current setup, read the switch instructions exactly as
+written; never recommend the trash or delete tools as an everyday path — the
+workbench profile deliberately leaves them out.
+
 Do not read out `diagnostics`. If `search` is under Needs you with the action
 `install_helper`, say in one plain sentence that search needs a small helper
 tool (about 15 MB, plus about 30 MB of Python if the computer has none it can

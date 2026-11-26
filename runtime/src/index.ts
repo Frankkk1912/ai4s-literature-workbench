@@ -10,6 +10,7 @@ import { createMetrics } from './lib/metrics.js';
 import { makeReadiness, storeCheck, zoteroPingCheck } from './lib/health.js';
 import { installShutdownHandlers } from './lib/lifecycle.js';
 import { runSetupCli } from './lib/setup-cli.js';
+import { applyTlsTrust } from './lib/tls.js';
 import { backfillMetrics } from './features/metrics-backfill.js';
 import { createMetricsBackfillConsumer } from './features/plugin-channel/metrics-backfill-jobs.js';
 import { requireCloudLibrary } from './registry/registry.js';
@@ -32,6 +33,10 @@ async function main(): Promise<void> {
   loadStartupEnvFiles();
   const config = loadConfig(process.env);
   const logger = createLogger(config.logLevel, config.logFormat);
+  // TLS trust first: custom CA env vars must be validated and applied before
+  // any outbound fetch (including the ones buildServer makes). Verification
+  // stays on unless LITERATURE_TLS_INSECURE is explicitly set (warned loudly).
+  applyTlsTrust({ env: process.env, logger });
   const { server, ctx } = await buildServer(config);
 
   // Plugin-authored metrics-backfill requests (workbench order 11): while this

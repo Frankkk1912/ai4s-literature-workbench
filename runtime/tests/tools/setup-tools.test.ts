@@ -11,6 +11,19 @@ vi.mock('../../src/lib/browser-open.js', () => ({
     return launcher.opened;
   },
 }));
+// Never touch the network from a unit test: the probe module is mocked.
+const netProbe = vi.hoisted(() => ({
+  calls: 0,
+  summary: { checked: true, ok: true, results: [] } as import('../../src/lib/net-probe.js').NetworkSummary,
+}));
+vi.mock('../../src/lib/net-probe.js', () => ({
+  probeNetworkEndpoints: async () => {
+    netProbe.calls += 1;
+    return netProbe.summary;
+  },
+  PROBE_TARGETS: [],
+}));
+
 // Never look for a real uv on the test machine: CI runners may or may not have one.
 vi.mock('../../src/lib/search-helper.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/lib/search-helper.js')>()),
@@ -58,7 +71,7 @@ afterEach(() => {
 describe('setup_status tool', () => {
   it('is read-only, takes no key, and reports a fresh install as ready to search', async () => {
     expect(setupStatus.annotations?.readOnlyHint).toBe(true);
-    expect(Object.keys(setupStatus.inputSchema).sort()).toEqual(['language', 'wanted']);
+    expect(Object.keys(setupStatus.inputSchema).sort()).toEqual(['language', 'probe_network', 'wanted']);
     const result = await setupStatus.handler({}, ctx());
     const body = result.structuredContent as { works_now: Array<{ id: string }>; needs_you: unknown[]; language: string };
     expect(body.language).toBe('zh');
@@ -72,6 +85,55 @@ describe('setup_status tool', () => {
     expect(result.content[0]!.text).toMatch(/^Works now/);
     expect(result.content[0]!.text).toMatch(/Needs you \(1\)/);
     expect((result.structuredContent as { next_action: { type: string } }).next_action.type).toBe('open_setup');
+  });
+
+  it('includes the read-only network self-check by default, and skips it when asked', async () => {
+    netProbe.calls = 0;
+    netProbe.summary = {
+      checked: true,
+      ok: false,
+      results: [
+        {
+          name: 'Zotero Web API',
+          url: 'https://api.zotero.org/schema',
+          optional: false,
+          dns: false,
+          tls: null,
+          ms: 6000,
+          http_status: null,
+          error_class: 'timeout',
+          error: 'no answer within 6s',
+        },
+      ],
+    };
+    const probed = await setupStatus.handler({}, ctx());
+    expect(netProbe.calls).toBe(1);
+    expect((probed.structuredContent as { network: { checked: boolean; ok: boolean } }).network).toMatchObject({ checked: true, ok: false });
+    expect(probed.content[0]!.text).toContain('网络自检');
+
+    const skipped = await setupStatus.handler({ probe_network: false }, ctx());
+    expect(netProbe.calls).toBe(1); // unchanged: the call was skipped, not repeated
+    expect((skipped.structuredContent as { network: { checked: boolean } }).network.checked).toBe(false);
+    expect(skipped.content[0]!.text).not.toContain('网络自检');
+  });
+
+  it('lists the tools the active profile hides, with concrete switch instructions', async () => {
+    const result = await setupStatus.handler(
+      {},
+      ctx({ hiddenTools: [{ name: 'zotero_create_items', reason: 'workbench_profile' }] }),
+    );
+    expect((result.structuredContent as { hidden_tools: Array<{ name: string; reason: string }> }).hidden_tools).toEqual([
+      { name: 'zotero_create_items', reason: 'workbench_profile' },
+    ]);
+    expect(result.content[0]!.text).toContain('LITERATURE_ZOTERO_MCP_TOOL_PROFILE 设为 full');
+  });
+
+  it('warns in the rendered text when the insecure TLS override is on', async () => {
+    vi.stubEnv('LITERATURE_TLS_INSECURE', '1');
+    const result = await setupStatus.handler({}, ctx());
+    expect(result.content[0]!.text).toContain('LITERATURE_TLS_INSECURE');
+    expect(result.content[0]!.text).toContain('警告');
+    vi.unstubAllEnvs();
   });
 
   it('never returns the key the running tools hold', async () => {

@@ -32,6 +32,16 @@ try:
 except ImportError:  # pragma: no cover - non-Windows fallback.
     msvcrt = None
 
+# Shared TLS trust (system certs, custom CA env vars, explicit insecure), kept
+# next to literature_search.py so both scripts use the same implementation.
+# The module is found through the path below at run time; the checker cannot
+# follow that, so the missing-import report is silenced on purpose. The runtime
+# import is covered by the skill's own tests.
+_SHARED_TLS_DIR = Path(__file__).resolve().parents[2] / "literature-research" / "scripts"
+if str(_SHARED_TLS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SHARED_TLS_DIR))
+import workbench_tls  # noqa: E402  # pyright: ignore[reportMissingImports]
+
 
 WEB_API_BASE = "https://api.zotero.org"
 LOCAL_API_BASE = "http://localhost:23119/api"
@@ -50,9 +60,13 @@ class ApiError(RuntimeError):
 def file_lock(path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
     windows_lock = fcntl is None and msvcrt is not None
-    mode = "a+b" if windows_lock else "a+"
-    open_options = {} if windows_lock else {"encoding": "utf-8"}
-    with path.open(mode, **open_options) as handle:
+    # msvcrt's stub is Windows-only, so the alias keeps cross-platform checks quiet.
+    msvc: Any = msvcrt
+    if windows_lock:
+        handle_ctx: Any = path.open("a+b")
+    else:
+        handle_ctx: Any = path.open("a+", encoding="utf-8")
+    with handle_ctx as handle:
         if fcntl is not None:
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
         elif windows_lock:
@@ -63,7 +77,7 @@ def file_lock(path: Path):
             handle.seek(0)
             for _ in range(500):
                 try:
-                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                    msvc.locking(handle.fileno(), msvc.LK_NBLCK, 1)
                     break
                 except OSError:
                     time.sleep(0.02)
@@ -76,7 +90,7 @@ def file_lock(path: Path):
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
             elif windows_lock:
                 handle.seek(0)
-                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                msvc.locking(handle.fileno(), msvc.LK_UNLCK, 1)
 
 
 def wait_for_rate_limit(lock_path: Path, interval_seconds: float) -> None:
@@ -105,7 +119,10 @@ def wait_for_rate_limit(lock_path: Path, interval_seconds: float) -> None:
 
 def load_json(path: str | Path) -> Any:
     with Path(path).open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+        try:
+            return json.load(handle)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"{path} is not valid JSON: {exc}") from exc
 
 
 def write_json(path: str | Path, data: Any) -> None:
@@ -171,11 +188,12 @@ class ZoteroClient:
             headers.update(extra_headers)
 
         attempt = 0
+        safe_url = workbench_tls.sanitize_url(url)
         while True:
             wait_for_rate_limit(self.rate_limit_state, self.rate_limit_seconds)
             request = urllib.request.Request(url, data=body, headers=headers, method=method)
             try:
-                with urllib.request.urlopen(request, timeout=60) as response:
+                with workbench_tls.open_url(request, timeout=60) as response:
                     response_headers = dict(response.headers.items())
                     raw = response.read().decode("utf-8")
                     self._respect_backoff(url, response_headers)
@@ -189,27 +207,32 @@ class ZoteroClient:
                     delay = self._retry_delay(attempt, retry_after)
                     if attempt >= self.max_retries:
                         raise RateLimitError(
-                            f"Zotero API rate limit hit for {url}; Retry-After={retry_after or 'not provided'}"
+                            f"Zotero API rate limit hit for {safe_url}; Retry-After={retry_after or 'not provided'}"
                         ) from exc
-                    print(f"Zotero API 429 for {url}; retrying in {delay:.1f}s", file=sys.stderr)
+                    print(f"Zotero API 429 for {safe_url}; retrying in {delay:.1f}s", file=sys.stderr)
                     time.sleep(delay)
                     attempt += 1
                     continue
                 if exc.code in {500, 502, 503, 504} and attempt < self.max_retries:
                     delay = self._retry_delay(attempt, retry_after)
-                    print(f"Zotero API {exc.code} for {url}; retrying in {delay:.1f}s", file=sys.stderr)
+                    print(f"Zotero API {exc.code} for {safe_url}; retrying in {delay:.1f}s", file=sys.stderr)
                     time.sleep(delay)
                     attempt += 1
                     continue
-                raise ApiError(f"Zotero API {exc.code} for {url}: {response_body}") from exc
+                raise ApiError(f"Zotero API {exc.code} for {safe_url}: {response_body}") from exc
             except urllib.error.URLError as exc:
+                error_class, description = workbench_tls.classify_network_error(exc)
+                if error_class == "tls":
+                    # Certificate failures do not fix themselves; fail now with
+                    # the fix-it guidance instead of retrying three times.
+                    raise ApiError(f"Zotero API request to {safe_url} failed: {description}") from exc
                 if attempt < self.max_retries:
                     delay = 2**attempt
-                    print(f"Zotero API connection error for {url}; retrying in {delay:.1f}s", file=sys.stderr)
+                    print(f"Zotero API connection error ({error_class}) for {safe_url}; retrying in {delay:.1f}s", file=sys.stderr)
                     time.sleep(delay)
                     attempt += 1
                     continue
-                raise ApiError(f"Zotero API connection error for {url}: {exc}") from exc
+                raise ApiError(f"Zotero API connection error ({error_class}) for {safe_url}: {description}") from exc
 
     def _url(self, path: str, query: dict[str, str | int] | None) -> str:
         path_part = path if path.startswith("/") else f"/{path}"
@@ -433,7 +456,10 @@ def load_priority_recommendations(
     if not path:
         return None, {}
     raw_bytes = Path(path).read_bytes()
-    raw = json.loads(raw_bytes.decode("utf-8"))
+    try:
+        raw = json.loads(raw_bytes.decode("utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"{path} is not valid JSON: {exc}") from exc
     if not isinstance(raw, dict) or raw.get("schema_version") != "1.0":
         raise ValueError("Priority recommendations must be an object with schema_version 1.0")
     if raw.get("artifact_type") != "literature-priority-recommendations":
@@ -798,7 +824,12 @@ def fetch_local_candidates(
 def canonical_plan_hash(plan: dict[str, Any]) -> str:
     actions = []
     for source_action in sorted(plan["actions"], key=lambda action: action["evidence_id"]):
-        action = json.loads(json.dumps(source_action, ensure_ascii=False))
+        # Deep copy through JSON: the plan came from a JSON file, and the
+        # round-trip normalizes types the same way the file did.
+        try:
+            action = json.loads(json.dumps(source_action, ensure_ascii=False))
+        except json.JSONDecodeError as exc:  # unreachable: dumps() output is valid JSON
+            raise RuntimeError(f"plan action could not be copied: {exc}") from exc
         action["reason_codes"] = sorted(set(action.get("reason_codes", [])))
         item = action.get("item")
         if isinstance(item, dict) and isinstance(item.get("tags"), list):
@@ -854,7 +885,11 @@ def command_plan_citation_refresh(args: argparse.Namespace) -> None:
     source_sha256 = hashlib.sha256(raw).hexdigest()
     citations_by_doi: dict[str, dict[str, Any]] = {}
     citations_by_pmid: dict[str, dict[str, Any]] = {}
-    for record in evidence_records(json.loads(raw.decode("utf-8"))):
+    try:
+        evidence = json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"citation enrichment source is not valid JSON: {exc}") from exc
+    for record in evidence_records(evidence):
         citation = record.get("citation")
         if not isinstance(citation, dict) or citation.get("provider") != "semantic-scholar":
             continue
@@ -877,7 +912,7 @@ def command_plan_citation_refresh(args: argparse.Namespace) -> None:
         key = item_key(record)
         version = data.get("version") or record.get("version")
         citation = citations_by_doi.get(identity["doi"]) or citations_by_pmid.get(identity["pmid"])
-        base = {"item_key": key, "expected_version": int(version) if str(version or "").isdigit() else None, "title": str(data.get("title") or "")}
+        base = {"item_key": key, "expected_version": int(str(version or "")) if str(version or "").isdigit() else None, "title": str(data.get("title") or "")}
         if not key or base["expected_version"] is None:
             actions.append({**base, "decision": "skip", "reason_codes": ["missing-item-key-or-version"], "citation": None})
         elif not citation:
@@ -1267,7 +1302,7 @@ def command_plan_metrics_backfill(args: argparse.Namespace) -> None:
         journal_names = item_journal_names(record)
         base = {
             "item_key": key,
-            "expected_version": int(version) if str(version or "").isdigit() else None,
+            "expected_version": int(str(version or "")) if str(version or "").isdigit() else None,
             "title": str(data.get("title") or ""),
             "issns": issns,
         }
@@ -1331,7 +1366,11 @@ def command_plan_easyscholar_metrics_backfill(args: argparse.Namespace) -> None:
         raise ValueError("--source-label must not be empty")
     raw = Path(args.ranked).read_bytes()
     source_sha256 = hashlib.sha256(raw).hexdigest()
-    ranked = evidence_records(json.loads(raw.decode("utf-8")))
+    try:
+        evidence = json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"--ranked file is not valid JSON: {exc}") from exc
+    ranked = evidence_records(evidence)
     zotero = zotero_records(load_json(args.zotero_items))
     by_doi: dict[str, list[int]] = {}; by_pmid: dict[str, list[int]] = {}
     for idx, record in enumerate(zotero):
@@ -1350,7 +1389,7 @@ def command_plan_easyscholar_metrics_backfill(args: argparse.Namespace) -> None:
             continue
         seen_keys.add(key)
         version = data.get("version") or record.get("version")
-        base = {"item_key": key, "expected_version": int(version) if str(version or "").isdigit() else None,
+        base = {"item_key": key, "expected_version": int(str(version or "")) if str(version or "").isdigit() else None,
                 "title": str(data.get("title") or ""), "issns": item_issns(record)}
         if base["expected_version"] is None:
             actions.append({**base, "decision": "skip", "reason_codes": ["missing-item-key-or-version"], "metric": None}); continue
@@ -1459,7 +1498,11 @@ def command_plan_import(args: argparse.Namespace) -> None:
         raise ValueError("--candidate-limit must be a positive integer")
     raw_bytes = Path(args.evidence).read_bytes()
     source_sha256 = hashlib.sha256(raw_bytes).hexdigest()
-    raw_records = evidence_records(json.loads(raw_bytes.decode("utf-8")))
+    try:
+        evidence = json.loads(raw_bytes.decode("utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"--evidence file is not valid JSON: {exc}") from exc
+    raw_records = evidence_records(evidence)
     indexed: dict[str, dict[str, Any]] = {}
     for record in raw_records:
         evidence_id = stable_evidence_id(record)
@@ -1504,7 +1547,7 @@ def command_plan_import(args: argparse.Namespace) -> None:
         snapshot = load_json(args.zotero_items)
         snapshot_items = zotero_records(snapshot)
         source_version_raw = snapshot.get("last_modified_version") if isinstance(snapshot, dict) else None
-        source_version = int(source_version_raw) if str(source_version_raw or "").isdigit() else None
+        source_version = int(str(source_version_raw or "")) if str(source_version_raw or "").isdigit() else None
         truncated = len(snapshot_items) > args.candidate_limit
         candidates = snapshot_items[: args.candidate_limit]
         candidate_map = {evidence_id: candidates for evidence_id, _record in selected}
@@ -1575,7 +1618,8 @@ def command_plan_import(args: argparse.Namespace) -> None:
         source_database = str(record.get("source") or "").strip() or None
         source_record_id = str(record.get("id") or record.get("source_id") or "").strip() or None
         rank_raw = record.get("rank")
-        display_rank = int(rank_raw) if str(rank_raw or "").isdigit() and int(rank_raw) > 0 else None
+        rank_text = str(rank_raw or "")
+        display_rank = int(rank_text) if rank_text.isdigit() and int(rank_text) > 0 else None
         action = {
             "evidence_id": evidence_id,
             "display_rank": display_rank,
@@ -1633,6 +1677,8 @@ def evidence_level(record: dict[str, Any]) -> str:
         if value:
             return str(value)
     score = record.get("score") or record.get("rank_score")
+    if score is None:
+        return "unspecified"
     try:
         numeric = float(score)
     except (TypeError, ValueError):

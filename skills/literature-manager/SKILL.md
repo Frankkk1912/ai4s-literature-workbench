@@ -42,7 +42,13 @@ Every `uv run` in this skill stands for the command in `setup_status`'s
 `search_helper.run`: use `run.posix` in bash or zsh and `run.powershell` in
 PowerShell, then the rest of the line. It is a quoted full path when the
 workbench downloaded the helper itself, and plain `uv run` when the computer
-already had one. Do not add the helper to PATH or install another copy.
+already had one.
+
+TLS is verified by default. If a Zotero request fails with a certificate
+error, the script's message carries the fix: export the organization's root
+certificate as a PEM file and set `SSL_CERT_FILE` or `REQUESTS_CA_BUNDLE`.
+Never suggest disabling verification; `LITERATURE_TLS_INSECURE=1` exists only
+as an explicit, loudly warned override for trusted-network troubleshooting. Do not add the helper to PATH or install another copy.
 
 ## Overview
 Use this skill to connect saved literature evidence with Frank's Zotero library

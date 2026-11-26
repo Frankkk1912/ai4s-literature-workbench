@@ -42,6 +42,13 @@ PowerShell, then the rest of the line. It is a quoted full path when the
 workbench downloaded the helper itself, and plain `uv run` when the computer
 already had one. Do not add the helper to PATH or install another copy.
 
+TLS is verified by default. If a request fails with a certificate error, the
+script's message already carries the fix: export the organization's root
+certificate as a PEM file and set `SSL_CERT_FILE` or `REQUESTS_CA_BUNDLE` (the
+optional `truststore` package additionally uses the system certificate store).
+Never suggest disabling verification; `LITERATURE_TLS_INSECURE=1` exists only
+as an explicit, loudly warned override for trusted-network troubleshooting.
+
 Show the three groups from `rendered` only when the user asks what works, or when a key they asked for is missing.
 
 Never ask for a key in chat. If the user wants PubMed speed or journal ratings

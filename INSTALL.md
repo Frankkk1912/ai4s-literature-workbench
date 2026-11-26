@@ -240,6 +240,22 @@ Ask the user to quit Claude Desktop completely and reopen it, then check for `se
 4. Use `setup_status.diagnostics` presence flags (`zotero_key_present`, `pubmed_key_present`, `easyscholar_key_present`) to select only missing keys for the Key page line; do not infer a missing key from a local Zotero save option or a pending restart. Never print diagnostics or key values. If all three are configured, replace that line with exactly: "All keys are set; ask for the key page any time to change one." This counts as mentioning key onboarding. If status is unavailable, do not guess which keys are missing.
 5. Offer the onboarding (next section) in the same message. Ask once about missing keys and the add-on, not keys already set, and wait. Do not end with only the report.
 
+## TLS and proxies
+
+Certificate verification is on by default and is never disabled silently. If a
+school or company gateway re-signs traffic, export its root certificate as a
+PEM file and set one of these, then restart: `SSL_CERT_FILE` or
+`REQUESTS_CA_BUNDLE` (the search scripts and the tool servers' outbound
+requests), or `NODE_EXTRA_CA_CERTS` (Node itself). The Python scripts also use
+the system certificate store when the optional `truststore` package is
+installed (`uv add truststore`), and Node 22.15+ can with
+`NODE_USE_SYSTEM_CA=1`. An invalid CA path is a clear startup error, never a
+silent skip. `LITERATURE_TLS_INSECURE=1` exists only as an explicit, loudly
+warned last resort on a trusted private network; the workbench never turns
+verification off on its own. `setup_status`'s Network check section shows which
+endpoints are reachable and carries the same fix text when a certificate
+fails.
+
 ## Onboarding
 
 Both parts are optional. Mention them once after the check, because a user who is not told will not find them. Offer only keys that `setup_status` reports as missing; when all are set, use the all-keys sentence above instead of asking to configure them again. Still offer the add-on. Never press for either.

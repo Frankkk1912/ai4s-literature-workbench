@@ -6,6 +6,8 @@ import {
   renderSetup,
   type SetupFacts,
 } from '../../src/lib/setup-status.js';
+import type { NetworkSummary, ProbeResult } from '../../src/lib/net-probe.js';
+import type { HiddenToolInfo } from '../../src/lib/tool-profiles.js';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,6 +18,25 @@ const baseFacts = (): SetupFacts => ({
   pubmedKey: false,
   easyscholarKey: false,
   addon: 'absent',
+});
+
+const probe = (over: Partial<ProbeResult>): ProbeResult => ({
+  name: 'Zotero Web API',
+  url: 'https://api.zotero.org/schema',
+  optional: false,
+  dns: true,
+  tls: true,
+  ms: 300,
+  http_status: 200,
+  error_class: 'ok',
+  error: null,
+  ...over,
+});
+
+const summaryOf = (results: ProbeResult[]): NetworkSummary => ({
+  checked: true,
+  ok: results.filter((r) => !r.optional).every((r) => r.error_class === 'ok' || r.error_class === 'http'),
+  results,
 });
 
 // Words that belong to the build, not to the user's world. The status text must never use them.
@@ -193,5 +214,118 @@ describe('setup status reads settings without leaking them', () => {
   it('negative control: a planted value in a key slot would be found by the leak check', () => {
     const planted = JSON.stringify({ rendered: { en: 'Your key is zotero-secret-value-123456' } });
     expect(planted).toContain('zotero-secret-value-123456');
+  });
+});
+
+describe('setup status network and hidden-tool sections', () => {
+  it('renders the network self-check in both languages, key-free', () => {
+    const probes = summaryOf([
+      probe({}),
+      probe({ name: 'EasyScholar', url: 'https://www.easyscholar.cc/open/getPublicationRank', ms: 190, http_status: 401 }),
+    ]);
+    const status = buildSetupStatus(baseFacts(), { probes });
+    expect(status.network).toMatchObject({ checked: true, ok: true });
+    expect(status.rendered.zh).toContain('网络自检');
+    expect(status.rendered.zh).toContain('Zotero Web API：已连通（HTTP 200，300 毫秒）');
+    expect(status.rendered.zh).toContain('4xx 也算连通');
+    expect(status.rendered.en).toContain('Network check');
+    expect(status.rendered.en).toContain('EasyScholar: reachable (HTTP 401, 190 ms)');
+    // The probe URL itself never carries a query, let alone a key.
+    expect(JSON.stringify(status)).not.toMatch(/api_key|secretkey|mailto=/);
+  });
+
+  it('a TLS failure renders the fix-it guidance, in both languages', () => {
+    const tlsFailure = probe({
+      error_class: 'tls',
+      tls: false,
+      http_status: null,
+      error: 'the certificate is not trusted (UNABLE_TO_VERIFY_LEAK_SIGNATURE)',
+    });
+    const status = buildSetupStatus(baseFacts(), { probes: summaryOf([tlsFailure]) });
+    expect(status.network.ok).toBe(false);
+    expect(status.rendered.zh).toContain('证书校验失败');
+    expect(status.rendered.zh).toContain('SSL_CERT_FILE');
+    expect(status.rendered.en).toContain('TLS certificate check failed');
+    expect(status.rendered.en).toContain('NODE_EXTRA_CA_CERTS');
+  });
+
+  it('marks the optional endpoint and never fails the verdict for it', () => {
+    const probes = summaryOf([
+      probe({}),
+      probe({ name: 'OpenAlex', url: 'https://api.openalex.org/works', optional: true, error_class: 'dns', dns: false, tls: null, http_status: null, error: 'dns failed' }),
+    ]);
+    const status = buildSetupStatus(baseFacts(), { probes });
+    expect(status.network.ok).toBe(true);
+    expect(status.rendered.zh).toContain('OpenAlex（可选）');
+    expect(status.rendered.en).toContain('OpenAlex (optional)');
+  });
+
+  it('skipped probes render no network section at all', () => {
+    const status = buildSetupStatus(baseFacts(), {});
+    expect(status.network.checked).toBe(false);
+    expect(status.rendered.zh).not.toContain('网络自检');
+    expect(status.rendered.en).not.toContain('Network check');
+  });
+
+  it('warns loudly in the rendered text when the insecure override is on', () => {
+    const status = buildSetupStatus(baseFacts(), { tlsInsecure: true });
+    expect(status.diagnostics).toMatchObject({ tls_insecure: true });
+    expect(status.rendered.zh).toContain('LITERATURE_TLS_INSECURE');
+    expect(status.rendered.zh).toContain('警告');
+    expect(status.rendered.en).toContain('LITERATURE_TLS_INSECURE is on');
+  });
+
+  it('lists hidden tools with concrete switching instructions', () => {
+    const hiddenTools: HiddenToolInfo[] = [
+      { name: 'zotero_create_items', reason: 'workbench_profile' },
+      { name: 'zotero_delete_items', reason: 'workbench_profile' },
+      { name: 'zotero_update_items', reason: 'read_only' },
+    ];
+    const status = buildSetupStatus(baseFacts(), { hiddenTools });
+    expect(status.hidden_tools).toHaveLength(3);
+    expect(status.rendered.zh).toContain('当前隐藏的工具（3）');
+    expect(status.rendered.zh).toContain('zotero_create_items、zotero_delete_items');
+    expect(status.rendered.zh).toContain('LITERATURE_ZOTERO_MCP_TOOL_PROFILE 设为 full');
+    expect(status.rendered.zh).toContain('取消 ZOTEUS_READ_ONLY');
+    expect(status.rendered.en).toContain('Tools hidden by the current setup (3)');
+    expect(status.rendered.en).toContain('set LITERATURE_ZOTERO_MCP_TOOL_PROFILE to full');
+    // The trash/delete policy note appears exactly because delete is listed.
+    expect(status.rendered.en).toContain('deliberately leaves them out');
+  });
+
+  it('explains remote-deployment hiding without suggesting a fix that cannot work', () => {
+    const hiddenTools: HiddenToolInfo[] = [
+      { name: 'open_setup', reason: 'remote_deployment' },
+      { name: 'install_search_helper', reason: 'remote_deployment' },
+    ];
+    const status = buildSetupStatus(baseFacts(), { hiddenTools });
+    expect(status.rendered.en).toContain('remote deployment');
+    expect(status.rendered.en).toContain('a remote caller cannot reach');
+    expect(status.rendered.zh).toContain('远程部署隐藏');
+  });
+
+  it('no hidden tools renders no hidden-tool section', () => {
+    const status = buildSetupStatus(baseFacts(), { hiddenTools: [] });
+    expect(status.rendered.zh).not.toContain('当前隐藏的工具');
+    expect(status.rendered.en).not.toContain('Tools hidden by');
+  });
+
+  it('the new sections use no build or component words either', () => {
+    const probes = summaryOf([
+      probe({ error_class: 'tls', tls: false, http_status: null, error: 'cert failed' }),
+    ]);
+    const hiddenTools: HiddenToolInfo[] = [
+      { name: 'zotero_delete_items', reason: 'workbench_profile' },
+      { name: 'zotero_update_items', reason: 'read_only' },
+    ];
+    const status = buildSetupStatus(baseFacts(), { probes, hiddenTools, tlsInsecure: true });
+    for (const lang of ['zh', 'en'] as const) {
+      for (const line of status.rendered[lang].split('\n')) {
+        // Env-var names like LITERATURE_ZOTERO_MCP_TOOL_PROFILE contain "MCP"
+        // inside one word, which the \b regex correctly does not match.
+        if (line.includes('LITERATURE_ZOTERO_MCP_TOOL_PROFILE')) continue;
+        expect(line).not.toMatch(INTERNAL);
+      }
+    }
   });
 });
