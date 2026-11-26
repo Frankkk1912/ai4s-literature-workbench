@@ -22,16 +22,28 @@ var LiteraturePluginChannel = (function () {
   const MAX_PLAN_FILE_BYTES = 1048576;
 
   // Pinned metrics-backfill request payload: exactly one of a collection key or
-  // selected item keys. No secrets, no Extra blobs, no local API versions, no
-  // mode: requests are preview-only; apply always goes through the MCP tool.
-  function validBackfillPayload(payload) {
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
-    const keys = Object.keys(payload);
-    if (keys.length !== 1) return false;
-    if (keys[0] === "collection_key") return ZOTERO_KEY.test(payload.collection_key);
-    if (keys[0] === "item_keys") {
+  // selected item keys. Preview jobs have only that selector. Apply jobs, which
+  // the add-on writes only after the user confirms a preview, also carry
+  // mode: "apply" and confirm_plan_hash (the preview's plan_hash). No secrets,
+  // no Extra blobs, no local API versions, and no receipt_path — the runtime
+  // generates the receipt under dataDir/receipts/.
+  function validSelector(payload) {
+    if (Object.prototype.hasOwnProperty.call(payload, "collection_key")) {
+      return ZOTERO_KEY.test(payload.collection_key);
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, "item_keys")) {
       return Array.isArray(payload.item_keys) && payload.item_keys.length > 0 && payload.item_keys.length <= 100
         && payload.item_keys.every((key) => ZOTERO_KEY.test(key));
+    }
+    return false;
+  }
+
+  function validBackfillPayload(payload) {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
+    const keys = Object.keys(payload).sort().join(",");
+    if (keys === "collection_key" || keys === "item_keys") return validSelector(payload);
+    if (keys === "collection_key,confirm_plan_hash,mode" || keys === "confirm_plan_hash,item_keys,mode") {
+      return payload.mode === "apply" && PLAN_HASH.test(payload.confirm_plan_hash) && validSelector(payload);
     }
     return false;
   }
@@ -177,7 +189,7 @@ var LiteraturePluginChannel = (function () {
       return scanning;
     }
     // Plugin-authored preview request: the workbench runtime consumes it with
-    // zotero_backfill_metrics (always dry_run) and answers with a result file.
+    // zotero_backfill_metrics (preview, or apply after an in-Zotero confirm) and answers with a result file.
     async function submitMetricsBackfillJob(payload) {
       if (!running) throw new Error("Jobs channel is not running.");
       if (!validBackfillPayload(payload)) throw new Error("Invalid metrics-backfill request payload.");

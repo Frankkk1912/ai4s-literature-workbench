@@ -78,7 +78,12 @@ function harness({ agrees = true } = {}) {
   vm.runInContext(source("src/ai-summaries.js"), scope);
   vm.runInContext(source("src/plugin-channel.js"), scope);
   vm.runInContext(source("src/metrics-backfill-menu.js"), scope);
-  const confirm = async (title, text) => { prompts.push({ title, text }); return agrees; };
+  const remaining = Array.isArray(agrees) ? [...agrees] : null;
+  const confirm = async (title, text) => {
+    prompts.push({ title, text });
+    if (remaining) return Boolean(remaining.shift());
+    return Boolean(agrees);
+  };
   const channel = scope.LiteraturePluginChannel.create({
     files,
     confirm,
@@ -163,7 +168,7 @@ test("selected-items menu submits a preview job whose payload is exactly the ite
   assert.doesNotMatch(JSON.stringify(job), /api[_-]?key|secret|token|password|easyscholar/i, "no key or secret fields anywhere in the job");
   assert.match(h.prompts[0].text, /PREVIEW/i);
   assert.match(h.prompts[0].text, /dry run/i);
-  assert.match(h.lastProgress().description, /Preview request queued.*zotero_backfill_metrics/);
+  assert.match(h.lastProgress().description, /Preview request queued.*dry-run preview/);
   await h.channel.stop();
 });
 
@@ -195,7 +200,8 @@ test("declining the confirmation dialog submits no job at all, so nothing can be
 });
 
 test("shows the runtime preview counts and plan hash, then cleans up the job files", async () => {
-  const h = harness();
+  const planHash = "sha256:" + "a".repeat(64);
+  const h = harness({ agrees: [true, false] });
   await h.channel.start();
   h.select([makeItem("AAAA0001")]);
   await h.itemMenu.children.at(-1).dispatch("command");
@@ -207,16 +213,22 @@ test("shows the runtime preview counts and plan hash, then cleans up the job fil
     status: "completed",
     mode: "dry_run",
     finished_at: new Date().toISOString(),
-    preview: { update: 3, skip: 1, plan_hash: "a".repeat(64), easyscholar: { key_configured: true } },
+    preview: { update: 3, skip: 1, plan_hash: planHash, easyscholar: { key_configured: true } },
   });
   await h.tick();
-  assert.match(h.lastProgress().headline, /Backfill Preview/);
-  assert.match(h.lastProgress().description, /3 would update/);
-  assert.match(h.lastProgress().description, /1 skipped/);
-  assert.match(h.lastProgress().description, new RegExp(`plan_hash ${"a".repeat(16)}…`));
-  assert.match(h.lastProgress().description, /apply from your workbench assistant/);
+  const preview = h.progress.find((record) => /Backfill Preview/.test(record.headline || ""));
+  assert.ok(preview, "the preview popup must be shown");
+  assert.match(preview.description, /3 would update/);
+  assert.match(preview.description, /1 skipped/);
+  assert.match(preview.description, new RegExp(`plan_hash ${planHash.slice(0, 16)}…`));
+  assert.equal(h.prompts.length, 2);
+  assert.equal(h.prompts[1].title, "Metrics Backfill · Confirm write");
+  assert.match(h.prompts[1].text, /3 item\(s\) will be updated, 1 skipped/);
+  assert.match(h.prompts[1].text, new RegExp(planHash.slice(0, 16)));
+  assert.match(h.lastProgress().description, /Write cancelled\. Nothing was written/);
   assert.equal(h.records.has(`${job.job_id}.job.json`), false);
   assert.equal(h.records.has(`${job.job_id}.result.json`), false);
+  assert.equal(h.jobFiles().length, 0, "cancelling the write confirm must not queue an apply job");
   await h.channel.stop();
 });
 
@@ -301,4 +313,95 @@ test("menus stay unregistered when the jobs channel is unavailable", async () =>
   assert.equal(itemMenu.children.length, 0, "no dead menu entry without the channel");
   assert.equal(collectionMenu.children.length, 0, "no dead menu entry without the channel");
   assert.ok(messages.some((message) => /jobs channel is unavailable/.test(message)));
+});
+
+test("confirming the write preview submits an apply job with confirm_plan_hash and the same selector", async () => {
+  const planHash = "sha256:" + "b".repeat(64);
+  const h = harness({ agrees: true });
+  await h.channel.start();
+  h.select([makeItem("AAAA0001"), makeItem("BBBB0002")]);
+  await h.itemMenu.children.at(-1).dispatch("command");
+  const previewJob = h.records.get(h.jobFiles()[0]);
+  assert.deepEqual(previewJob.payload, { item_keys: ["AAAA0001", "BBBB0002"] });
+  h.records.set(`${previewJob.job_id}.result.json`, {
+    schema_version: 1,
+    job_id: previewJob.job_id,
+    job_plan_hash: previewJob.plan_hash,
+    status: "completed",
+    mode: "dry_run",
+    finished_at: new Date().toISOString(),
+    preview: { update: 2, skip: 0, plan_hash: planHash, easyscholar: { key_configured: true } },
+  });
+  await h.tick();
+  assert.equal(h.prompts[1].title, "Metrics Backfill · Confirm write");
+  assert.equal(h.records.has(`${previewJob.job_id}.job.json`), false, "preview files are discarded before the apply job is written");
+  assert.equal(h.jobFiles().length, 1);
+  const applyJob = h.records.get(h.jobFiles()[0]);
+  assert.equal(applyJob.job_type, "metrics-backfill");
+  assert.notEqual(applyJob.job_id, previewJob.job_id);
+  assert.deepEqual(applyJob.payload, {
+    item_keys: ["AAAA0001", "BBBB0002"],
+    mode: "apply",
+    confirm_plan_hash: planHash,
+  });
+  const expected = createHash("sha256").update(JSON.stringify([
+    applyJob.schema_version, applyJob.job_id, applyJob.job_type, applyJob.created_at, applyJob.payload,
+  ])).digest("hex");
+  assert.equal(applyJob.plan_hash, expected);
+  assert.doesNotMatch(JSON.stringify(applyJob), /api[_-]?key|secret|token|password|easyscholar|receipt_path/i);
+  const receipt = "/tmp/workbench/receipts/metrics-backfill-" + applyJob.job_id + ".json";
+  h.records.set(`${applyJob.job_id}.result.json`, {
+    schema_version: 1,
+    job_id: applyJob.job_id,
+    job_plan_hash: applyJob.plan_hash,
+    status: "completed",
+    mode: "apply",
+    finished_at: new Date().toISOString(),
+    apply: { update: 2, skip: 0, plan_hash: planHash, receipt_path: receipt },
+  });
+  await h.tick();
+  assert.match(h.lastProgress().description, /已写入 2 篇/);
+  assert.equal(h.lastProgress().description.includes("回执：" + receipt), true);
+  assert.equal(h.records.has(`${applyJob.job_id}.job.json`), false);
+  assert.equal(h.records.has(`${applyJob.job_id}.result.json`), false);
+  await h.channel.stop();
+});
+
+test("a hash-mismatch apply result is shown as a refused write and nothing is left queued", async () => {
+  const planHash = "sha256:" + "c".repeat(64);
+  const h = harness({ agrees: true });
+  await h.channel.start();
+  h.setCollection({ objectType: "collection", key: "334VW86H" });
+  await h.collectionMenu.children.at(-1).dispatch("command");
+  const previewJob = h.records.get(h.jobFiles()[0]);
+  h.records.set(`${previewJob.job_id}.result.json`, {
+    schema_version: 1,
+    job_id: previewJob.job_id,
+    job_plan_hash: previewJob.plan_hash,
+    status: "completed",
+    mode: "dry_run",
+    finished_at: new Date().toISOString(),
+    preview: { update: 1, skip: 0, plan_hash: planHash, easyscholar: { key_configured: true } },
+  });
+  await h.tick();
+  const applyJob = h.records.get(h.jobFiles()[0]);
+  assert.deepEqual(applyJob.payload, {
+    collection_key: "334VW86H",
+    mode: "apply",
+    confirm_plan_hash: planHash,
+  });
+  h.records.set(`${applyJob.job_id}.result.json`, {
+    schema_version: 1,
+    job_id: applyJob.job_id,
+    job_plan_hash: applyJob.plan_hash,
+    status: "failed",
+    mode: "apply",
+    finished_at: new Date().toISOString(),
+    error: "confirm_plan_hash does not match the freshly built plan. Nothing was written. Re-run mode dry_run, review the result, and confirm the new plan_hash.",
+  });
+  await h.tick();
+  assert.match(h.lastProgress().description, /Write refused: confirm_plan_hash does not match/);
+  assert.match(h.lastProgress().description, /Preview again from the menu/);
+  assert.equal(h.jobFiles().length, 0);
+  await h.channel.stop();
 });

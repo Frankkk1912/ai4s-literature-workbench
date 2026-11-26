@@ -2,13 +2,13 @@
 /*
  * Metrics Backfill menu (workbench order 11).
  *
- * Right-click entries that submit a preview-only metrics-backfill request
- * through the workbench jobs channel. This module never fetches journal data,
- * never writes Extra, and never holds any EasyScholar / Zotero API key; the
- * workbench runtime consumes the request with zotero_backfill_metrics (always
- * dry_run) and answers with a result file that is shown in Zotero. Applying a
- * plan always needs a separate, explicit confirmation of its plan hash in the
- * workbench, so cancelling the menu dialog never writes anything.
+ * Right-click entries that submit a metrics-backfill request through the
+ * workbench jobs channel. This module never fetches journal data, never writes
+ * Extra itself, and never holds any EasyScholar / Zotero API key; the workbench
+ * runtime consumes the request. A preview (dry_run) is shown first. Applying
+ * the plan happens only after a second, in-Zotero confirmation of that
+ * preview's plan_hash, which queues an apply job carrying confirm_plan_hash.
+ * Cancelling either dialog never writes anything.
  */
 
 // "var" so Services.scriptloader.loadSubScript attaches the export to the
@@ -23,6 +23,7 @@ var LiteratureMetricsBackfillMenu = (function () {
   const COLLECTION_MENU_LABEL = "Backfill Metrics for Current Collection";
   const WATCH_INTERVAL_MS = 2000;
   const WATCH_TIMEOUT_MS = 15 * 60 * 1000;
+  const PLAN_HASH = /^sha256:[a-f0-9]{64}$/;
 
   let channel = null;
   let schedule = null;
@@ -77,7 +78,12 @@ var LiteratureMetricsBackfillMenu = (function () {
     return error && error.message ? error.message : String(error);
   }
 
-  function describeResult(result) {
+  function hashPrefix(hash) {
+    const value = String(hash || "");
+    return value ? value.slice(0, 16) + "…" : "";
+  }
+
+  function describePreview(result) {
     if (result.status === "failed") {
       return "Preview failed: " + (result.error || "unknown workbench error");
     }
@@ -85,16 +91,57 @@ var LiteratureMetricsBackfillMenu = (function () {
     const parts = [];
     if (Number.isFinite(preview.update)) parts.push(preview.update + " would update");
     if (Number.isFinite(preview.skip)) parts.push(preview.skip + " skipped");
-    const hash = String(preview.plan_hash || "");
-    if (hash) parts.push("plan_hash " + hash.slice(0, 16) + "…");
+    const prefix = hashPrefix(preview.plan_hash);
+    if (prefix) parts.push("plan_hash " + prefix);
     const easyscholar = preview.easyscholar || {};
     if (easyscholar.key_configured === false) parts.push("EasyScholar key not configured");
-    return parts.join(" · ") + " — review and apply from your workbench assistant.";
+    return parts.join(" · ");
+  }
+
+  function writeConfirmText(preview) {
+    const update = Number.isFinite(preview.update) ? preview.update : 0;
+    const skip = Number.isFinite(preview.skip) ? preview.skip : 0;
+    const prefix = hashPrefix(preview.plan_hash) || "(missing plan_hash)";
+    return "Write this metrics plan to Zotero now?\n\n"
+      + update + " item(s) will be updated, " + skip + " skipped.\n"
+      + "plan_hash " + prefix + "\n\n"
+      + "Cancel writes nothing. Confirm applies this exact plan. If the library has changed since the preview, the write will be refused and you can preview again.";
+  }
+
+  function describeApply(result) {
+    if (result.status === "failed") {
+      return "Write refused: " + (result.error || "unknown workbench error")
+        + " Preview again from the menu if the library has changed.";
+    }
+    const apply = result.apply || {};
+    const parts = [];
+    if (Number.isFinite(apply.update)) parts.push("已写入 " + apply.update + " 篇");
+    if (apply.receipt_path) parts.push("回执：" + apply.receipt_path);
+    return parts.join("，") || "Write finished.";
+  }
+
+  async function discardJob(jobId) {
+    try { await channel.discardMetricsBackfillJob(jobId); }
+    catch (error) { log("Could not clean up metrics backfill job: " + readable(error), "error"); }
+  }
+
+  async function refreshMetricsView() {
+    // Item-tree columns read Extra from the local item; a successful cloud write
+    // refreshes them once Zotero has the updated item (sync or local notify).
+    try {
+      const pane = mainWindow && mainWindow.ZoteroPane;
+      if (pane && pane.itemsView && typeof pane.itemsView.refresh === "function") {
+        await pane.itemsView.refresh();
+      }
+    }
+    catch (error) {
+      log("Could not refresh the item tree after metrics apply: " + readable(error), "error");
+    }
   }
 
   // Poll for the runtime's result file; stop after a generous timeout so a
   // workbench that is not running cannot spin this forever.
-  function watchResult(job) {
+  function watchResult(job, context) {
     const jobId = job.job_id;
     const deadline = Date.now() + WATCH_TIMEOUT_MS;
     let busy = false;
@@ -105,8 +152,9 @@ var LiteratureMetricsBackfillMenu = (function () {
         if (Date.now() > deadline) {
           watchers.delete(jobId);
           cancelTimer(timer);
+          const waiting = context && context.kind === "apply" ? "write result" : "preview";
           showProgress("Literature Metrics · Backfill",
-            "No preview arrived for job " + jobId.slice(0, 8) + " — is the workbench assistant running? The request stays queued.");
+            "No " + waiting + " arrived for job " + jobId.slice(0, 8) + " — is the workbench assistant running? The request stays queued.");
           return;
         }
         let result = null;
@@ -119,9 +167,38 @@ var LiteratureMetricsBackfillMenu = (function () {
         }
         watchers.delete(jobId);
         cancelTimer(timer);
-        showProgress("Literature Metrics · Backfill Preview", describeResult(result));
-        try { await channel.discardMetricsBackfillJob(jobId); }
-        catch (error) { log("Could not clean up metrics backfill job: " + readable(error), "error"); }
+        if (context && context.kind === "apply") {
+          showProgress("Literature Metrics · Backfill", describeApply(result));
+          await discardJob(jobId);
+          if (result.status === "completed") await refreshMetricsView();
+          return;
+        }
+        showProgress("Literature Metrics · Backfill Preview", describePreview(result));
+        if (result.status === "failed") {
+          await discardJob(jobId);
+          return;
+        }
+        const preview = result.preview || {};
+        const hash = String(preview.plan_hash || "");
+        if (!PLAN_HASH.test(hash)) {
+          showProgress("Literature Metrics · Backfill",
+            "Preview did not include a usable plan_hash. Nothing was written.");
+          await discardJob(jobId);
+          return;
+        }
+        let agreed = false;
+        try {
+          agreed = await confirmDialog("Metrics Backfill · Confirm write", writeConfirmText(preview));
+        }
+        catch (error) {
+          log("Could not show the metrics write confirmation: " + readable(error), "error");
+        }
+        await discardJob(jobId);
+        if (!agreed) {
+          showProgress("Literature Metrics · Backfill", "Write cancelled. Nothing was written.");
+          return;
+        }
+        await submitApply(context.payload, hash);
       }
       finally { busy = false; }
     }, WATCH_INTERVAL_MS);
@@ -139,8 +216,26 @@ var LiteratureMetricsBackfillMenu = (function () {
       return;
     }
     showProgress("Literature Metrics · Backfill",
-      "Preview request queued for " + label + ". Run zotero_backfill_metrics in your workbench assistant to build it.");
-    watchResult(job);
+      "Preview request queued for " + label + ". The running workbench will build a dry-run preview.");
+    watchResult(job, { kind: "preview", payload });
+  }
+
+  async function submitApply(payload, confirmPlanHash) {
+    const applyPayload = payload.collection_key
+      ? { collection_key: payload.collection_key, mode: "apply", confirm_plan_hash: confirmPlanHash }
+      : { item_keys: payload.item_keys, mode: "apply", confirm_plan_hash: confirmPlanHash };
+    let job = null;
+    try {
+      job = await channel.submitMetricsBackfillJob(applyPayload);
+    }
+    catch (error) {
+      log("Could not submit metrics backfill apply: " + readable(error), "error");
+      showProgress("Literature Metrics · Backfill", "Could not submit the write: " + readable(error));
+      return;
+    }
+    showProgress("Literature Metrics · Backfill",
+      "Write request queued for plan_hash " + hashPrefix(confirmPlanHash) + ". The running workbench will apply this exact plan.");
+    watchResult(job, { kind: "apply" });
   }
 
   async function backfillSelectedItems(win) {
@@ -155,7 +250,7 @@ var LiteratureMetricsBackfillMenu = (function () {
     }
     const agreed = await confirmDialog("Metrics Backfill",
       "Submit a metrics backfill request for " + keys.length + " selected item(s)? The workbench will build a PREVIEW first "
-      + "(dry run). Nothing is written to Zotero; applying the plan later always needs your separate confirmation of its plan hash.");
+      + "(dry run). Nothing is written to Zotero until you confirm the preview's plan hash.");
     if (!agreed) return;
     await submitRequest({ item_keys: keys }, keys.length + " selected item(s)");
   }
@@ -168,7 +263,7 @@ var LiteratureMetricsBackfillMenu = (function () {
     }
     const agreed = await confirmDialog("Metrics Backfill",
       "Submit a metrics backfill request for the current collection? The workbench will build a PREVIEW first "
-      + "(dry run). Nothing is written to Zotero; applying the plan later always needs your separate confirmation of its plan hash.");
+      + "(dry run). Nothing is written to Zotero until you confirm the preview's plan hash.");
     if (!agreed) return;
     await submitRequest({ collection_key: key }, "collection " + key);
   }

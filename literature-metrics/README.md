@@ -123,9 +123,9 @@ asks for confirmation in Zotero, and writes a matching acknowledgement. Three
 job types exist: `ping` is only a connectivity test and never changes items;
 `native-merge` executes an approved dedupe plan through Zotero's own
 `Zotero.Items.merge` after an explicit confirmation dialog (see below); and
-`metrics-backfill` is a plugin-authored preview request (see the menu section)
-that the ping loop never claims, confirms, or rejects — the running workbench
-runtime answers it with a `<job_id>.result.json`. This channel is only for
+`metrics-backfill` is a plugin-authored preview or confirmed-apply request
+(see the menu section) that the ping loop never claims, confirms, or rejects —
+the running workbench runtime answers it with a `<job_id>.result.json`. This channel is only for
 workbench jobs and does not replace the Zotero 10 local write API. It opens no
 HTTP endpoint and stores no Zotero, EasyScholar, or other API keys.
 
@@ -209,7 +209,7 @@ an interrupted job resumes without re-merging finished clusters. A plan file is
 only ever read from directly inside `<dataDir>/dedupe-plans/`, with symlink and
 size (1 MiB) checks; channel files are capped at 32 KiB.
 
-## Metrics backfill menu (preview only)
+## Metrics backfill menu (preview, then confirm write)
 
 Right-click entries in the item list and collection pane — **Backfill Metrics
 for Selected Items** and **Backfill Metrics for Current Collection** — queue a
@@ -219,18 +219,25 @@ the selected item keys (deduplicated, ≤100) or the collection key; it never
 includes items' `Extra` text, local API versions, or any key or secret.
 
 The running workbench runtime notices the job, rebuilds the same plan as
-`zotero_backfill_metrics` in **`dry_run` only**, and answers with a
+`zotero_backfill_metrics` in **`dry_run`**, and answers with a
 `<job_id>.result.json` (counts, `plan_hash`, readable error; never a secret).
-The add-on polls for that result, shows the preview in a Zotero progress popup
-(`N would update · M skipped · plan_hash …`), and cleans up the job files. The
-ping loop never claims, confirms, or rejects these request jobs.
+The add-on polls for that result and shows the preview in a Zotero progress
+popup (`N would update · M skipped · plan_hash …`). A second confirmation
+dialog then offers to write that exact plan (update/skip counts and the
+`plan_hash` prefix). Cancel writes nothing. Confirm queues a follow-up
+`metrics-backfill` job with `mode: "apply"` and `confirm_plan_hash` equal to
+the preview's `plan_hash`. The runtime applies it through the same reviewed
+`backfillMetrics` path (hash gate, receipt, idempotence), writes a receipt
+under `<dataDir>/receipts/metrics-backfill-<job_id>.json`, and returns the
+receipt path to the add-on. If the library changed after the preview, the
+fresh plan hash will not match and the write is refused — preview again.
+The ping loop never claims, confirms, or rejects these request jobs.
 
-Nothing is ever applied from Zotero: applying a preview is a separate,
-explicit MCP call (`zotero_backfill_metrics` with `mode: "apply"` and the
-`confirm_plan_hash` reported by the dry run). The EasyScholar key stays on the
-workbench setup page — the add-on never reads, stores, or transmits it. Test
-the menu on a disposable collection first; a declined dialog leaves no job
-file behind.
+The MCP tool `zotero_backfill_metrics` is unchanged: it still defaults to
+`dry_run`, and an agent-side apply still requires `confirm_plan_hash` plus an
+explicit `receipt_path`. The EasyScholar key stays on the workbench setup
+page — the add-on never reads, stores, or transmits it. Test the menu on a
+disposable collection first; a declined dialog leaves no job file behind.
 
 ## Build and test
 

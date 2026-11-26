@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import {
   backfillJobPlanHash,
   createMetricsBackfillConsumer,
+  defaultBackfillReceiptPath,
   redactSecrets,
   validateBackfillJob,
   type MetricsBackfillJob,
@@ -66,6 +67,18 @@ describe('metrics-backfill job validation', () => {
     expect(validateBackfillJob(job({ item_keys: Array.from({ length: 101 }, () => 'AAAA0001') }), good.job_id)).toBeNull();
     expect(validateBackfillJob(job({ item_keys: ['AAAA0001', 'notakey!'] }), good.job_id)).toBeNull();
     expect(validateBackfillJob({ ...good, extra: 1 }, good.job_id)).toBeNull();
+  });
+
+  it('accepts plugin-confirmed apply payloads and rejects apply without confirm_plan_hash', () => {
+    const planHash = 'sha256:' + 'a'.repeat(64);
+    const collection = job({ collection_key: '334VW86H', mode: 'apply', confirm_plan_hash: planHash });
+    const items = job({ item_keys: ['AAAA0001', 'BBBB0002'], mode: 'apply', confirm_plan_hash: planHash });
+    expect(validateBackfillJob(collection, collection.job_id)).toEqual(collection);
+    expect(validateBackfillJob(items, items.job_id)).toEqual(items);
+    expect(validateBackfillJob(job({ collection_key: '334VW86H', mode: 'apply' }), randomUUID())).toBeNull();
+    expect(validateBackfillJob(job({ collection_key: '334VW86H', mode: 'dry_run', confirm_plan_hash: planHash }), randomUUID())).toBeNull();
+    expect(validateBackfillJob(job({ collection_key: '334VW86H', mode: 'apply', confirm_plan_hash: 'a'.repeat(64) }), randomUUID())).toBeNull();
+    expect(validateBackfillJob(job({ collection_key: '334VW86H', mode: 'apply', confirm_plan_hash: planHash, receipt_path: '/tmp/r.json' }), randomUUID())).toBeNull();
   });
 });
 
@@ -222,5 +235,79 @@ describe('metrics-backfill consumer', () => {
   it('redacts obvious secret assignments from error text', () => {
     expect(redactSecrets('boom api_key=ABC123XYZ and token: "zzz"')).toBe('boom api_key=[redacted] and token: [redacted]');
     expect(redactSecrets('a normal readable failure')).toBe('a normal readable failure');
+  });
+});
+
+describe('metrics-backfill consumer apply', () => {
+  const planHash = 'sha256:' + 'f'.repeat(64);
+
+  it('applies a plugin-confirmed job, writes a receipt path under dataDir/receipts, and leaves the job for the add-on to discard', async () => {
+    const seen: unknown[] = [];
+    const { consumer } = await fixture();
+    const dataDir = consumer.root.slice(0, -'/plugin-jobs'.length);
+    const run = createMetricsBackfillConsumer({
+      dataDir,
+      runPreview: async () => { throw new Error('preview must not run for apply jobs'); },
+      runApply: async (payload, receiptPath) => {
+        seen.push({ payload, receiptPath });
+        return { update: 1, skip: 0, plan_hash: planHash, receipt_path: receiptPath };
+      },
+    });
+    const request = job({ collection_key: '334VW86H', mode: 'apply', confirm_plan_hash: planHash });
+    await addJob(run.root, request);
+    expect(await run.scanOnce()).toBe(1);
+    const expectedReceipt = defaultBackfillReceiptPath(dataDir, request.job_id);
+    expect(expectedReceipt).toBe(join(dataDir, 'receipts', `metrics-backfill-${request.job_id}.json`));
+    expect(seen).toEqual([{ payload: request.payload, receiptPath: expectedReceipt }]);
+    const result = await readJson(run.root, `${request.job_id}.result.json`);
+    expect(result).toEqual({
+      schema_version: 1,
+      job_id: request.job_id,
+      job_plan_hash: request.plan_hash,
+      status: 'completed',
+      mode: 'apply',
+      finished_at: expect.any(String),
+      apply: { update: 1, skip: 0, plan_hash: planHash, receipt_path: expectedReceipt },
+    });
+    expect(JSON.stringify(result)).not.toMatch(/api[_-]?key|secret|token|password/i);
+    expect(await readJson(run.root, `${request.job_id}.job.json`)).toEqual(request);
+    expect(await run.scanOnce()).toBe(0, 'an answered apply is never rebuilt');
+  });
+
+  it('rejects a hash mismatch from the existing apply path without treating it as success', async () => {
+    const { consumer } = await fixture();
+    let called = 0;
+    const run = createMetricsBackfillConsumer({
+      dataDir: consumer.root.slice(0, -'/plugin-jobs'.length),
+      runPreview: async () => { throw new Error('preview must not run'); },
+      runApply: async () => {
+        called += 1;
+        throw new Error('confirm_plan_hash does not match the freshly built plan (sha256:' + 'f'.repeat(64) + ' vs sha256:' + '0'.repeat(64) + '). Nothing was written. Re-run mode dry_run, review the result, and confirm the new plan_hash.');
+      },
+    });
+    const request = job({ item_keys: ['AAAA0001'], mode: 'apply', confirm_plan_hash: planHash });
+    await addJob(run.root, request);
+    expect(await run.scanOnce()).toBe(1);
+    expect(called).toBe(1);
+    const result = await readJson(run.root, `${request.job_id}.result.json`);
+    expect(result.status).toBe('failed');
+    expect(result.mode).toBe('apply');
+    expect(result.apply).toBeUndefined();
+    expect(result.error).toMatch(/confirm_plan_hash does not match the freshly built plan/);
+    expect(result.error).toMatch(/Nothing was written/);
+  });
+
+  it('does not run apply when confirm_plan_hash is missing', async () => {
+    const { consumer } = await fixture();
+    const run = createMetricsBackfillConsumer({
+      dataDir: consumer.root.slice(0, -'/plugin-jobs'.length),
+      runPreview: async () => { throw new Error('preview must not run'); },
+      runApply: async () => { throw new Error('apply must not run without confirm_plan_hash'); },
+    });
+    const request = job({ collection_key: '334VW86H', mode: 'apply' });
+    await addJob(run.root, request);
+    expect(await run.scanOnce()).toBe(0);
+    await expect(readFile(join(run.root, `${request.job_id}.result.json`))).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await readJson(run.root, `${request.job_id}.job.json`)).toEqual(request);
   });
 });

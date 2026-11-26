@@ -36,9 +36,12 @@ async function main(): Promise<void> {
 
   // Plugin-authored metrics-backfill requests (workbench order 11): while this
   // runtime is running, answer the Zotero add-on's preview requests with the
-  // same reviewed backfill path in dry_run ONLY. Purely additive: it shares the
-  // ping jobs directory but never claims, acks, or removes ping files, and any
-  // failure lands in the job's result file instead of the MCP server.
+  // same reviewed backfill path in dry_run, and apply only when the add-on
+  // submits a follow-up job with the user's confirmed plan_hash. The MCP tool
+  // still defaults to dry_run and still requires its own confirm_plan_hash plus
+  // receipt_path. Purely additive: it shares the ping jobs directory but never
+  // claims, acks, or removes ping files, and any failure lands in the job's
+  // result file instead of the MCP server.
   const backfillConsumer = createMetricsBackfillConsumer({
     dataDir: config.dataDir,
     runPreview: async (payload) => {
@@ -52,6 +55,21 @@ async function main(): Promise<void> {
         skip: result.skip,
         plan_hash: result.plan_hash,
         easyscholar: { key_configured: result.easyscholar.key_configured },
+      };
+    },
+    runApply: async (payload, receipt_path) => {
+      const lib = requireCloudLibrary(ctx);
+      const result = await backfillMetrics(ctx, lib, {
+        ...(payload.collection_key ? { collection_key: payload.collection_key } : { item_keys: payload.item_keys }),
+        mode: 'apply',
+        confirm_plan_hash: payload.confirm_plan_hash,
+        receipt_path,
+      });
+      return {
+        update: result.update,
+        skip: result.skip,
+        plan_hash: result.plan_hash,
+        receipt_path: result.receipt_path ?? receipt_path,
       };
     },
     logger,

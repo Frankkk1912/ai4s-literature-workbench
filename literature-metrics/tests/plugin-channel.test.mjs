@@ -623,6 +623,58 @@ test("createDesktop still rejects job ids that cannot be normalized to a UUID v4
   }
 });
 
+test("submitMetricsBackfillJob writes allowlisted apply jobs with confirm_plan_hash for item_keys and collection_key", async () => {
+  const SAFE_NAME = /^[a-f0-9-]{36}\.(job|ack|claim|result)\.json$/;
+  const PLAN_HASH = "sha256:" + "d".repeat(64);
+  const { channel, records, paths, root } = desktopBackfillHarness();
+  await channel.start();
+  const payloads = [
+    { collection_key: "334VW86H", mode: "apply", confirm_plan_hash: PLAN_HASH },
+    { item_keys: ["3DI5B43M", "C5XDZY48"], mode: "apply", confirm_plan_hash: PLAN_HASH },
+  ];
+  for (const payload of payloads) {
+    const job = await channel.submitMetricsBackfillJob(payload);
+    assert.match(`${job.job_id}.job.json`, SAFE_NAME);
+    assert.deepEqual(job.payload, payload);
+    assert.equal(job.job_type, "metrics-backfill");
+    const expected = createHash("sha256").update(JSON.stringify([
+      job.schema_version, job.job_id, job.job_type, job.created_at, job.payload,
+    ])).digest("hex");
+    assert.equal(job.plan_hash, expected);
+    assert.doesNotMatch(JSON.stringify(job), /api[_-]?key|secret|token|password|easyscholar|receipt_path/i);
+    assert.deepEqual(records.get(paths.join(root(), `${job.job_id}.job.json`)), job);
+    await channel.discardMetricsBackfillJob(job.job_id);
+  }
+  await assert.rejects(channel.submitMetricsBackfillJob({ collection_key: "334VW86H", mode: "apply" }), /Invalid metrics-backfill request payload/);
+  await assert.rejects(channel.submitMetricsBackfillJob({
+    collection_key: "334VW86H", mode: "apply", confirm_plan_hash: "d".repeat(64),
+  }), /Invalid metrics-backfill request payload/);
+  await channel.stop();
+});
+
+test("the ping loop never claims an apply metrics-backfill job", async () => {
+  const f = fixture();
+  await f.channel.start();
+  const request = {
+    schema_version: 1,
+    job_id: randomUUID(),
+    job_type: "metrics-backfill",
+    created_at: new Date().toISOString(),
+    payload: { collection_key: "334VW86H", mode: "apply", confirm_plan_hash: "sha256:" + "e".repeat(64) },
+  };
+  request.plan_hash = createHash("sha256").update(JSON.stringify([
+    request.schema_version, request.job_id, request.job_type, request.created_at, request.payload,
+  ])).digest("hex");
+  f.add(request);
+  f.add(ping());
+  await f.tick();
+  assert.equal(f.prompts.length, 1, "only the ping asks for confirmation");
+  assert.equal(f.records.has(`${request.job_id}.ack.json`), false);
+  assert.equal(f.records.has(`${request.job_id}.claim.json`), false);
+  assert.equal(f.records.has(`${request.job_id}.job.json`), true);
+  await f.channel.stop();
+});
+
 
 // ---- native-merge jobs: the channel drives the real merge executor ----
 
