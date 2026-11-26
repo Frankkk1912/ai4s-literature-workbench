@@ -9,6 +9,7 @@ export interface DuplicateCluster {
   field_conflicts: string[];
   recommended_master_key: string;
   master_reason: string;
+  master_outside_scope: boolean;
   native_merge_required: true;
 }
 
@@ -328,6 +329,7 @@ export function findDuplicateClusters(
         'review',
       );
       const master = recommendMaster(items);
+      const masterOutsideScope = !batchKeys.has(master.key);
       return {
         cluster_id: `duplicate-${String(index + 1).padStart(4, '0')}`,
         batch_item_keys: [...keys].filter((key) => batchKeys.has(key)).sort(),
@@ -337,6 +339,7 @@ export function findDuplicateClusters(
         field_conflicts: [...new Set(relatedMatches.flatMap((match) => match.conflicts))].sort(),
         recommended_master_key: master.key,
         master_reason: master.reason,
+        master_outside_scope: masterOutsideScope,
         native_merge_required: true as const,
       };
     })
