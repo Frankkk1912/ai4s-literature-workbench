@@ -146,7 +146,7 @@ describe('internal native-merge channel', () => {
     const job = await channel.createNativeMergeJob(guardPayload(channel.root.replace(/plugin-jobs$/, '')));
     expect(job.job_type).toBe('native-merge');
     expect(job.plan_hash).toBe(channelPlanHash(job));
-    expect(job.payload.plan_path).toMatch(/dedupe-plans\/dedupe-plan-smoke\.json$/);
+    expect(job.payload.plan_path).toMatch(/dedupe-plans[/\\]dedupe-plan-smoke\.json$/);
     expect(job.payload.plan_hash).toMatch(/^sha256:[0-9a-f]{64}$/);
     expect(job.payload.collection_key).toBe('334VW86H');
     expect(JSON.parse(await readFile(join(channel.root, `${job.job_id}.job.json`), 'utf8'))).toEqual(job);
