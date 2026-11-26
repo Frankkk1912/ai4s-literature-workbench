@@ -89,6 +89,53 @@ describe('duplicate detector', () => {
 
     expect(cluster.recommended_master_key).toBe('LIB00001');
     expect(cluster.master_reason).toMatch(/metadata|child|collection|tag/i);
+    expect(cluster.master_outside_scope).toBe(true);
     expect(cluster.native_merge_required).toBe(true);
+  });
+
+  it('flags clusters whose recommended master is outside the batch', () => {
+    const sparseA = item('BATCH001', { title: 'A useful paper', DOI: '10.1/a' });
+    const sparseB = item('BATCH002', { title: 'A useful paper', DOI: '10.1/a' });
+    const richOutside = item(
+      'LIB00001',
+      {
+        title: 'A useful paper',
+        DOI: '10.1/a',
+        abstractNote: 'Detailed abstract',
+        publicationTitle: 'Journal',
+        creators: [{ creatorType: 'author', firstName: 'A', lastName: 'Author' }],
+        tags: [{ tag: 'project:test' }],
+        collections: ['COLL9999'],
+      },
+      { numChildren: 2 },
+    );
+
+    const [cluster] = findDuplicateClusters([sparseA, sparseB], [sparseA, sparseB, richOutside]);
+
+    expect(cluster.recommended_master_key).toBe('LIB00001');
+    expect(cluster.master_outside_scope).toBe(true);
+    expect(cluster.batch_item_keys).toEqual(['BATCH001', 'BATCH002']);
+  });
+
+  it('keeps master_outside_scope false when the recommended master is part of the batch', () => {
+    const richInBatch = item(
+      'BATCH001',
+      {
+        title: 'A useful paper',
+        DOI: '10.1/a',
+        abstractNote: 'Detailed abstract',
+        publicationTitle: 'Journal',
+        creators: [{ creatorType: 'author', firstName: 'A', lastName: 'Author' }],
+        tags: [{ tag: 'project:test' }],
+        collections: ['COLL0001'],
+      },
+      { numChildren: 2 },
+    );
+    const sparseLibrary = item('LIB00001', { title: 'A useful paper', DOI: '10.1/a' });
+
+    const [cluster] = findDuplicateClusters([richInBatch], [richInBatch, sparseLibrary]);
+
+    expect(cluster.recommended_master_key).toBe('BATCH001');
+    expect(cluster.master_outside_scope).toBe(false);
   });
 });

@@ -21,9 +21,10 @@ Corporation for Digital Scholarship.
 The `zotero_find_duplicates` tool:
 
 - accepts exactly one batch selector: `collection_key` or `tag`;
-- requires an explicit `limit` and refuses silent truncation;
+- requires an explicit `limit` for the selected batch and refuses silent truncation;
 - compares the selected batch with all top-level bibliographic items in the
-  same Zotero library;
+  same Zotero library (the batch `limit` does not cap the library comparison
+  scan, which is paginated under its own safety cap);
 - detects exact DOI, PMID, and ISBN matches;
 - reviews normalized title, creator, year, and item-type evidence;
 - recommends a master record using a deterministic metadata-completeness score;
