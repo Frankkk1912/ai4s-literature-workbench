@@ -217,19 +217,187 @@ for (const platform of ["darwin", "win32", "linux", "zoteus-only", "both-set"]) 
   });
 }
 
-test("bootstrap starts channel and tears it down before stopping metrics", async () => {
+test("a path the nsIFile layer cannot see is treated as not a symlink instead of crashing", async () => {
+  const paths = posix;
+  const home = "/test-home";
+  const records = new Map();
+  // Simulates the real-Gecko pitfall: isSymlink() throws on a path the nsIFile
+  // layer considers missing, even though IOUtils can still see and read it.
+  const knownToNsIFile = new Set();
+  const Components = { interfaces: { nsIFile: {} }, classes: { "@mozilla.org/file/local;1": { createInstance: () => {
+    const file = {
+      path: "",
+      initWithPath(target) { this.path = target; },
+      isSymlink() {
+        if (!knownToNsIFile.has(this.path)) throw new Error("NS_ERROR_FILE_NOT_FOUND: isSymlink on a missing path");
+        return false;
+      },
+    };
+    return file;
+  } } } };
+  const root = paths.join(home, "Library", "Application Support", "literature-zotero-mcp", "plugin-jobs");
+  const IOUtils = {
+    async makeDirectory(path, options) { assert.equal(options.permissions, 0o700); knownToNsIFile.add(path); },
+    async stat(path) { return { type: path === root ? "directory" : "regular", size: 200 }; },
+    async exists(path) { return records.has(path); },
+    async getChildren() { return [...records.keys()]; },
+    async readJSON(path) { return records.get(path); },
+    async writeJSON(path, value, options) { assert.equal(options.mode, "create"); assert.ok(path.endsWith(".tmp")); records.set(path, value); },
+    async setPermissions(_path, mode) { assert.equal(mode, 0o600); },
+    async move(from, to) { records.set(to, records.get(from)); records.delete(from); },
+    async remove(path) { records.delete(path); },
+  };
+  const channel = moduleContext().createDesktop({
+    Zotero: { isMac: true, getMainWindow: () => ({}), logError() {} },
+    Services: { env: { get: () => "" }, dirsvc: { get: () => ({ path: home }) },
+      uuid: { generateUUID: randomUUID }, prompt: { confirm: () => true } },
+    Components, IOUtils, PathUtils: { join: paths.join, filename: paths.basename }, schedule: () => 1, cancel() {},
+  });
+  await channel.start();
+  const job = ping();
+  // The job file exists for IOUtils but was never registered with the nsIFile
+  // layer, so its symlink check throws the missing-path error.
+  records.set(paths.join(root, `${job.job_id}.job.json`), job);
+  await channel.scan();
+  assert.equal(records.get(paths.join(root, `${job.job_id}.ack.json`)).status, "completed",
+    "a missing-path isSymlink throw must not block the ping");
+  await channel.stop();
+});
+
+function bootstrapHarness(options = {}) {
   const calls = [];
-  const scope = { Zotero: { initializationPromise: Promise.resolve(), logError: (message) => assert.fail(message) },
-    Components: { utils: { importGlobalProperties: (names) => assert.deepEqual(Array.from(names), ["IOUtils", "PathUtils"]) } },
-    ChromeUtils: { importESModule: (uri) => uri.endsWith("Timer.sys.mjs") ? { setInterval() {}, clearInterval() {} } : { Services } }, IOUtils: {}, PathUtils: {},
+  const errors = [];
+  const debugs = [];
+  let channelArgs = null;
+  const scope = {
+    Zotero: {
+      initializationPromise: Promise.resolve(),
+      logError: (message) => errors.push(String(message)),
+      debug: (message) => debugs.push(String(message)),
+      ...(options.zotero || {}),
+    },
+    // bootstrap.js must never call importGlobalProperties again; it once
+    // killed the whole startup in a real Zotero plugin sandbox.
+    Components: { utils: { importGlobalProperties: () => { throw new Error("bootstrap must not call importGlobalProperties"); } } },
+    ChromeUtils: { importESModule: (uri) => {
+      if (uri.endsWith("Timer.sys.mjs")) {
+        if (options.timerError) throw new Error(options.timerError);
+        return { setInterval: () => 17, clearInterval: () => {} };
+      }
+      if (options.esModules && Object.hasOwn(options.esModules, uri)) return options.esModules[uri];
+      return { Services };
+    } },
+    ...(options.globals || {}),
   };
   const Services = { scriptloader: { loadSubScript(uri, target) {
-    if (uri.endsWith("plugin-channel.js")) target.LiteraturePluginChannel = { createDesktop: () => ({ start: async () => calls.push("channel start"), stop: async () => calls.push("channel stop") }) };
-    if (uri.endsWith("literature-metrics.js")) target.LiteratureMetrics = { start: async () => calls.push("metrics start"), stop: async () => calls.push("metrics stop") };
+    if (uri.endsWith("plugin-channel.js")) {
+      if (options.channelLoadError) throw new Error(options.channelLoadError);
+      target.LiteraturePluginChannel = { createDesktop: (args) => {
+        channelArgs = args;
+        if (options.createDesktopError) throw new Error(options.createDesktopError);
+        return {
+          start: async () => { calls.push("channel start"); if (options.channelStartError) throw new Error(options.channelStartError); },
+          stop: async () => calls.push("channel stop"),
+        };
+      } };
+    }
+    if (uri.endsWith("literature-metrics.js")) {
+      if (options.metricsLoadError) throw new Error(options.metricsLoadError);
+      target.LiteratureMetrics = {
+        start: async () => { calls.push("metrics start"); if (options.metricsStartError) throw new Error(options.metricsStartError); },
+        stop: async () => calls.push("metrics stop"),
+      };
+    }
   } } };
   vm.createContext(scope);
   vm.runInContext(source("bootstrap.js"), scope);
+  return { scope, calls, errors, debugs, channelArgs: () => channelArgs };
+}
+
+function assertLogged(entries, marker) {
+  assert.equal(entries.length, 1, `exactly one log entry, got: ${JSON.stringify(entries)}`);
+  assert.match(entries[0], marker);
+  assert.match(entries[0], /\n\s*at /, "the logged error must include a stack");
+}
+
+test("bootstrap starts metrics first, then the channel; shutdown reverses the order", async () => {
+  const { scope, calls, errors, debugs, channelArgs } = bootstrapHarness({ globals: { IOUtils: {}, PathUtils: {} } });
   await scope.startup({ rootURI: "fake/" });
+  assert.deepEqual(calls, ["metrics start", "channel start"]);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(debugs, []);
   await scope.shutdown();
   assert.deepEqual(calls, ["metrics start", "channel start", "channel stop", "metrics stop"]);
+  assert.ok(channelArgs().IOUtils && channelArgs().PathUtils, "bootstrap globals are reused, not imported destructively");
+});
+
+for (const failure of ["channelLoadError", "createDesktopError", "channelStartError"]) {
+  test(`metrics columns still start when the channel fails at ${failure}`, async () => {
+    const { scope, calls, errors, debugs } = bootstrapHarness({ [failure]: `${failure} simulated`, globals: { IOUtils: {}, PathUtils: {} } });
+    await scope.startup({ rootURI: "fake/" });
+    assert.equal(calls[0], "metrics start");
+    assertLogged(errors, new RegExp(`Workbench jobs channel: ${failure} simulated`));
+    assertLogged(debugs, new RegExp(`Workbench jobs channel: ${failure} simulated`));
+    await scope.shutdown();
+    assert.equal(calls.at(-1), "metrics stop", "metrics are still torn down");
+    if (failure === "channelStartError") assert.ok(calls.includes("channel stop"), "a half-started channel is still stopped");
+  });
+}
+
+test("an unexpected metrics-startup failure is logged with its stack and does not escape", async () => {
+  for (const failure of ["metricsLoadError", "metricsStartError"]) {
+    const { scope, calls, errors, debugs } = bootstrapHarness({ [failure]: `${failure} simulated` });
+    await scope.startup({ rootURI: "fake/" });
+    assert.deepEqual(calls, failure === "metricsStartError" ? ["metrics start"] : []);
+    assertLogged(errors, new RegExp(`Workbench literature-metrics startup: ${failure} simulated`));
+    assertLogged(debugs, new RegExp(`Workbench literature-metrics startup: ${failure} simulated`));
+    await scope.shutdown();
+  }
+});
+
+test("channel IOUtils/PathUtils fall back to guarded ES module imports without importGlobalProperties", async () => {
+  const IOUtilsMarker = { marker: "IOUtils" };
+  const PathUtilsMarker = { marker: "PathUtils" };
+  const { scope, calls, errors, channelArgs } = bootstrapHarness({
+    esModules: {
+      "resource://gre/modules/IOUtils.sys.mjs": { IOUtils: IOUtilsMarker },
+      "resource://gre/modules/PathUtils.sys.mjs": { PathUtils: PathUtilsMarker },
+    },
+  });
+  await scope.startup({ rootURI: "fake/" });
+  assert.deepEqual(calls, ["metrics start", "channel start"]);
+  assert.deepEqual(errors, []);
+  assert.equal(channelArgs().IOUtils, IOUtilsMarker);
+  assert.equal(channelArgs().PathUtils, PathUtilsMarker);
+});
+
+test("the channel falls back to the main-window interval timer when Timer.sys.mjs is unavailable", async () => {
+  const intervals = [];
+  const window = {
+    setInterval: (_task, ms) => { intervals.push(ms); return 41; },
+    clearInterval: (id) => assert.equal(id, 41),
+  };
+  const { scope, calls, errors, channelArgs } = bootstrapHarness({ timerError: "Timer.sys.mjs unavailable", zotero: { getMainWindow: () => window } });
+  await scope.startup({ rootURI: "fake/" });
+  assert.deepEqual(errors, []);
+  assert.deepEqual(calls, ["metrics start", "channel start"]);
+  channelArgs().schedule(() => {}, 2000);
+  assert.deepEqual(intervals, [2000]);
+  channelArgs().cancel(41);
+});
+
+test("the channel falls back to a re-arming setTimeout loop when no window timer exists", async () => {
+  const { scope, calls, errors, channelArgs } = bootstrapHarness({ timerError: "Timer.sys.mjs unavailable", globals: { setTimeout, clearTimeout } });
+  await scope.startup({ rootURI: "fake/" });
+  assert.deepEqual(errors, []);
+  assert.deepEqual(calls, ["metrics start", "channel start"]);
+  let fires = 0;
+  const handle = channelArgs().schedule(() => { fires += 1; }, 5);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.ok(fires >= 2, "the fallback timer re-arms itself");
+  channelArgs().cancel(handle);
+  const frozen = fires;
+  await new Promise((resolve) => setTimeout(resolve, 15));
+  assert.equal(fires, frozen, "cancel stops the re-arming loop");
+  await scope.shutdown();
 });

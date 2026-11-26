@@ -124,6 +124,17 @@ is only a connectivity test and never changes items. This channel is only for
 workbench jobs and does not replace the Zotero 10 local write API. It opens no
 HTTP endpoint and stores no Zotero, EasyScholar, or other API keys.
 
+The channel is optional at startup: the metrics runtime starts first and
+independently, and only then does the add-on load the channel module inside a
+try/catch. If anything in the channel setup fails, the columns are unaffected
+and the error is logged under `Workbench jobs channel:` (message and stack) in
+Zotero's Error Console and debug output. `bootstrap.js` never calls
+`Components.utils.importGlobalProperties`; it uses the bootstrap scope's
+existing `IOUtils`/`PathUtils` globals with guarded ES module imports as a
+fallback, and falls back from `Timer.sys.mjs` to the main window's interval
+timer or a re-arming `setTimeout` loop. A missing path in the symlink check is
+treated as "not a symlink" rather than an error.
+
 The directory follows the existing runtime dataDir: on macOS the default is
 `~/Library/Application Support/literature-zotero-mcp/plugin-jobs/`; on Windows
 it is `%APPDATA%/literature-zotero-mcp/plugin-jobs/`, and on Linux

@@ -19,6 +19,20 @@ globalThis.LiteraturePluginChannel = (function () {
       && HASH.test(job.plan_hash) && planHash(job) === job.plan_hash;
   }
 
+  // Real symlinks must always be refused, but the real-Gecko pitfall where
+  // nsIFile.initWithPath/isSymlink throw on a path that does not exist must not:
+  // a missing path is not a symlink, and IOUtils will create or report it safely.
+  function refuseSymlink(Components, target) {
+    try {
+      const file = Components.classes["@mozilla.org/file/local;1"].createInstance(Components.interfaces.nsIFile);
+      file.initWithPath(target);
+      if (file.isSymlink()) throw new Error("Unsafe channel symlink.");
+    }
+    catch (error) {
+      if (error instanceof Error && /symlink/i.test(error.message)) throw error;
+    }
+  }
+
   function create({ files, confirm, schedule, cancel, log, now = () => new Date().toISOString() }) {
     let running = false;
     let timer = null;
@@ -111,13 +125,8 @@ globalThis.LiteraturePluginChannel = (function () {
       if (name !== "presence.json" && !/^[a-f0-9-]{36}\.(job|ack|claim)\.json$/.test(name)) throw new Error("Unsafe channel filename.");
       return PathUtils.join(root, name);
     };
-    function refuseSymlink(target) {
-      const file = Components.classes["@mozilla.org/file/local;1"].createInstance(Components.interfaces.nsIFile);
-      file.initWithPath(target);
-      if (file.isSymlink()) throw new Error("Unsafe channel symlink.");
-    }
     async function directory() {
-      refuseSymlink(root);
+      refuseSymlink(Components, root);
       if ((await IOUtils.stat(root)).type !== "directory") throw new Error("Unsafe jobs directory.");
     }
     const files = {
@@ -130,7 +139,7 @@ globalThis.LiteraturePluginChannel = (function () {
         await directory();
         const target = path(name);
         if (!await IOUtils.exists(target)) return null;
-        refuseSymlink(target);
+        refuseSymlink(Components, target);
         const info = await IOUtils.stat(target);
         if (info.type !== "regular" || info.size > 4096) throw new Error("Unsafe channel file.");
         return IOUtils.readJSON(target);
