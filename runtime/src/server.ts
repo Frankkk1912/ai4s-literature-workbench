@@ -20,6 +20,7 @@ import { registerAllTools, type ToolContext, type ToolDefinition } from './regis
 import { registerResources } from './resources/index.js';
 import { registerPrompts } from './prompts/index.js';
 import { tools } from './tools/index.js';
+import type { HiddenToolInfo, HiddenToolReason } from './lib/tool-profiles.js';
 
 const VERSION = '0.2.1';
 
@@ -82,6 +83,24 @@ export function selectActiveTools(config: ZoteusConfig): ToolDefinition[] {
     : profiled;
 }
 
+/** Which registered tools the active setup hides, and why, in selection order:
+ * the workbench profile first, then the remote (OAuth) filter, then read-only. */
+export function listHiddenTools(config: ZoteusConfig): HiddenToolInfo[] {
+  const active = new Set(selectActiveTools(config).map((t) => t.name));
+  const hidden: HiddenToolInfo[] = [];
+  for (const tool of tools) {
+    if (active.has(tool.name)) continue;
+    let reason: HiddenToolReason = 'read_only';
+    if (config.toolProfile === 'workbench' && !WORKBENCH_TOOL_NAMES.has(tool.name)) {
+      reason = 'workbench_profile';
+    } else if (config.oauth.enabled && LOCAL_ONLY_TOOLS.has(tool.name)) {
+      reason = 'remote_deployment';
+    }
+    hidden.push({ name: tool.name, reason });
+  }
+  return hidden;
+}
+
 /**
  * Build the (expensive) per-context state: Zotero clients, capability probe, router,
  * schema, search index, etc. With no overrides this is the operator/shared context
@@ -129,6 +148,7 @@ export async function buildContext(config: ZoteusConfig, overrides: ContextOverr
     logger,
     searchIndexPath,
   };
+  ctx.hiddenTools = listHiddenTools(config);
   ctx.toolCatalog = selectActiveTools(config).map((t) => ({
     name: t.name,
     title: t.title,

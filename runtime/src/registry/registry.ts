@@ -29,6 +29,10 @@ export interface ToolContext {
   searchIndexPath: string;
   /** Lightweight catalog of all registered tools (for search_tools discovery). */
   toolCatalog?: Array<{ name: string; title: string; description: string; deferLoading?: boolean }>;
+  /** Tools registered but hidden by the active profile/read-only/remote setup;
+   * computed once in buildContext so setup_status can list them and say how to
+   * switch profiles. */
+  hiddenTools?: Array<import('../lib/tool-profiles.js').HiddenToolInfo>;
 }
 
 export interface ToolHandlerResult {

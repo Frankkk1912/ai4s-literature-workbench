@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { tools } from '../src/tools/index.js';
-import { selectActiveTools } from '../src/server.js';
+import { listHiddenTools, selectActiveTools } from '../src/server.js';
 
 // Mirrors the read-only filter in src/server.ts.
 const readOnlyTools = tools.filter(
@@ -114,5 +114,61 @@ describe('workbench tool profile', () => {
     expect(names).toContain('open_setup');
     expect(names).toContain('install_search_helper');
     expect(names).toHaveLength(12);
+  });
+});
+
+describe('listHiddenTools: what setup_status tells the user is hidden', () => {
+  const fullConfig = { toolProfile: 'full', readOnly: false, oauth: { enabled: false } } as any;
+
+  it('hides nothing in the default full profile', () => {
+    expect(listHiddenTools(fullConfig)).toEqual([]);
+  });
+
+  it('lists exactly the non-workbench tools when the profile is workbench', () => {
+    const hidden = listHiddenTools({ ...fullConfig, toolProfile: 'workbench' });
+    const names = hidden.map((t) => t.name);
+    expect(hidden.every((t) => t.reason === 'workbench_profile')).toBe(true);
+    for (const name of ['zotero_create_items', 'zotero_delete_items', 'zotero_trash_items', 'zotero_update_item', 'zotero_schema', 'zotero_scholar', 'zotero_semantic_search']) {
+      expect(names).toContain(name);
+    }
+    // The policy pair the order calls out: bare trash/delete stay out of the
+    // workbench profile by design, and the listing says so.
+    expect(names).toContain('zotero_trash_items');
+    expect(names).toContain('zotero_delete_items');
+    // Nothing active is ever listed as hidden.
+    const active = new Set(selectActiveTools({ ...fullConfig, toolProfile: 'workbench' } as any).map((t) => t.name));
+    expect(names.every((n) => !active.has(n))).toBe(true);
+  });
+
+  it('attributes write tools to read-only mode, not to the profile', () => {
+    const hidden = listHiddenTools({ ...fullConfig, readOnly: true });
+    const byName = new Map(hidden.map((t) => [t.name, t.reason]));
+    expect(byName.get('zotero_create_items')).toBe('read_only');
+    expect(byName.get('zotero_update_item')).toBe('read_only');
+    expect(byName.get('zotero_apply_import_plan')).toBe('read_only');
+    // zotero_index is deliberately kept in read-only mode, so it is not hidden.
+    expect(byName.has('zotero_index')).toBe(false);
+    // The local setup tools stay in read-only mode.
+    expect(byName.has('open_setup')).toBe(false);
+    expect(byName.has('install_search_helper')).toBe(false);
+  });
+
+  it('attributes the local-only tools to a remote deployment', () => {
+    const hidden = listHiddenTools({ ...fullConfig, oauth: { enabled: true } });
+    const byName = new Map(hidden.map((t) => [t.name, t.reason]));
+    expect(byName.get('open_setup')).toBe('remote_deployment');
+    expect(byName.get('install_search_helper')).toBe('remote_deployment');
+  });
+
+  it('a workbench profile plus read-only lists both reasons without overlap', () => {
+    const hidden = listHiddenTools({ ...fullConfig, toolProfile: 'workbench', readOnly: true });
+    const names = hidden.map((t) => t.name);
+    expect(new Set(names).size).toBe(names.length);
+    expect(names.filter((n, i) => hidden[i]?.reason === 'workbench_profile')).toContain('zotero_create_items');
+    const readOnlyHidden = hidden.filter((t) => t.reason === 'read_only').map((t) => t.name);
+    // Tools that are in the workbench profile but not read-only-safe.
+    expect(readOnlyHidden).toContain('zotero_tag_manager');
+    expect(readOnlyHidden).toContain('zotero_apply_ai_summaries');
+    expect(readOnlyHidden).not.toContain('zotero_create_items');
   });
 });

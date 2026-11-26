@@ -1,6 +1,8 @@
 import type { InstallState, RunCommand } from './search-helper.js';
 import * as core from './onboarding-core.mjs';
 import type { OnboardingPaths, ProviderName } from './onboarding-core.mjs';
+import type { HiddenToolInfo } from './tool-profiles.js';
+import type { NetworkSummary, ProbeResult } from './net-probe.js';
 
 // Capabilities, not components. Each item says what the user can do, in plain words
 // and in two languages, and every item lands in exactly one of three groups:
@@ -87,6 +89,10 @@ export interface SetupStatus {
   next_action: SetupAction | null;
   /** How the skills run their scripts: use `run` in place of `uv run`. */
   search_helper: { ready: boolean; run: RunCommand | null };
+  /** Read-only, key-free network probes; `checked: false` when they were skipped. */
+  network: { checked: boolean; ok: boolean; results: ProbeResult[] };
+  /** Registered tools the active profile/read-only/remote setup hides. */
+  hidden_tools: HiddenToolInfo[];
   rendered: Text;
   diagnostics: Record<string, unknown>;
 }
@@ -317,9 +323,148 @@ export function renderSetup(items: readonly SetupItem[], lang: Lang): string {
   return lines.join('\n');
 }
 
+// --- The extra, read-only sections under the three groups. Same rule as the
+// groups themselves: plain words, no build or component names, both languages.
+
+function msText(ms: number, lang: Lang): string {
+  return lang === 'zh' ? `${ms} 毫秒` : `${ms} ms`;
+}
+
+function renderInsecureWarning(lang: Lang): string {
+  return lang === 'zh'
+    ? '⚠️ 警告：LITERATURE_TLS_INSECURE 已开启——本进程的对外请求不校验 TLS 证书。请只在受信任的网络上临时使用，修好证书后尽快关闭。'
+    : '⚠️ Warning: LITERATURE_TLS_INSECURE is on — outbound requests in this process skip TLS certificate verification. Use it only temporarily on a trusted network, and turn it off once certificates work.';
+}
+
+function probeLine(result: ProbeResult, lang: Lang): string {
+  const optional = result.optional
+    ? lang === 'zh'
+      ? `${result.name}（可选）`
+      : `${result.name} (optional)`
+    : result.name;
+  const timing = msText(result.ms, lang);
+  const keylessNote =
+    result.http_status !== null && result.http_status >= 400 && result.http_status < 500
+      ? lang === 'zh'
+        ? '；不带密钥的探测收到 4xx 也算连通'
+        : '; a keyless probe answered 4xx, which still counts as reachable'
+      : '';
+  let status: string;
+  switch (result.error_class) {
+    case 'ok':
+      status = lang === 'zh' ? `已连通（HTTP ${result.http_status}，${timing}）` : `reachable (HTTP ${result.http_status}, ${timing})`;
+      break;
+    case 'http':
+      status = lang === 'zh'
+        ? `已连通，但服务端返回错误（HTTP ${result.http_status}，${timing}）`
+        : `reachable, but the server answered HTTP ${result.http_status} (${timing})`;
+      break;
+    case 'tls':
+      status = lang === 'zh'
+        ? '证书校验失败：常见原因是代理或学校/公司网关用自己的根证书重签流量。修复：把根证书导出为 PEM 文件，设置 SSL_CERT_FILE（本工具的检索脚本）或 NODE_EXTRA_CA_CERTS（Node 部分），然后重启。'
+        : 'TLS certificate check failed: usually a proxy or school/company gateway re-signs traffic with its own root. Fix: export that root as a PEM file, set SSL_CERT_FILE (the search scripts) or NODE_EXTRA_CA_CERTS (Node), and restart.';
+      break;
+    case 'dns':
+      status = lang === 'zh'
+        ? '域名解析失败：请检查网络或 DNS 设置（这不是证书问题）。'
+        : 'name resolution failed: check the network or DNS settings (not a certificate problem).';
+      break;
+    case 'timeout':
+      status = lang === 'zh' ? `超时（${timing} 内没有响应）。` : `timed out (no answer within ${timing}).`;
+      break;
+    default:
+      status = lang === 'zh' ? `连接失败（${result.error ?? ''}）` : `connection failed (${result.error ?? ''})`;
+  }
+  return `  ${optional}${lang === 'zh' ? '：' : ': '}${status}${keylessNote}`;
+}
+
+function renderNetwork(probes: NetworkSummary, lang: Lang): string {
+  const heading = lang === 'zh' ? '网络自检' : 'Network check';
+  const lines = [heading];
+  for (const result of probes.results) lines.push(probeLine(result, lang));
+  if (!probes.ok) {
+    lines.push(
+      lang === 'zh'
+        ? '  ——部分必测端点不通，检索和联网功能可能受影响。'
+        : '  — some required endpoints are unreachable; search and online features may be affected.',
+    );
+  }
+  return lines.join('\n');
+}
+
+function renderHiddenTools(hidden: readonly HiddenToolInfo[], lang: Lang): string {
+  const byReason = new Map<string, string[]>();
+  for (const tool of hidden) {
+    const names = byReason.get(tool.reason) ?? [];
+    names.push(tool.name);
+    byReason.set(tool.reason, names);
+  }
+  const join = (names: string[]) => (lang === 'zh' ? names.join('、') : names.join(', '));
+  const lines: string[] = [
+    lang === 'zh' ? `当前隐藏的工具（${hidden.length}）` : `Tools hidden by the current setup (${hidden.length})`,
+  ];
+  const workbenchNames = byReason.get('workbench_profile');
+  if (workbenchNames) {
+    lines.push(
+      lang === 'zh'
+        ? `  未进入 workbench 档案：${join(workbenchNames)}`
+        : `  Not in the workbench profile: ${join(workbenchNames)}`,
+    );
+    lines.push(
+      lang === 'zh'
+        ? '  切换方法：把 LITERATURE_ZOTERO_MCP_TOOL_PROFILE 设为 full（这是默认值），然后重启这个应用。'
+        : '  To switch: set LITERATURE_ZOTERO_MCP_TOOL_PROFILE to full (the default), then restart this app.',
+    );
+  }
+  const readOnlyNames = byReason.get('read_only');
+  if (readOnlyNames) {
+    lines.push(
+      lang === 'zh'
+        ? `  因只读模式隐藏：${join(readOnlyNames)}`
+        : `  Hidden by read-only mode: ${join(readOnlyNames)}`,
+    );
+    lines.push(
+      lang === 'zh'
+        ? '  切换方法：取消 ZOTEUS_READ_ONLY（或设为 false），然后重启这个应用。'
+        : '  To switch: unset ZOTEUS_READ_ONLY (or set it to false), then restart this app.',
+    );
+  }
+  const remoteNames = byReason.get('remote_deployment');
+  if (remoteNames) {
+    lines.push(
+      lang === 'zh'
+        ? `  因远程部署隐藏：${join(remoteNames)}`
+        : `  Hidden because this is a remote deployment: ${join(remoteNames)}`,
+    );
+    lines.push(
+      lang === 'zh'
+        ? '  原因：它们操作的是运行工具的这台电脑（打开本机设置页、下载检索辅助工具），远程使用时不适用。'
+        : '  Why: they act on the computer the tools run on (a local setup page, a local helper download), which a remote caller cannot reach.',
+    );
+  }
+  const names = hidden.map((t) => t.name);
+  if (names.some((n) => n === 'zotero_trash_items' || n === 'zotero_delete_items')) {
+    lines.push(
+      lang === 'zh'
+        ? '  说明：回收站与永久删除工具仅用于你明确要求的清理，workbench 档案默认不提供它们是既定设计。'
+        : '  Note: the trash and delete tools are only for cleanups you explicitly ask for; the workbench profile deliberately leaves them out.',
+    );
+  }
+  return lines.join('\n');
+}
+
 export function buildSetupStatus(
   facts: SetupFacts,
-  options: { wanted?: readonly CapabilityId[]; language?: Lang } = {},
+  options: {
+    wanted?: readonly CapabilityId[];
+    language?: Lang;
+    /** Read-only probe results; omit or pass null when probing was skipped. */
+    probes?: NetworkSummary | null;
+    /** Tools hidden by the active profile, computed by listHiddenTools. */
+    hiddenTools?: readonly HiddenToolInfo[];
+    /** LITERATURE_TLS_INSECURE is explicitly enabled in this process. */
+    tlsInsecure?: boolean;
+  } = {},
 ): SetupStatus {
   const language = options.language ?? 'zh';
   const items = evaluateSetup(facts, options.wanted);
@@ -329,6 +474,19 @@ export function buildSetupStatus(
   const summary = needs_you.length === 0
     ? text('可以开始用了。', 'You can start now.')
     : text(`还有 ${needs_you.length} 件事需要你处理。`, `${needs_you.length} thing(s) still need you.`);
+  const probes = options.probes ?? null;
+  const hiddenTools = options.hiddenTools ?? [];
+  // Sections under the three groups: the insecure warning first (it is the one
+  // thing the user should notice), then the network self-check, then the
+  // hidden-tool list. Each stays out of the text entirely when it has nothing
+  // to say, so a fully-working fresh install renders exactly as before.
+  const sectionsOf = (lang: Lang): string => {
+    const parts = [renderSetup(items, lang)];
+    if (options.tlsInsecure) parts.push(renderInsecureWarning(lang));
+    if (probes) parts.push(renderNetwork(probes, lang));
+    if (hiddenTools.length > 0) parts.push(renderHiddenTools(hiddenTools, lang));
+    return parts.join('\n\n');
+  };
   return {
     language,
     summary,
@@ -337,8 +495,14 @@ export function buildSetupStatus(
     optional,
     next_action: needs_you.find((item) => item.action)?.action ?? null,
     search_helper: { ready: facts.uvAvailable, run: facts.uvAvailable ? facts.uvRun ?? { posix: 'uv run', powershell: 'uv run' } : null },
-    rendered: text(renderSetup(items, 'zh'), renderSetup(items, 'en')),
+    network: probes
+      ? { checked: true, ok: probes.ok, results: probes.results }
+      : { checked: false, ok: true, results: [] },
+    hidden_tools: [...hiddenTools],
+    rendered: text(sectionsOf('zh'), sectionsOf('en')),
     diagnostics: {
+      tls_insecure: Boolean(options.tlsInsecure),
+      network: probes ? probes.results : null,
       search_helper: facts.uvAvailable,
       search_helper_installing: facts.uvInstalling ?? null,
       zotero_local_connection: facts.zotero.localApi,
