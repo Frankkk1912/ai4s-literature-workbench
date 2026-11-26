@@ -116,6 +116,42 @@ held. The item context menu provides the same commands under **Set Priority**.
 After each batch, a progress popup reports updated, unchanged, read-only
 skipped, and failed counts.
 
+## Workbench job channel (ping only)
+
+The add-on polls `<dataDir>/plugin-jobs/` every two seconds for workbench jobs,
+asks for confirmation in Zotero, and writes a matching acknowledgement; `ping`
+is only a connectivity test and never changes items. This channel is only for
+workbench jobs and does not replace the Zotero 10 local write API. It opens no
+HTTP endpoint and stores no Zotero, EasyScholar, or other API keys.
+
+The directory follows the existing runtime dataDir: on macOS the default is
+`~/Library/Application Support/literature-zotero-mcp/plugin-jobs/`; on Windows
+it is `%APPDATA%/literature-zotero-mcp/plugin-jobs/`, and on Linux
+`${XDG_DATA_HOME:-~/.local/share}/literature-zotero-mcp/plugin-jobs/`.
+Custom installations must launch Zotero and the runtime with the same
+`ZOTEUS_DATA_DIR` / `LITERATURE_ZOTERO_MCP_DATA_DIR` override (the former takes
+precedence, as in runtime config). Tests inject a temporary dataDir.
+
+Each `<job_id>.job.json` contains `schema_version: 1`, a UUID-v4 `job_id`,
+`job_type: "ping"`, ISO `created_at`, empty `payload: {}`, and `plan_hash`.
+The hash is lowercase SHA-256 of
+`JSON.stringify([schema_version, job_id, job_type, created_at, payload])` in
+that order; it checks integrity, not authentication. Extra fields and nonempty
+payloads are rejected. `<job_id>.ack.json` contains `job_id`, matching
+`plan_hash`, `status` (`accepted`, `rejected`, `completed`, or `failed`),
+`finished_at`, and `error` for rejection/failure. This ping implementation
+writes only `completed` or `rejected`. Terminal receipts are not replayed.
+
+The internal runtime helper `createPluginChannel(dataDir)` in
+`runtime/src/features/plugin-channel/index.ts` exposes `createPingJob()`,
+`listUnfinishedJobs()`, `readAck(job)`, and `waitForAck(job, timeoutMs)`; no MCP
+tool is added. The plugin creates an owner-private jobs directory and refreshes
+`presence.json`; a missing directory or absent/stale heartbeat gives an
+immediate desktop-unavailable error. `waitForAck` defaults to 30 seconds
+(maximum 120 seconds), then reports a pending confirmation timeout without
+removing the job. Shutdown cancels polling and removes presence. No library
+content belongs in these files; the ping payload must stay empty.
+
 ## Build and test
 
 Node.js 22.13+ is required for local validation. The build uses one locked,
