@@ -162,6 +162,41 @@ describe('metrics-backfill consumer', () => {
     }
   });
 
+  it('accepts plugin-normalized UUID filenames and writes a matching result; braced Gecko names are skipped', async () => {
+    const seen: unknown[] = [];
+    const { consumer } = await fixture();
+    const run = createMetricsBackfillConsumer({
+      dataDir: consumer.root.slice(0, -'/plugin-jobs'.length),
+      runPreview: async (payload) => {
+        seen.push(payload);
+        return { update: 1, skip: 0, plan_hash: 'b'.repeat(64), easyscholar: { key_configured: false } };
+      },
+    });
+    const SAFE_NAME = /^[a-f0-9-]{36}\.(job|ack|claim|result)\.json$/;
+    const collection = job({ collection_key: '334VW86H' });
+    const items = job({ item_keys: ['3DI5B43M', 'C5XDZY48'] });
+    expect(await addJob(run.root, collection)).toMatch(SAFE_NAME);
+    expect(await addJob(run.root, items)).toMatch(SAFE_NAME);
+    expect(await run.scanOnce()).toBe(2);
+    expect(seen).toHaveLength(2);
+    expect(seen).toEqual(expect.arrayContaining([
+      { collection_key: '334VW86H' },
+      { item_keys: ['3DI5B43M', 'C5XDZY48'] },
+    ]));
+    for (const request of [collection, items]) {
+      const resultName = `${request.job_id}.result.json`;
+      expect(resultName).toMatch(SAFE_NAME);
+      const result = await readJson(run.root, resultName);
+      expect(result.job_id).toBe(request.job_id);
+      expect(result.status).toBe('completed');
+      expect(result.mode).toBe('dry_run');
+    }
+    const geckoName = `{${randomUUID().toUpperCase()}}.job.json`;
+    await writeFile(join(run.root, geckoName), JSON.stringify(job({ collection_key: '334VW86H' })));
+    expect(await run.scanOnce()).toBe(0);
+    await expect(readFile(join(run.root, geckoName.replace(/\.job\.json$/, '.result.json')))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('treats a missing jobs directory as empty instead of failing', async () => {
     const dataDir = await mkdtemp(join(tmpdir(), 'metrics-backfill-empty-'));
     roots.push(dataDir);

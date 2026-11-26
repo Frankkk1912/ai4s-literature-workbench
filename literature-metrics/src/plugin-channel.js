@@ -4,6 +4,14 @@
 var LiteraturePluginChannel = (function () {
   "use strict";
   const ID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
+  // Channel job files are `<uuid>.(job|ack|claim|result).json` only. Gecko's
+  // nsIUUIDGenerator.toString() returns "{XXXXXXXX-XXXX-...}" (braces, often
+  // uppercase), which is not a safe filename — normalize before writing.
+  function jobIdFromGenerator(raw) {
+    const id = String(raw == null ? "" : raw).replace(/[{}]/g, "").toLowerCase();
+    if (!ID.test(id)) throw new Error("Unsafe channel job id.");
+    return id;
+  }
   const HASH = /^[a-f0-9]{64}$/;
   const PLAN_HASH = /^sha256:[a-f0-9]{64}$/;
   const ZOTERO_KEY = /^[A-Z0-9]{8}$/;
@@ -175,7 +183,7 @@ var LiteraturePluginChannel = (function () {
       if (!validBackfillPayload(payload)) throw new Error("Invalid metrics-backfill request payload.");
       const job = {
         schema_version: 1,
-        job_id: uuid(),
+        job_id: jobIdFromGenerator(uuid()),
         job_type: "metrics-backfill",
         created_at: now(),
         payload,
@@ -280,7 +288,7 @@ var LiteraturePluginChannel = (function () {
     };
     return create({ files, schedule, cancel,
       confirm: (title, text) => Services.prompt.confirm(Zotero.getMainWindow(), title, text),
-      uuid: () => Services.uuid.generateUUID().toString(),
+      uuid: () => jobIdFromGenerator(Services.uuid.generateUUID().toString()),
       log: (message) => Zotero.logError(message),
       // Same-scope binding when native-merge.js loaded successfully; otherwise
       // native-merge jobs are rejected and ping / metrics-backfill still run.

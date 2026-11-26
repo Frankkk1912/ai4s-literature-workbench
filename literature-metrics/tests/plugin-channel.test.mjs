@@ -540,6 +540,81 @@ test("the ping loop never claims, confirms, or rejects a metrics-backfill reques
   await f.channel.stop();
 });
 
+// Real Gecko nsIUUIDGenerator.toString() wraps a possibly-uppercase UUID in braces.
+function geckoGenerateUUID() {
+  return { toString: () => `{${randomUUID().toUpperCase()}}` };
+}
+
+// Exercise createDesktop's real path() allowlist, not the in-memory fixture writer.
+function desktopBackfillHarness(generateUUID = geckoGenerateUUID) {
+  const paths = posix;
+  const home = "/test-home";
+  let root;
+  const records = new Map();
+  const Components = {
+    interfaces: { nsIFile: {} },
+    classes: { "@mozilla.org/file/local;1": { createInstance: () => ({ initWithPath() {}, isSymlink: () => false }) } },
+  };
+  const IOUtils = {
+    async makeDirectory(path, options) { root = path; assert.equal(options.permissions, 0o700); },
+    async stat(path) { return { type: path === root ? "directory" : "regular", size: 200 }; },
+    async exists(path) { return records.has(path); },
+    async getChildren() { return [...records.keys()]; },
+    async readJSON(path) { return records.get(path); },
+    async writeJSON(path, value, options) { assert.equal(options.mode, "create"); assert.ok(path.endsWith(".tmp")); records.set(path, value); },
+    async setPermissions(_path, mode) { assert.equal(mode, 0o600); },
+    async move(from, to) { records.set(to, records.get(from)); records.delete(from); },
+    async remove(path) { records.delete(path); },
+  };
+  const channel = moduleContext().createDesktop({
+    Zotero: { isWin: false, isMac: true, getMainWindow: () => ({}), logError() {} },
+    Services: { env: { get: () => "" }, dirsvc: { get: () => ({ path: home }) },
+      uuid: { generateUUID }, prompt: { confirm: () => true } },
+    Components, IOUtils, PathUtils: { join: paths.join, filename: paths.basename }, schedule: () => 1, cancel() {},
+  });
+  return { channel, records, paths, root: () => root };
+}
+
+test("submitMetricsBackfillJob writes allowlisted filenames for item_keys and collection_key even when Gecko UUIDs have braces and uppercase", async () => {
+  const SAFE_NAME = /^[a-f0-9-]{36}\.(job|ack|claim|result)\.json$/;
+  const JOB_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
+  const { channel, records, paths, root } = desktopBackfillHarness();
+  await channel.start();
+  const payloads = [
+    { collection_key: "334VW86H" },
+    { item_keys: ["3DI5B43M", "C5XDZY48"] },
+  ];
+  for (const payload of payloads) {
+    const job = await channel.submitMetricsBackfillJob(payload);
+    assert.match(job.job_id, JOB_ID, `job_id must be a lowercase UUID v4, got ${job.job_id}`);
+    assert.equal(job.job_id.includes("{") || job.job_id.includes("}") || /[A-F]/.test(job.job_id), false);
+    assert.deepEqual(job.payload, payload);
+    const jobName = `${job.job_id}.job.json`;
+    const resultName = `${job.job_id}.result.json`;
+    assert.match(jobName, SAFE_NAME);
+    assert.match(resultName, SAFE_NAME);
+    assert.equal(jobName.includes("/") || jobName.includes("\\"), false);
+    assert.deepEqual(records.get(paths.join(root(), jobName)), job, "submit must write through the real filename allowlist");
+    records.set(paths.join(root(), resultName), { job_id: job.job_id, status: "completed" });
+    const result = await channel.readMetricsBackfillResult(job.job_id);
+    assert.equal(result.job_id, job.job_id);
+    await channel.discardMetricsBackfillJob(job.job_id);
+    assert.equal(records.has(paths.join(root(), jobName)), false);
+    assert.equal(records.has(paths.join(root(), resultName)), false);
+  }
+  await channel.stop();
+});
+
+test("createDesktop still rejects job ids that cannot be normalized to a UUID v4 filename", async () => {
+  for (const raw of ["{not-a-uuid}", "../evil", "a/b", "presence.json", ""]) {
+    const { channel } = desktopBackfillHarness(() => ({ toString: () => raw }));
+    await channel.start();
+    await assert.rejects(channel.submitMetricsBackfillJob({ collection_key: "334VW86H" }), /Unsafe channel job id/);
+    await channel.stop();
+  }
+});
+
+
 // ---- native-merge jobs: the channel drives the real merge executor ----
 
 function moduleScope() {
