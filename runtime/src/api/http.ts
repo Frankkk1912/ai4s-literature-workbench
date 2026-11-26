@@ -1,6 +1,7 @@
 import { Semaphore } from '../lib/semaphore.js';
 import { ZoteroApiError } from './errors.js';
 import type { Logger } from '../lib/logger.js';
+import { classifyNetworkError } from '../lib/tls.js';
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -75,6 +76,16 @@ export class RateLimitedFetcher {
             res = await this.fetchImpl(url, { ...init, signal: controller.signal });
           } catch (e) {
             if (controller.signal.aborted) throw this.timeoutError(deadlineMs, sawRateLimit);
+            // A certificate failure is the one network error whose message must
+            // explain itself: corporate gateways re-sign traffic, and the fix is
+            // a custom CA file, not retrying. Other classes pass through as-is.
+            const classified = classifyNetworkError(e);
+            if (classified.class === 'tls') {
+              throw new Error(
+                `TLS certificate verification failed while calling this host: ${classified.reason}. ${classified.guidance ?? ''}`.trim(),
+                { cause: e },
+              );
+            }
             throw e;
           }
           this.observeBackoff(res);
