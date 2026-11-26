@@ -7,6 +7,7 @@ import { WebApiClient } from './api/web-client.js';
 import { LocalApiClient } from './api/local-client.js';
 import { LocalWebClient } from './api/local-writer.js';
 import { probeCapabilities } from './router/capabilities.js';
+import { SERVER_VERSION } from './lib/server-identity.js';
 import { LibraryRouter } from './router/library-router.js';
 import { SchemaService } from './schema/schema-service.js';
 import { join } from 'node:path';
@@ -21,8 +22,6 @@ import { registerResources } from './resources/index.js';
 import { registerPrompts } from './prompts/index.js';
 import { tools } from './tools/index.js';
 import type { HiddenToolInfo, HiddenToolReason } from './lib/tool-profiles.js';
-
-const VERSION = '0.2.1';
 
 export interface ContextOverrides {
   /** Per-user Zotero API key (multi-tenant); defaults to config.apiKey. */
@@ -161,7 +160,7 @@ export async function buildContext(config: ZoteusConfig, overrides: ContextOverr
 /** Create a fresh McpServer bound to a (possibly per-user) ToolContext. */
 export function createServer(ctx: ToolContext): McpServer {
   const server = new McpServer(
-    { name: 'literature-zotero-mcp', version: VERSION },
+    { name: 'literature-zotero-mcp', version: SERVER_VERSION },
     {
       capabilities: {
         tools: { listChanged: true },

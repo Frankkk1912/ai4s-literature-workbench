@@ -212,9 +212,38 @@ The user backs up `claude_desktop_config.json`, keeps existing servers, and adds
 
 Ask the user to quit Claude Desktop completely and reopen it, then check for `setup_status` and `fulltext_capabilities`.
 
+## Duplicate Zotero tool sets
+
+Every route in this file installs the current tool server under the name
+`ai4s-literature-zotero` — the `.mcpb` manifests, the plugin `.mcp.json`, and
+the config snippets all use it. An older desktop extension from this project
+was published as `literature-zotero-mcp` (display name “Literature Zotero
+MCP”); it is retired and no route here installs it. `setup_status` and
+`zotero_whoami` report this server's name and version, so you can always tell
+which one answered.
+
+If the host shows two sets of Zotero tools at once — for example tool prefixes
+from both `ai4s-literature-zotero` and `literature-zotero-mcp`, or a second
+`setup_status`-like tool — the old desktop extension is still installed. Two
+copies do not share settings: a key saved through one is invisible to the
+other, and edits can land in the wrong one. Do not uninstall anything yourself,
+and never read or edit files under `~/Library/Application Support/Claude/`.
+Ask the user to remove the old one:
+
+1. In Claude Desktop, open Settings → Extensions.
+2. Find `literature-zotero-mcp` (shown as “Literature Zotero MCP”).
+3. Use its Remove (Uninstall) control, then restart Claude Desktop.
+4. Run "Check at the end" again with the remaining `ai4s-literature-zotero`
+   tools.
+
+Only the retired `literature-zotero-mcp` goes; `ai4s-literature-zotero` and
+`ai4s-literature-fulltext` stay. In other hosts without an Extensions list,
+the same rule applies: remove the entry named `literature-zotero-mcp` from
+that host's tool or server list, keep the ones named `ai4s-literature-*`.
+
 ## Check at the end
 
-1. The tool list includes `setup_status` (the `fulltext_*` tools are optional). If it is missing, say "My search tools are not connected yet", name the step that failed, give one next action, and stop. Otherwise call it and show its `rendered` text.
+1. The tool list includes `setup_status` (the `fulltext_*` tools are optional). If it is missing, say "My search tools are not connected yet", name the step that failed, give one next action, and stop. Otherwise call it and show its `rendered` text. When the rendered Network check shows a required endpoint unreachable, do not report online search under Works now — the status itself has moved it to Needs you; show the failure lines instead. If your host also lists Zotero tools from `literature-zotero-mcp` ("Literature Zotero MCP"), follow [Duplicate Zotero tool sets](#duplicate-zotero-tool-sets).
 2. Run one real search so the user sees a result. From the folder that holds `literature-research/`, in a private temporary folder, with `uv run` replaced by `search_helper.run` from `setup_status` (`run.posix` or `run.powershell`):
 
    ```text

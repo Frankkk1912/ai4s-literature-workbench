@@ -3,6 +3,7 @@ import * as core from './onboarding-core.mjs';
 import type { OnboardingPaths, ProviderName } from './onboarding-core.mjs';
 import type { HiddenToolInfo } from './tool-profiles.js';
 import type { NetworkSummary, ProbeResult } from './net-probe.js';
+import type { ServerIdentity, WriteChannel } from './server-identity.js';
 
 // Capabilities, not components. Each item says what the user can do, in plain words
 // and in two languages, and every item lands in exactly one of three groups:
@@ -80,6 +81,14 @@ export interface SetupFacts {
   addon: AddonState;
 }
 
+export interface SetupIdentity {
+  /** This tool server's stable name, version, and (when tellable) install route. */
+  server: ServerIdentity;
+  /** Active tool profile: `full` or `workbench` (LITERATURE_ZOTERO_MCP_TOOL_PROFILE). */
+  profile: 'full' | 'workbench';
+  /** ZOTEUS_READ_ONLY=true hides every write tool in this process. */
+  readOnly: boolean;
+}
 export interface SetupStatus {
   language: Lang;
   summary: Text;
@@ -87,6 +96,14 @@ export interface SetupStatus {
   needs_you: SetupItem[];
   optional: SetupItem[];
   next_action: SetupAction | null;
+  /** Which tool server answered (name, version, install route). */
+  server?: ServerIdentity;
+  /** Active tool profile (`full` or `workbench`). */
+  profile?: 'full' | 'workbench';
+  /** True when ZOTEUS_READ_ONLY hides every write tool. */
+  read_only?: boolean;
+  /** The two Zotero write channels and the read-only switch. */
+  write_channel?: WriteChannel;
   /** How the skills run their scripts: use `run` in place of `uv run`. */
   search_helper: { ready: boolean; run: RunCommand | null };
   /** Read-only, key-free network probes; `checked: false` when they were skipped. */
@@ -464,18 +481,37 @@ export function buildSetupStatus(
     hiddenTools?: readonly HiddenToolInfo[];
     /** LITERATURE_TLS_INSECURE is explicitly enabled in this process. */
     tlsInsecure?: boolean;
+    /** Which server answered, its tool profile, and whether it is read-only. */
+    identity?: SetupIdentity;
   } = {},
 ): SetupStatus {
   const language = options.language ?? 'zh';
   const items = evaluateSetup(facts, options.wanted);
+  // A required endpoint failing means network-dependent search may not work,
+  // so it is never reported under Works now while that lasts: it moves to
+  // Needs you with a pointer at the Network check section below, which says
+  // what failed and how to fix it. Skipped probes (offline by choice) and a
+  // passing check change nothing.
+  const probes = options.probes ?? null;
+  if (probes && !probes.ok) {
+    const search = items.find((item) => item.id === 'search');
+    if (search && search.group === 'works_now') {
+      search.group = 'needs_you';
+      search.action = undefined;
+      search.detail = text(
+        '本机已就绪，但网络自检有必测端点不通——联网检索暂不可用，请先按下面网络自检一节的说明处理。',
+        'Ready on this computer, but a required endpoint failed the network self-check — online search is not usable yet; follow the Network check section below.',
+      );
+    }
+  }
   const works_now = items.filter((item) => item.group === 'works_now');
   const needs_you = items.filter((item) => item.group === 'needs_you');
   const optional = items.filter((item) => item.group === 'optional');
   const summary = needs_you.length === 0
     ? text('可以开始用了。', 'You can start now.')
     : text(`还有 ${needs_you.length} 件事需要你处理。`, `${needs_you.length} thing(s) still need you.`);
-  const probes = options.probes ?? null;
   const hiddenTools = options.hiddenTools ?? [];
+  const identity = options.identity;
   // Sections under the three groups: the insecure warning first (it is the one
   // thing the user should notice), then the network self-check, then the
   // hidden-tool list. Each stays out of the text entirely when it has nothing
@@ -499,8 +535,23 @@ export function buildSetupStatus(
       ? { checked: true, ok: probes.ok, results: probes.results }
       : { checked: false, ok: true, results: [] },
     hidden_tools: [...hiddenTools],
+    ...(identity
+      ? {
+          server: identity.server,
+          profile: identity.profile,
+          read_only: identity.readOnly,
+          write_channel: {
+            cloud_key: facts.zotero.cloudOk && facts.zotero.write,
+            local_desktop: Boolean(facts.zotero.localSave),
+            read_only: identity.readOnly,
+          } satisfies WriteChannel,
+        }
+      : {}),
     rendered: text(sectionsOf('zh'), sectionsOf('en')),
     diagnostics: {
+      server: identity ? identity.server : null,
+      tool_profile: identity?.profile ?? null,
+      read_only: identity?.readOnly ?? null,
       tls_insecure: Boolean(options.tlsInsecure),
       network: probes ? probes.results : null,
       search_helper: facts.uvAvailable,

@@ -5,6 +5,7 @@ import {
   gatherFacts,
   renderSetup,
   type SetupFacts,
+  type SetupIdentity,
 } from '../../src/lib/setup-status.js';
 import type { NetworkSummary, ProbeResult } from '../../src/lib/net-probe.js';
 import type { HiddenToolInfo } from '../../src/lib/tool-profiles.js';
@@ -265,6 +266,62 @@ describe('setup status network and hidden-tool sections', () => {
     expect(status.network.checked).toBe(false);
     expect(status.rendered.zh).not.toContain('网络自检');
     expect(status.rendered.en).not.toContain('Network check');
+  });
+  it('reports the server identity, profile, read-only switch, and write channel', () => {
+    const identity: SetupIdentity = {
+      server: { name: 'ai4s-literature-zotero', version: '0.2.1', install: 'plugin' },
+      profile: 'workbench',
+      readOnly: true,
+    };
+    const facts: SetupFacts = {
+      ...baseFacts(),
+      zotero: { ...baseFacts().zotero, keyPresent: true, keyLoadedAtStart: true, cloudOk: true, write: true, localApi: true, localSave: true },
+    };
+    const status = buildSetupStatus(facts, { identity });
+    expect(status.server).toEqual({ name: 'ai4s-literature-zotero', version: '0.2.1', install: 'plugin' });
+    expect(status.profile).toBe('workbench');
+    expect(status.read_only).toBe(true);
+    expect(status.write_channel).toEqual({ cloud_key: true, local_desktop: true, read_only: true });
+    // Identity stays structured: it never leaks into the user-facing text.
+    expect(status.rendered.en).not.toContain('ai4s-literature-zotero');
+  });
+  it('no identity leaves the new structured fields out entirely', () => {
+    const status = buildSetupStatus(baseFacts(), {});
+    expect(status).not.toHaveProperty('server');
+    expect(status).not.toHaveProperty('profile');
+    expect(status).not.toHaveProperty('read_only');
+    expect(status).not.toHaveProperty('write_channel');
+  });
+  it('a failed required endpoint moves online search out of Works now, and the summary never says all-clear', () => {
+    const probes = summaryOf([
+      probe({ error_class: 'timeout', dns: null, tls: null, http_status: null, ms: 6000, error: 'no answer within 6s' }),
+    ]);
+    const status = buildSetupStatus(baseFacts(), { probes });
+    expect(status.network.ok).toBe(false);
+    expect(status.works_now.map((item) => item.id)).not.toContain('search');
+    const search = status.needs_you.find((item) => item.id === 'search');
+    expect(search).toBeDefined();
+    expect(search?.detail.en).toMatch(/online search is not usable yet/);
+    expect(search?.detail.en).toMatch(/Network check section/);
+    expect(status.summary.zh).not.toContain('可以开始用了');
+    expect(status.summary.en).not.toContain('You can start now');
+  });
+  it('a passing network check and a skipped one leave search under Works now', () => {
+    const passing = buildSetupStatus(baseFacts(), { probes: summaryOf([probe({})]) });
+    expect(passing.works_now.map((item) => item.id)).toContain('search');
+    expect(passing.summary.en).toContain('You can start now');
+    const skipped = buildSetupStatus(baseFacts(), {});
+    expect(skipped.works_now.map((item) => item.id)).toContain('search');
+    expect(skipped.summary.en).toContain('You can start now');
+  });
+  it('a helper still missing keeps its own need even when the network also failed', () => {
+    const probes = summaryOf([
+      probe({ error_class: 'dns', dns: false, tls: null, http_status: null, error: 'dns failed' }),
+    ]);
+    const status = buildSetupStatus({ ...baseFacts(), uvAvailable: false }, { probes });
+    const search = status.needs_you.find((item) => item.id === 'search');
+    expect(search?.action?.type).toBe('install_helper');
+    expect(search?.detail.en).toMatch(/helper tool/);
   });
 
   it('warns loudly in the rendered text when the insecure override is on', () => {

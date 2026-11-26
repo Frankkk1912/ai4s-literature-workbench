@@ -132,6 +132,23 @@ Then call `setup_status` again. Only if it reports `failed` or `unsupported`,
 or the action is `ask_to_install`, offer the official installer from the link
 in the status text, after a yes.
 
+Two more things `setup_status` and `zotero_whoami` tell you:
+
+- **Which server answered.** Both report the server name (`ai4s-literature-zotero`),
+  its version, the tool profile, whether the process is read-only, and the write
+  channel (a Zotero key with write access, and/or Zotero 10 desktop saving).
+  Use them instead of guessing whether saving is possible.
+- **A retired duplicate extension.** If your host also lists Zotero tools from
+  `literature-zotero-mcp` ("Literature Zotero MCP"), the old desktop extension
+  is still installed and the two sets of tools do not share settings. Do not
+  remove anything yourself, and never read or edit files under
+  `~/Library/Application Support/Claude/`. Ask the user to remove the old one
+  in Claude Desktop (Settings → Extensions, find `literature-zotero-mcp`,
+  Remove, restart), then run the check again with the remaining
+  `ai4s-literature-zotero` tools. When a required endpoint fails the network
+  self-check, do not call online search ready: the status has already moved it
+  to Needs you, and you should say so.
+
 ## Step 4: Add a key (mention onboarding every time)
 
 At the end of every setup, mention the key page and offer the Zotero add-on
