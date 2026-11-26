@@ -129,8 +129,9 @@ The directory follows the existing runtime dataDir: on macOS the default is
 it is `%APPDATA%/literature-zotero-mcp/plugin-jobs/`, and on Linux
 `${XDG_DATA_HOME:-~/.local/share}/literature-zotero-mcp/plugin-jobs/`.
 Custom installations must launch Zotero and the runtime with the same
-`ZOTEUS_DATA_DIR` / `LITERATURE_ZOTERO_MCP_DATA_DIR` override (the former takes
-precedence, as in runtime config). Tests inject a temporary dataDir.
+`LITERATURE_ZOTERO_MCP_DATA_DIR` (or legacy `ZOTEUS_DATA_DIR`) override
+(`LITERATURE_ZOTERO_MCP_DATA_DIR` takes precedence, matching the runtime
+`defaultDataDir`). Tests inject a temporary dataDir.
 
 Each `<job_id>.job.json` contains `schema_version: 1`, a UUID-v4 `job_id`,
 `job_type: "ping"`, ISO `created_at`, empty `payload: {}`, and `plan_hash`.
@@ -146,11 +147,16 @@ The internal runtime helper `createPluginChannel(dataDir)` in
 `runtime/src/features/plugin-channel/index.ts` exposes `createPingJob()`,
 `listUnfinishedJobs()`, `readAck(job)`, and `waitForAck(job, timeoutMs)`; no MCP
 tool is added. The plugin creates an owner-private jobs directory and refreshes
-`presence.json`; a missing directory or absent/stale heartbeat gives an
-immediate desktop-unavailable error. `waitForAck` defaults to 30 seconds
-(maximum 120 seconds), then reports a pending confirmation timeout without
-removing the job. Shutdown cancels polling and removes presence. No library
-content belongs in these files; the ping payload must stay empty.
+`presence.json` on every scan. Before showing the confirmation dialog it writes
+a `<job_id>.claim.json` marker and removes it together with the acknowledgement:
+the modal dialog blocks Zotero's event loop, so the heartbeat pauses, and a
+claimed job keeps `waitForAck` waiting instead of failing on a stale heartbeat.
+A missing directory, or an absent/stale heartbeat with no outstanding claim,
+still gives an immediate desktop-unavailable error. `waitForAck` defaults to 30
+seconds (maximum 120 seconds), then reports a pending confirmation timeout
+without removing the job. Shutdown cancels polling, withdraws claims, and
+removes presence. No library content belongs in these files; the ping payload
+must stay empty.
 
 ## Build and test
 

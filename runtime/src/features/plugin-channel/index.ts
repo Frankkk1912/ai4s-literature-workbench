@@ -18,6 +18,12 @@ export interface PluginAck {
   finished_at: string;
   error?: string;
 }
+export interface PluginClaim {
+  schema_version: 1;
+  job_id: string;
+  plan_hash: string;
+  claimed_at: string;
+}
 const ID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const HASH = /^[a-f0-9]{64}$/;
 const unavailable = 'Desktop plugin unavailable: open Zotero with Literature Metrics enabled and the same dataDir.';
@@ -60,12 +66,21 @@ export function createPluginChannel(dataDir = defaultDataDir()) {
       throw error;
     }
   }
-  async function requireDesktop(): Promise<void> {
+  async function freshPresence(): Promise<boolean> {
     const presence = await read('presence.json') as { schema_version?: number; updated_at?: string } | null;
     const age = Date.now() - Date.parse(presence?.updated_at ?? '');
-    if (presence?.schema_version !== 1 || !Number.isFinite(age) || age < -2000 || age > 10000) {
-      throw new Error(unavailable);
-    }
+    return presence?.schema_version === 1 && Number.isFinite(age) && age >= -2000 && age <= 10000;
+  }
+  async function requireDesktop(): Promise<void> {
+    if (!await freshPresence()) throw new Error(unavailable);
+  }
+  /** A matching claim means the plugin is alive but blocked on the user's confirmation. */
+  async function claimed(job: PingJob): Promise<boolean> {
+    const claim = await read(`${job.job_id}.claim.json`) as PluginClaim | null;
+    return claim !== null && claim.schema_version === 1 && claim.job_id === job.job_id
+      && claim.plan_hash === job.plan_hash && typeof claim.claimed_at === 'string'
+      && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(claim.claimed_at)
+      && Number.isFinite(Date.parse(claim.claimed_at));
   }
   async function createPingJob(): Promise<PingJob> {
     await requireDesktop();
@@ -111,7 +126,9 @@ export function createPluginChannel(dataDir = defaultDataDir()) {
     while (Date.now() < deadline) {
       const ack = await readAck(job);
       if (terminal(ack)) return ack!;
-      await requireDesktop();
+      // The confirm dialog blocks the plugin's event loop, pausing its heartbeat; a
+      // matching claim keeps the job alive instead of failing on a stale presence file.
+      if (!await freshPresence() && !await claimed(job)) throw new Error(unavailable);
       await new Promise((done) => setTimeout(done, Math.min(100, Math.max(1, deadline - Date.now()))));
     }
     throw new Error('Plugin ack timed out: check Zotero and its pending confirmation dialog; job remains pending.');

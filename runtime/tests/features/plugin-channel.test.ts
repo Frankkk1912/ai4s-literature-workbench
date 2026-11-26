@@ -19,6 +19,11 @@ async function ack(channel: ReturnType<typeof createPluginChannel>, job: PingJob
     job_id: job.job_id, plan_hash: job.plan_hash, status: 'completed', finished_at: new Date().toISOString(), ...fields,
   }));
 }
+async function claim(channel: ReturnType<typeof createPluginChannel>, job: PingJob, fields = {}) {
+  await writeFile(join(channel.root, `${job.job_id}.claim.json`), JSON.stringify({
+    schema_version: 1, job_id: job.job_id, plan_hash: job.plan_hash, claimed_at: new Date().toISOString(), ...fields,
+  }));
+}
 
 describe('internal ping channel', () => {
   it('atomically writes an empty ping and reads matching completed ack', async () => {
@@ -65,6 +70,43 @@ describe('internal ping channel', () => {
     await writeFile(join(channel.root, 'presence.json'), JSON.stringify({ schema_version: 1, updated_at: new Date().toISOString() }));
     const job = await channel.createPingJob();
     await rm(join(channel.root, 'presence.json'));
+    await expect(channel.waitForAck(job, 100)).rejects.toThrow('Desktop plugin unavailable');
+  });
+
+  it('keeps a claimed job alive while the heartbeat is stale, until a late terminal ack', async () => {
+    const channel = await fixture();
+    const job = await channel.createPingJob();
+    // The Zotero confirm dialog blocks the plugin event loop, so its heartbeat goes stale.
+    await writeFile(join(channel.root, 'presence.json'), JSON.stringify({ schema_version: 1, updated_at: new Date(Date.now() - 60000).toISOString() }));
+    await claim(channel, job);
+    const lateAck = setTimeout(() => { void ack(channel, job); }, 60);
+    expect((await channel.waitForAck(job, 5000)).status).toBe('completed');
+    clearTimeout(lateAck);
+    expect(await channel.listUnfinishedJobs()).toEqual([]);
+  });
+
+  it('ends a claimed but unresolved job at the overall timeout, not as unavailable', async () => {
+    const channel = await fixture();
+    const job = await channel.createPingJob();
+    await writeFile(join(channel.root, 'presence.json'), JSON.stringify({ schema_version: 1, updated_at: new Date(0).toISOString() }));
+    await claim(channel, job);
+    await expect(channel.waitForAck(job, 50)).rejects.toThrow('ack timed out');
+  });
+
+  it('still errors as unavailable after the plugin stops and withdraws its claim', async () => {
+    const channel = await fixture();
+    const job = await channel.createPingJob();
+    await claim(channel, job);
+    await rm(join(channel.root, 'presence.json'));
+    await rm(join(channel.root, `${job.job_id}.claim.json`));
+    await expect(channel.waitForAck(job, 200)).rejects.toThrow('Desktop plugin unavailable');
+  });
+
+  it('ignores a mismatched claim and still requires the desktop heartbeat', async () => {
+    const channel = await fixture();
+    const job = await channel.createPingJob();
+    await rm(join(channel.root, 'presence.json'));
+    await claim(channel, job, { plan_hash: '0'.repeat(64) });
     await expect(channel.waitForAck(job, 100)).rejects.toThrow('Desktop plugin unavailable');
   });
 

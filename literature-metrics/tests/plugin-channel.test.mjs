@@ -117,12 +117,70 @@ test("concurrent scans are serialized and mismatched existing receipts are prese
   await f.channel.stop();
 });
 
+function memoryFiles() {
+  const records = new Map();
+  return { records, files: {
+    initialize: async () => {},
+    list: async () => [...records.keys()],
+    read: async (name) => records.get(name) || null,
+    write: async (name, value) => { records.set(name, value); },
+    remove: async (name) => { records.delete(name); },
+  } };
+}
+async function waitFor(predicate) {
+  while (!predicate()) await new Promise((resolve) => setTimeout(resolve, 1));
+}
+
+test("claims the job before a slow confirmation and clears the claim with the ack", async () => {
+  const { records, files } = memoryFiles();
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const channel = moduleContext().create({ files,
+    confirm: async () => { await gate; return true; },
+    schedule: () => 1, cancel() {}, log: (message) => assert.fail(message) });
+  const job = ping();
+  records.set(`${job.job_id}.job.json`, job);
+  const started = channel.start();
+  await waitFor(() => records.has(`${job.job_id}.claim.json`));
+  const claimFile = records.get(`${job.job_id}.claim.json`);
+  assert.equal(claimFile.schema_version, 1);
+  assert.equal(claimFile.job_id, job.job_id);
+  assert.equal(claimFile.plan_hash, job.plan_hash);
+  assert.ok(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(claimFile.claimed_at));
+  release();
+  await started;
+  assert.equal(records.get(`${job.job_id}.ack.json`).status, "completed");
+  assert.equal(records.has(`${job.job_id}.claim.json`), false, "the claim is cleared with the ack");
+  await channel.stop();
+});
+
+test("stop withdraws an outstanding claim so the helper fails clearly instead of hanging", async () => {
+  const { records, files } = memoryFiles();
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const channel = moduleContext().create({ files,
+    confirm: async () => { await gate; return true; },
+    schedule: () => 1, cancel() {}, log: () => {} });
+  const job = ping();
+  records.set(`${job.job_id}.job.json`, job);
+  const started = channel.start();
+  await waitFor(() => records.has(`${job.job_id}.claim.json`));
+  const stopped = channel.stop();
+  release();
+  await Promise.all([started, stopped]);
+  assert.equal(records.has(`${job.job_id}.ack.json`), false, "no ack is written after stop");
+  assert.equal(records.has(`${job.job_id}.claim.json`), false, "stop withdraws the outstanding claim");
+  assert.equal(records.has("presence.json"), false);
+});
+
 // Fake Zotero/Gecko objects exercise the actual desktop file adapter, not a live profile.
-for (const platform of ["darwin", "win32", "linux", "override"]) {
+for (const platform of ["darwin", "win32", "linux", "zoteus-only", "both-set"]) {
   test(`desktop adapter uses runtime-compatible ${platform} dataDir and owner-private files`, async () => {
     const paths = platform === "win32" ? win32 : posix;
     const home = platform === "win32" ? "C:\\test-home" : "/test-home";
-    const env = platform === "override" ? { ZOTEUS_DATA_DIR: "/custom", LITERATURE_ZOTERO_MCP_DATA_DIR: "/ignored" } : {};
+    // Runtime defaultDataDir prefers LITERATURE_ZOTERO_MCP_DATA_DIR over the legacy ZOTEUS_DATA_DIR.
+    const env = platform === "zoteus-only" ? { ZOTEUS_DATA_DIR: "/custom" }
+      : platform === "both-set" ? { ZOTEUS_DATA_DIR: "/ignored", LITERATURE_ZOTERO_MCP_DATA_DIR: "/custom" } : {};
     let root;
     const records = new Map();
     let symlink = false;
@@ -146,7 +204,7 @@ for (const platform of ["darwin", "win32", "linux", "override"]) {
     });
     await channel.start();
     const subdirs = { darwin: ["Library", "Application Support"], win32: ["AppData", "Roaming"], linux: [".local", "share"] };
-    const expected = platform === "override" ? "/custom/plugin-jobs" : paths.join(home,
+    const expected = platform === "zoteus-only" || platform === "both-set" ? "/custom/plugin-jobs" : paths.join(home,
       ...subdirs[platform], "literature-zotero-mcp", "plugin-jobs");
     assert.equal(root, expected);
     const job = ping();

@@ -23,6 +23,7 @@ globalThis.LiteraturePluginChannel = (function () {
     let running = false;
     let timer = null;
     let scanning = null;
+    const claims = new Set();
     async function scanOnce() {
       await files.write("presence.json", { schema_version: 1, updated_at: now() });
       for (const name of await files.list()) {
@@ -42,7 +43,16 @@ globalThis.LiteraturePluginChannel = (function () {
             || existing.status !== "accepted")) continue;
           let status = "rejected";
           let error = "Invalid ping job or plan_hash mismatch.";
-          if (valid(job, id)) {
+          const claimName = `${id}.claim.json`;
+          const needsClaim = valid(job, id);
+          if (needsClaim) {
+            // Claim the job before the modal dialog blocks Zotero's event loop (which also
+            // pauses this heartbeat); the runtime helper then treats it as alive while the
+            // user decides, instead of failing on a stale presence file.
+            claims.add(claimName);
+            await files.write(claimName, { schema_version: 1, job_id: id, plan_hash: job.plan_hash, claimed_at: now() });
+          }
+          if (needsClaim) {
             const agreed = await confirm("Workbench connectivity test", "This is a connectivity test and will not change items. Allow this ping?");
             if (!running) break;
             status = agreed ? "completed" : "rejected";
@@ -50,6 +60,10 @@ globalThis.LiteraturePluginChannel = (function () {
           }
           if (!running) break;
           await files.write(ackName, { job_id: id, plan_hash: job.plan_hash, status, finished_at: now(), ...(error ? { error } : {}) });
+          if (needsClaim) {
+            claims.delete(claimName);
+            await files.remove(claimName);
+          }
         }
         catch { log("Could not process a workbench ping file."); }
       }
@@ -72,6 +86,11 @@ globalThis.LiteraturePluginChannel = (function () {
       if (timer !== null) cancel(timer);
       timer = null;
       if (scanning) await scanning;
+      for (const name of claims) {
+        try { await files.remove(name); }
+        catch { log("Could not remove a workbench claim file."); }
+      }
+      claims.clear();
       await files.remove("presence.json");
     }
     return Object.freeze({ start, stop, scan });
@@ -80,15 +99,16 @@ globalThis.LiteraturePluginChannel = (function () {
   function createDesktop({ Zotero, Services, Components, IOUtils, PathUtils, schedule, cancel }) {
     const env = (key) => Services.env.get(key);
     const home = Services.dirsvc.get("Home", Components.interfaces.nsIFile).path;
-    // Match runtime config precedence and defaultDataDir; never use the Zotero profile.
+    // Match runtime defaultDataDir precedence (LITERATURE_ZOTERO_MCP_DATA_DIR first);
+    // never use the Zotero profile.
     let defaultDir;
     if (Zotero.isWin) defaultDir = PathUtils.join(env("APPDATA").trim() || PathUtils.join(home, "AppData", "Roaming"), "literature-zotero-mcp");
     else if (Zotero.isMac) defaultDir = PathUtils.join(home, "Library", "Application Support", "literature-zotero-mcp");
     else defaultDir = PathUtils.join(env("XDG_DATA_HOME") || PathUtils.join(home, ".local", "share"), "literature-zotero-mcp");
-    const dataDir = env("ZOTEUS_DATA_DIR") || env("LITERATURE_ZOTERO_MCP_DATA_DIR") || defaultDir;
+    const dataDir = env("LITERATURE_ZOTERO_MCP_DATA_DIR") || env("ZOTEUS_DATA_DIR") || defaultDir;
     const root = PathUtils.join(dataDir, "plugin-jobs");
     const path = (name) => {
-      if (name !== "presence.json" && !/^[a-f0-9-]{36}\.(job|ack)\.json$/.test(name)) throw new Error("Unsafe channel filename.");
+      if (name !== "presence.json" && !/^[a-f0-9-]{36}\.(job|ack|claim)\.json$/.test(name)) throw new Error("Unsafe channel filename.");
       return PathUtils.join(root, name);
     };
     function refuseSymlink(target) {
