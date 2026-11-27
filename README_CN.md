@@ -95,7 +95,7 @@ PubMed 和 EasyScholar 密钥在下一次检索时生效。添加 Zotero 密钥�
 
 <p align="center"><img src="docs/assets/onboarding.png" width="520" alt="本地配置页，展示 Zotero、PubMed 与 EasyScholar 的配置状态"></p>
 
-*演示环境中的本地配置页*
+*演示环境中的本地配置页。EasyScholar 已配置；页面显示 “Zotero not found”，是因为插件安装在隔离的演示 profile 中，扫描默认路径时不会找到它。*
 
 ## 🗣️ 使用示例
 
@@ -122,7 +122,7 @@ PubMed 和 EasyScholar 密钥在下一次检索时生效。添加 Zotero 密钥�
 - 同步分类和显示指标列需要 **Zotero 桌面版**。
 - 可选的本地密钥配置页需要浏览器。
 
-### 1. 安装
+### 1. 安装（选你用的应用）
 
 **Claude 桌面版 — Code 标签**
 
@@ -138,7 +138,7 @@ PubMed 和 EasyScholar 密钥在下一次检索时生效。添加 Zotero 密钥�
 
 Chat 不加载插件内的 MCP 服务。两个独立扩展负责提供工具。
 
-**Claude Code 终端、ChatGPT 桌面版或 WorkBuddy**
+**Claude Code 终端、Codex、ChatGPT 桌面版或 WorkBuddy**
 
 将以下指令原样发送给客户端：
 
@@ -211,14 +211,7 @@ claude plugin marketplace add Frankkk1912/ai4s-literature-workbench
 claude plugin install ai4s-literature-workbench@ai4s-literature-workbench
 ```
 
-**Codex**：完成后重启 Codex。
-
-```bash
-codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-workbench.git
-codex plugin add ai4s-literature-workbench@ai4s-literature-workbench
-```
-
-**ChatGPT 桌面版**：优先使用上方安装指令。已安装 `codex` 时，可使用 Codex 命令；否则按 [INSTALL.md](INSTALL.md) 配置 MCP 文件。该路线不会加载技能。
+**Codex 和 ChatGPT 桌面版**：优先使用上方安装指令。其他或手动安装路线请按 [INSTALL.md](INSTALL.md) 中对应客户端的说明操作；ChatGPT 的 MCP 配置路线不会加载技能。
 
 **WorkBuddy**：优先使用上方安装指令。MCP 配置文件备用路线见 [INSTALL.md](INSTALL.md)。
 

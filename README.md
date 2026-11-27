@@ -95,7 +95,7 @@ PubMed and EasyScholar keys take effect on the next search. Restart the client a
 
 <p align="center"><img src="docs/assets/onboarding.png" width="520" alt="The local setup page showing configuration status for Zotero, PubMed, and EasyScholar"></p>
 
-*The local setup page in a demo environment.*
+*The local setup page in a demo environment. EasyScholar is already present; the page reports “Zotero not found” because the add-on is installed in an isolated demo profile, not the default Zotero path.*
 
 ## 🗣️ Example Prompts
 
