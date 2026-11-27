@@ -68,7 +68,7 @@
 
 去重优先按 DOI 合并，缺失 DOI 时按 PMID 合并。脚本会自动生成 `report.md` 作为检索日志，完整记录研究问题、日期、数据库、原始检索式、返回上限、命中/去重后篇数及入选文献列表；详细打分依据保存在 `ranked_all.json`。检索阶段只负责产出证据，正文撰写统一交由 `literature-writing` 完成。
 
-![示例检索记录：研究问题、PubMed 检索式、命中数量和入选文献](docs/assets/search-results.png)
+<p align="center"><img src="docs/assets/search-results.png" width="480" alt="示例检索记录：研究问题、PubMed 检索式、命中数量和入选文献"></p>
 
 *一份示例 PubMed 检索记录（`report.md`）：研究问题、原始检索式、命中数量与入选文献列表。*
 
@@ -108,7 +108,7 @@
 
 列中展示的指标数据均读取自条目的 `Extra` 字段。安装完插件后，让 Agent 对目标分类执行一次同步或刷新，数据便会自动显示。指标查询由后台 MCP 工具负责，相关 API 密钥仅保存在本地设置页中。
 
-![Zotero 中的 literature-metrics 插件：IF、JCR、中科院分区列、Priority 星级及条目详情](docs/assets/metrics-columns.gif)
+<p align="center"><img src="docs/assets/metrics-columns.gif" width="720" alt="Zotero 中的 literature-metrics 插件：IF、JCR、中科院分区列、Priority 星级及条目详情"></p>
 
 *在 Zotero 中按影响因子和 Priority 排序，并在选中条目时更新右侧详情面板。*
 
@@ -175,7 +175,7 @@ https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INS
 
 ### 可选 API 密钥说明
 
-![本地配置页，展示 Zotero、PubMed 与 EasyScholar 的配置状态](docs/assets/onboarding.png)
+<p align="center"><img src="docs/assets/onboarding.png" width="520" alt="本地配置页，展示 Zotero、PubMed 与 EasyScholar 的配置状态"></p>
 
 *演示环境中的本地配置页。EasyScholar 已配置；页面显示 “Zotero not found”，是因为插件安装在隔离的演示 profile 中，扫描默认路径时不会找到它。*
 

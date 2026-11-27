@@ -68,7 +68,7 @@ Default searches query PubMed and OpenAlex in parallel. OpenAlex is free and req
 
 Deduplication merges records by DOI first, falling back to PMID. A script generates `report.md` as an immutable search log containing the research question, date, databases, exact query strings, caps, hit/dedup/selected counts, and the selected paper table. Detailed scoring breakdowns are stored in `ranked_all.json`. This stage strictly gathers and logs evidence—synthesis and prose drafting are deferred to `literature-writing`.
 
-![Example literature search record with the question, PubMed query, hit counts, and selected papers](docs/assets/search-results.png)
+<p align="center"><img src="docs/assets/search-results.png" width="480" alt="Example literature search record with the question, PubMed query, hit counts, and selected papers"></p>
 
 *An example PubMed search record (`report.md`): the question, exact query, hit counts, and selected papers.*
 
@@ -108,7 +108,7 @@ The add-on introduces color-coded **IF / JCR / CAS** columns, **Priority** stars
 
 Column values are read directly from each item's `Extra` field. After installing the add-on, ask your agent to sync or refresh a collection to populate the metrics. All lookups are handled by the MCP tools, while API keys stay isolated on the local setup page.
 
-![The literature-metrics add-on in Zotero, showing IF, JCR, and CAS columns, Priority stars, and the item details pane](docs/assets/metrics-columns.gif)
+<p align="center"><img src="docs/assets/metrics-columns.gif" width="720" alt="The literature-metrics add-on in Zotero, showing IF, JCR, and CAS columns, Priority stars, and the item details pane"></p>
 
 *Sorting by Impact Factor and Priority in Zotero, with the item pane updating as rows are selected.*
 
@@ -124,7 +124,7 @@ When you choose to add a key, the agent calls `open_setup` to launch a local con
 
 Direct registration links for each service are provided on the setup page.
 
-![The local setup page showing configuration status for Zotero, PubMed, and EasyScholar](docs/assets/onboarding.png)
+<p align="center"><img src="docs/assets/onboarding.png" width="520" alt="The local setup page showing configuration status for Zotero, PubMed, and EasyScholar"></p>
 
 *The local setup page in a demo environment. EasyScholar is already present; the page reports “Zotero not found” because the add-on is installed in an isolated demo profile, not the default Zotero path.*
 
