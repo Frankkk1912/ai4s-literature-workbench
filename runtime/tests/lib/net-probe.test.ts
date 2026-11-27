@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { PROBE_TARGETS, probeNetworkEndpoints, type FetchLike, type ProbeResult } from '../../src/lib/net-probe.js';
+import { describe, expect, it, vi } from 'vitest';
+import { EUROPE_PMC_TIMEOUT_MS, PROBE_TARGETS, probeNetworkEndpoints, type FetchLike, type ProbeResult } from '../../src/lib/net-probe.js';
 
 const response = (status: number): Response => ({ status } as Response);
 
@@ -107,6 +107,30 @@ describe('probeNetworkEndpoints', () => {
     const openalex = nameOf(results, 'OpenAlex');
     expect(openalex.optional).toBe(true);
     expect(openalex.error_class).toBe('dns');
+  });
+
+  it('gives Europe PMC a longer default budget than the other endpoints', async () => {
+    expect(EUROPE_PMC_TIMEOUT_MS).toBeGreaterThanOrEqual(15_000);
+    expect(PROBE_TARGETS.find((t) => t.name === 'Europe PMC')?.timeoutMs).toBe(EUROPE_PMC_TIMEOUT_MS);
+    vi.useFakeTimers();
+    try {
+      // Europe PMC answers after 8 s (slower than the 6 s default, as seen on a
+      // real Mac); PubMed never answers and must still time out at 6 s.
+      const fetchImpl: FetchLike = (url, init) => {
+        if (url.includes('europepmc')) {
+          return new Promise<Response>((resolve) => setTimeout(() => resolve(response(200)), 8_000));
+        }
+        if (url.includes('eutils')) return hangingFetch(url, init);
+        return Promise.resolve(response(200));
+      };
+      const pending = probeNetworkEndpoints({ fetchImpl, sleep: noSleep });
+      await vi.advanceTimersByTimeAsync(20_000);
+      const { results } = await pending;
+      expect(nameOf(results, 'Europe PMC')).toMatchObject({ error_class: 'ok', http_status: 200 });
+      expect(nameOf(results, 'PubMed (NCBI E-utilities)')).toMatchObject({ error_class: 'timeout', error: 'no answer within 6s' });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('the total time budget stops later probes instead of hanging forever', async () => {

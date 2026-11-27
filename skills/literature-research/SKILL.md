@@ -48,6 +48,10 @@ certificate as a PEM file and set `SSL_CERT_FILE` or `REQUESTS_CA_BUNDLE` (the
 optional `truststore` package additionally uses the system certificate store).
 Never suggest disabling verification; `LITERATURE_TLS_INSECURE=1` exists only
 as an explicit, loudly warned override for trusted-network troubleshooting.
+If the handshake itself is cut off (`UNEXPECTED_EOF`, common behind gateways
+that drop large TLS 1.3 handshakes), the script retries on its own with a
+smaller handshake and then TLS 1.2, with verification unchanged; do not write
+an `OPENSSL_CONF` workaround. `AI4S_TLS_COMPAT=1` starts in that mode.
 
 Show the three groups from `rendered` only when the user asks what works, or when a key they asked for is missing.
 
@@ -138,6 +142,9 @@ comprehensive. OpenAlex needs no API key. If a contact email is already in
 `academic-research.json` (`email`), `OPENALEX_MAILTO`, or `CROSSREF_MAILTO`,
 the request uses OpenAlex's polite pool and the address is not written into
 the plan or the search record.
+If OpenAlex answers HTTP 429 or fails, `review` prints a warning, keeps the
+PubMed results, and records the skip under `source_routing.degraded` in
+`search_plan.json`; tell the user the run is PubMed-only instead of re-running.
 
 ## Default Workflow
 

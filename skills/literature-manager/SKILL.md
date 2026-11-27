@@ -134,7 +134,12 @@ Before either new-import path, run the selected-only EasyScholar handoff from
 (`year - 1`; a 2026 task displays `IF(2025)`); the API response itself is
 treated as latest and needs no metric-year configuration.
 
-Create one reviewed import plan from explicitly selected stable evidence IDs:
+Create one reviewed import plan from explicitly selected stable evidence IDs.
+`--select-id` (repeatable) and `--selection-json` accept the stable ID
+(`doi:10.x/...`, `pmid:123`, `source:pubmed:123`), a bare DOI or doi.org URL,
+or a PMID (`123` or `pmid:123`); each value must match exactly one record in
+`--evidence`. Never edit `plan_hash` by hand: if the dry run reports a hash
+mismatch, regenerate the plan with `plan-import` and dry-run it again.
 
 ```bash
 uv run literature-manager/scripts/zotero_literature_manager.py plan-import \

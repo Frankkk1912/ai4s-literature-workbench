@@ -434,6 +434,78 @@ def load_selection(args: argparse.Namespace) -> list[str]:
     return selected
 
 
+def selection_aliases(evidence_id: str, record: dict[str, Any]) -> set[str]:
+    """Other spellings a user may pass for one stable evidence ID.
+
+    The stable ID prefers the DOI (`doi:10.x/...`), so a record that has both
+    a DOI and a PMID cannot be selected as `pmid:...` by its stable ID alone.
+    Accept the bare or prefixed PMID, the bare DOI or doi.org URL, and the
+    record's own source ID as aliases. Matching is case-insensitive for DOIs.
+    """
+    identity = record_identity(record)
+    aliases = {evidence_id}
+    if identity["doi"]:
+        aliases.update({identity["doi"], f"doi:{identity['doi']}"})
+    if identity["pmid"]:
+        aliases.update({identity["pmid"], f"pmid:{identity['pmid']}"})
+    source_id = str(record.get("id") or record.get("source_id") or "").strip()
+    if source_id:
+        aliases.add(source_id)
+    return aliases
+
+
+def normalize_selection_value(value: str) -> str:
+    text = value.strip()
+    lowered = text.lower()
+    if re.match(r"^(https?://(dx\.)?doi\.org/|doi:\s*|10\.)", lowered):
+        doi = clean_doi(text)
+        return f"doi:{doi}" if doi else text
+    pmid = re.fullmatch(r"(?:pmid:?\s*)?(\d+)", lowered)
+    if pmid:
+        return f"pmid:{pmid.group(1)}"
+    return text
+
+
+def resolve_selection(selected_ids: list[str], indexed: dict[str, dict[str, Any]]) -> list[str]:
+    """Map each selected value to exactly one stable evidence ID.
+
+    Stable IDs always win. Otherwise the value is matched against the aliases
+    above; a value that matches no record, or more than one, is an error that
+    lists the accepted forms instead of failing with a bare ID.
+    """
+    alias_index: dict[str, set[str]] = {}
+    for evidence_id, record in indexed.items():
+        for alias in selection_aliases(evidence_id, record):
+            for key in {alias, normalize_selection_value(alias)}:
+                alias_index.setdefault(key, set()).add(evidence_id)
+    resolved: list[str] = []
+    unknown: list[str] = []
+    ambiguous: list[str] = []
+    for value in selected_ids:
+        if value in indexed:
+            resolved.append(value)
+            continue
+        matches = alias_index.get(value) or alias_index.get(normalize_selection_value(value)) or set()
+        if len(matches) == 1:
+            resolved.append(next(iter(matches)))
+        elif matches:
+            ambiguous.append(f"{value} -> {', '.join(sorted(matches))}")
+        else:
+            unknown.append(value)
+    if ambiguous:
+        raise ValueError(f"Selection values match more than one record; use the stable evidence ID: {'; '.join(ambiguous)}")
+    if unknown:
+        examples = ", ".join(sorted(indexed)[:5])
+        raise ValueError(
+            f"Selection contains unknown evidence IDs: {', '.join(unknown)}. "
+            "Use a stable evidence ID (doi:..., pmid:..., source:...), a bare DOI, or a PMID "
+            f"from --evidence. Examples from this file: {examples}"
+        )
+    if len(set(resolved)) != len(resolved):
+        raise ValueError("Selection names the same record more than once (for example by DOI and by PMID)")
+    return resolved
+
+
 PRIORITY_TAG_PREFIX = "AI4S:Priority:"
 PRIORITY_REVIEW_DEPTHS = {"metadata", "abstract", "mixed", "full-text"}
 
@@ -821,7 +893,39 @@ def fetch_local_candidates(
     return candidate_map, truncated_map, library_version
 
 
+def _js_truthy(value: Any) -> bool:
+    """JavaScript truthiness, so `action.item ? ... : null` in the runtime and
+    this helper agree on which actions hash with `"item": null`."""
+    if value is None or value is False:
+        return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value == value and value != 0  # NaN and 0 are falsy
+    if isinstance(value, str):
+        return value != ""
+    return True  # dicts and lists, even empty ones, are truthy in JS
+
+
+def _js_json_numbers(value: Any) -> Any:
+    """Turn integral floats into ints, as JSON.stringify writes 3.0 as `3`."""
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, list):
+        return [_js_json_numbers(entry) for entry in value]
+    if isinstance(value, dict):
+        return {key: _js_json_numbers(entry) for key, entry in value.items()}
+    return value
+
+
 def canonical_plan_hash(plan: dict[str, Any]) -> str:
+    """Hash of the plan's write intent.
+
+    Must stay byte-for-byte identical to `canonicalPlanHash` in
+    runtime/src/features/import-plan/contract.ts. Both sides order every
+    string by Unicode code point (Python's default `sorted()`; the runtime
+    uses `compareCodePoints`, not `localeCompare`), and both normalize the
+    lists the runtime validator sorts before hashing. The cross-language test
+    in runtime/tests/tools/import-plan-hash-parity.test.ts checks this.
+    """
     actions = []
     for source_action in sorted(plan["actions"], key=lambda action: action["evidence_id"]):
         # Deep copy through JSON: the plan came from a JSON file, and the
@@ -832,9 +936,16 @@ def canonical_plan_hash(plan: dict[str, Any]) -> str:
             raise RuntimeError(f"plan action could not be copied: {exc}") from exc
         action["reason_codes"] = sorted(set(action.get("reason_codes", [])))
         item = action.get("item")
+        action["item"] = item if _js_truthy(item) else None
         if isinstance(item, dict) and isinstance(item.get("tags"), list):
             item["tags"] = sorted(item["tags"], key=lambda entry: str((entry or {}).get("tag", "")))
-        actions.append(action)
+        priority = action.get("priority_recommendation")
+        if isinstance(priority, dict):
+            # The runtime validator sorts and dedupes these before hashing.
+            for key in ("reason_codes", "existing_tags"):
+                if isinstance(priority.get(key), list):
+                    priority[key] = sorted(set(priority[key]))
+        actions.append(_js_json_numbers(action))
     payload = {
         "schema_version": plan["schema_version"],
         "plan_type": plan["plan_type"],
@@ -846,8 +957,9 @@ def canonical_plan_hash(plan: dict[str, Any]) -> str:
         },
         "actions": actions,
     }
-    if isinstance(plan.get("priority"), dict):
+    if _js_truthy(plan.get("priority")):
         payload["priority"] = plan["priority"]
+    payload = _js_json_numbers(payload)
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
@@ -1509,10 +1621,7 @@ def command_plan_import(args: argparse.Namespace) -> None:
         if evidence_id in indexed:
             raise ValueError(f"Evidence input contains duplicate stable ID: {evidence_id}")
         indexed[evidence_id] = record
-    selected_ids = load_selection(args)
-    unknown = [evidence_id for evidence_id in selected_ids if evidence_id not in indexed]
-    if unknown:
-        raise ValueError(f"Selection contains unknown evidence IDs: {', '.join(unknown)}")
+    selected_ids = resolve_selection(load_selection(args), indexed)
     selected = [(evidence_id, indexed[evidence_id]) for evidence_id in selected_ids]
 
     project_slug = slugify(args.project)
@@ -2028,8 +2137,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     plan_import.add_argument("--evidence", required=True)
     selection = plan_import.add_mutually_exclusive_group(required=True)
-    selection.add_argument("--select-id", action="append")
-    selection.add_argument("--selection-json")
+    selection.add_argument(
+        "--select-id",
+        action="append",
+        help=(
+            "Record to import; repeat for several. Accepts the stable evidence ID "
+            "(doi:10.x/..., pmid:123, source:pubmed:123), a bare DOI or doi.org URL, "
+            "or a PMID (123 or pmid:123); each value must match exactly one record."
+        ),
+    )
+    selection.add_argument(
+        "--selection-json",
+        help='JSON file {"schema_version": "1.0", "evidence_ids": [...]}; same accepted forms as --select-id.',
+    )
     plan_import.add_argument("--project", required=True)
     plan_import.add_argument("--search-date", required=True)
     plan_import.add_argument("--collection-name", required=True)

@@ -234,6 +234,33 @@ class TestImportPlanning(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unknown evidence"):
                 zlm.command_plan_import(args)
 
+    def test_select_id_accepts_pmid_and_bare_doi(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            tmp = Path(directory)
+            reference = plan_args(tmp)
+            zlm.command_plan_import(reference)
+            expected = zlm.load_json(reference.output)
+            for values in (["12345678", "10.1000/EXAMPLE.2"], ["pmid:12345678", "https://doi.org/10.1000/example.2"], ["PMID: 12345678", "doi:10.1000/example.2"]):
+                args = plan_args(tmp)
+                args.selection_json = None
+                args.select_id = values
+                args.output = str(tmp / "by-alias.json")
+                zlm.command_plan_import(args)
+                plan = zlm.load_json(args.output)
+                self.assertEqual([a["evidence_id"] for a in plan["actions"]], [a["evidence_id"] for a in expected["actions"]], values)
+                self.assertEqual(plan["plan_hash"], expected["plan_hash"], values)
+
+    def test_select_id_rejects_same_record_twice_and_lists_examples(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            args = plan_args(Path(directory))
+            args.selection_json = None
+            args.select_id = ["12345678", "doi:10.1000/example.1"]
+            with self.assertRaisesRegex(ValueError, "same record more than once"):
+                zlm.command_plan_import(args)
+            args.select_id = ["99999999"]
+            with self.assertRaisesRegex(ValueError, "Examples from this file: doi:10.1000/example.1"):
+                zlm.command_plan_import(args)
+
     def test_ris_contains_only_create_action(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             args = plan_args(Path(directory))
@@ -367,6 +394,47 @@ class TestPlanHash(unittest.TestCase):
             changed = copy.deepcopy(plan)
             changed["target"]["collection_name"] = "Another collection"
             self.assertNotEqual(zlm.canonical_plan_hash(plan), zlm.canonical_plan_hash(changed))
+
+
+class TestPlanHashParity(unittest.TestCase):
+    """The runtime (contract.ts) must accept plans this helper hashes.
+
+    runtime/tests/tools/import-plan-hash-parity.test.ts checks the same fixture
+    from the TypeScript side and against this module live.
+    """
+
+    def load_fixture(self) -> dict:
+        return json.loads((FIXTURES / "import_plan_mixed_case_tags.json").read_text(encoding="utf-8"))
+
+    def test_fixture_hash_is_stable(self) -> None:
+        plan = self.load_fixture()
+        self.assertEqual(zlm.canonical_plan_hash(plan), plan["plan_hash"])
+
+    def test_tag_order_does_not_change_hash(self) -> None:
+        plan = self.load_fixture()
+        changed = copy.deepcopy(plan)
+        for action in changed["actions"]:
+            action["item"]["tags"].reverse()
+        changed["target"]["tags"].reverse()
+        changed["actions"].reverse()
+        self.assertEqual(zlm.canonical_plan_hash(plan), zlm.canonical_plan_hash(changed))
+
+    def test_integral_floats_hash_like_json_stringify(self) -> None:
+        plan = self.load_fixture()
+        as_int = copy.deepcopy(plan)
+        for action in as_int["actions"]:
+            priority = action.get("priority_recommendation")
+            if priority:
+                priority["level"] = int(priority["level"])
+        self.assertEqual(zlm.canonical_plan_hash(plan), zlm.canonical_plan_hash(as_int))
+
+    def test_missing_item_hashes_as_null(self) -> None:
+        plan = self.load_fixture()
+        with_null = copy.deepcopy(plan)
+        without = copy.deepcopy(plan)
+        with_null["actions"][0]["item"] = None
+        del without["actions"][0]["item"]
+        self.assertEqual(zlm.canonical_plan_hash(with_null), zlm.canonical_plan_hash(without))
 
 
 class TestMetricsPlanning(unittest.TestCase):

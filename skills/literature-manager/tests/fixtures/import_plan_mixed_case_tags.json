@@ -1,0 +1,165 @@
+{
+  "schema_version": "1.0",
+  "plan_type": "zotero-import",
+  "created_at": "2026-11-27T05:46:34Z",
+  "plan_hash": "sha256:9437e660d8842aa8b3124d24254de60529a9d75a731f596041c19a52f5218e3f",
+  "project": {
+    "slug": "gpld1-dox",
+    "search_date": "2026-11-27"
+  },
+  "target": {
+    "library_type": "user",
+    "library_id": 1,
+    "collection_name": "GPLD1 mixed-case tags",
+    "tags": [
+      "project:gpld1-dox",
+      "import-run:gpld1-dox-20261127",
+      "AI4S:Imported"
+    ]
+  },
+  "matching": {
+    "mode": "web-api-local-match",
+    "source_library_version": 1545,
+    "candidate_limit": 50,
+    "unchecked_create": false
+  },
+  "priority": {
+    "source_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "scope": "gpld1-dox",
+    "review_depth": "abstract",
+    "default_for_selected": 1
+  },
+  "actions": [
+    {
+      "evidence_id": "pmid:11120890",
+      "display_rank": 3,
+      "decision": "create",
+      "reason_codes": [
+        "no-library-match"
+      ],
+      "source": {
+        "database": "pubmed",
+        "record_id": "11120890"
+      },
+      "item": {
+        "itemType": "journalArticle",
+        "title": "Lowercase-first tags",
+        "DOI": "",
+        "date": "2001",
+        "creators": [],
+        "tags": [
+          {
+            "tag": "project:gpld1-dox"
+          },
+          {
+            "tag": "import-run:gpld1-dox-20261127"
+          },
+          {
+            "tag": "JCR:Q1"
+          },
+          {
+            "tag": "CAS:1区"
+          },
+          {
+            "tag": "AI4S:Priority:1"
+          },
+          {
+            "tag": "note:😀"
+          },
+          {
+            "tag": "note:～"
+          }
+        ]
+      },
+      "match": null,
+      "priority_recommendation": {
+        "level": 1.0,
+        "reason_codes": [
+          "selected-default"
+        ],
+        "tag_decision": "add"
+      }
+    },
+    {
+      "evidence_id": "doi:10.1007/s00018-023-04780-y",
+      "display_rank": 1,
+      "decision": "create",
+      "reason_codes": [
+        "no-library-match"
+      ],
+      "source": {
+        "database": "pubmed",
+        "record_id": "37000000"
+      },
+      "item": {
+        "itemType": "journalArticle",
+        "title": "Mixed-case metrics tags",
+        "DOI": "10.1007/s00018-023-04780-y",
+        "date": "2023",
+        "creators": [],
+        "tags": [
+          {
+            "tag": "import-run:gpld1-dox-20261127"
+          },
+          {
+            "tag": "project:gpld1-dox"
+          },
+          {
+            "tag": "CAS:2区"
+          },
+          {
+            "tag": "JCR:Q2"
+          },
+          {
+            "tag": "AI4S:Priority:2"
+          }
+        ]
+      },
+      "match": null,
+      "priority_recommendation": {
+        "level": 2,
+        "reason_codes": [
+          "core-conclusion",
+          "selected-default"
+        ],
+        "tag_decision": "add"
+      }
+    },
+    {
+      "evidence_id": "DOI:10.1/Upper-Case-Id",
+      "display_rank": 2,
+      "decision": "create",
+      "reason_codes": [
+        "unchecked",
+        "no-library-match"
+      ],
+      "source": {
+        "database": "openalex",
+        "record_id": "W1"
+      },
+      "item": {
+        "itemType": "journalArticle",
+        "title": "Upper-case evidence id",
+        "DOI": "10.1/Upper-Case-Id",
+        "date": "2024",
+        "creators": [],
+        "tags": [
+          {
+            "tag": "project:gpld1-dox"
+          },
+          {
+            "tag": "JCR:Q3"
+          }
+        ]
+      },
+      "match": null
+    }
+  ],
+  "summary": {
+    "selected": 3,
+    "create": 3,
+    "reuse": 0,
+    "check": 0,
+    "skip": 0
+  }
+}
