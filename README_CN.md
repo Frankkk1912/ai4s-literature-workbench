@@ -136,19 +136,14 @@
 **Claude 桌面版 Code 标签**：任选一种方式安装，然后执行 `/reload-plugins` 或新开会话。
 
 - **上传发布包**：从 [Latest Release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest) 下载 `ai4s-literature-workbench-<版本号>.zip`，核对 `SHA256SUMS.txt`，在 **设置 → Plugins → Add → Upload plugin** 中上传。
-- **备选方式（未验证）**：选择 **Add → Add marketplace**，填入 `Frankkk1912/ai4s-literature-workbench`，通过源码安装后需构建一次。
-
-- *说明*：此标签页中的 `/plugin` 仅打开插件设置，不执行终端安装命令。Mac 上已验证 v0.2.0 上传成功并识别四个技能与两个本地服务，但该已发布 zip 的相对 MCP 路径会启动失败；本次路径修复尚未包含在该已发布产物中，也尚未在桌面版验证启动。
+- **备选方式**：选择 **Add → Add marketplace**，填入 `Frankkk1912/ai4s-literature-workbench`，通过源码安装后需构建一次。
 
 **Claude 桌面版 Chat**：
-1. **安装技能（仅含四个技能）**：在 **设置 → Plugins → Add → Upload plugin** 上传上述同一个 zip（Mac 已验证 v0.2.0）。Chat 忽略插件内的本地 MCP 服务（包括插件声明的 `.mcpb`），而 Code 会加载它们。
+1. **安装技能**：在 **设置 → Plugins → Add → Upload plugin** 上传上述同一个 zip。
 2. **下载工具扩展**：另行下载**两个**独立扩展 `ai4s-literature-zotero-<版本号>.mcpb` 和 `ai4s-literature-fulltext-<版本号>.mcpb`，逐个核对 `SHA256SUMS.txt`；若缺少任一文件或校验不符则停止。
-3. **安装扩展**：逐个打开（Mac：`open <file>`；Windows：`start "" <file>`），或交给用户双击。Zotero 保持两个可选设置默认并点击 **安装**；fulltext 无必填设置或密钥，直接点击 **安装**。用户完成安装前工具不会生效。
+3. **安装扩展**：逐个打开（Mac：`open <file>`；Windows：`start "" <file>`），或交给用户双击。Zotero 保持两个可选设置默认并点击 **安装**；fulltext 无必填设置或密钥，直接点击 **安装**。
 
-- *扩展与运行时说明*：fulltext 提供 OA 优先全文拉取与 PDF 校验，不涉及 Zotero 凭据或机构登录。两个扩展均由 CI 构建校验（尚未做真实 Chat 安装验证），并使用 Claude Desktop 内置的 Node.js（版本未验证，要求 ≥ 22.13）。上传的插件保存在 claude.ai 账号上，在 Chat、Cowork、Code 间同步，但各入口的工具支持不同。
-- *安全与备选*：切勿将 API 密钥贴进聊天，也不要让 Agent 编辑 `~/Library/Application Support/Claude/` 下的配置（Mac 保护此目录，实测拒绝访问）。[INSTALL.md](INSTALL.md) 中的手动配置路线仅供用户自行粘贴、作为最后备选。
-
-**Claude Code 终端、ChatGPT 桌面版、WorkBuddy**：将以下指令原样发送给客户端（若客户端请求访问 GitHub 或网络权限，请选择**允许**）：
+**Claude Code 终端、ChatGPT 桌面版、WorkBuddy**：将以下指令原样发送给客户端：
 
 ```text
 请帮我从
@@ -160,7 +155,18 @@ https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INS
 
 **其他**：请参考下方「其他 Agent 与手动安装」折叠部分。
 
-> **验证状态：** 已在 Windows 11 通过 MCP 配置文件验证 WorkBuddy 与 ChatGPT 桌面版（ChatGPT 的 MCP 配置文件方式仅连接工具，不加载技能）；Mac 下 Claude 插件上传与四个 Chat 技能已验证。尚未验证：桌面版 Code 中路径修复后的 MCP 启动、桌面端 **Add marketplace**、两个独立 `.mcpb` 扩展安装、WorkBuddy 应用内插件市场、CodeBuddy、macOS 版 ChatGPT 桌面端，以及在 ChatGPT 桌面端内执行 Codex 插件命令。
+<details>
+<summary>说明</summary>
+
+**Claude 桌面版 Code 标签：** 此标签页中的 `/plugin` 仅打开插件设置，不执行终端安装命令。Mac 上已验证 v0.2.0 上传成功并识别四个技能与两个本地服务，但该已发布 zip 的相对 MCP 路径会启动失败；本次路径修复尚未包含在该已发布产物中，也尚未在桌面版验证启动。**Add marketplace** 备选方式尚未验证。
+
+**Claude 桌面版 Chat：** 上传 zip 只能获得四个技能（Mac 已验证 v0.2.0）。Chat 忽略插件内的本地 MCP 服务（包括插件声明的 `.mcpb`），而 Code 会加载它们。用户完成两个扩展的安装前，工具不会生效。fulltext 提供 OA 优先全文拉取与 PDF 校验，不涉及 Zotero 凭据或机构登录。两个扩展均由 CI 构建校验（尚未做真实 Chat 安装验证），并使用 Claude Desktop 内置的 Node.js（版本未验证，要求 ≥ 22.13）。上传的插件保存在 claude.ai 账号上，在 Chat、Cowork、Code 间同步，但各入口的工具支持不同。切勿将 API 密钥贴进聊天，也不要让 Agent 编辑 `~/Library/Application Support/Claude/` 下的配置（Mac 保护此目录，实测拒绝访问）。[INSTALL.md](INSTALL.md) 中的手动配置路线仅供用户自行粘贴、作为最后备选。
+
+若客户端请求访问 GitHub 或网络权限，请选择**允许**。
+
+**验证状态：** 已在 Windows 11 通过 MCP 配置文件验证 WorkBuddy 与 ChatGPT 桌面版（ChatGPT 的 MCP 配置文件方式仅连接工具，不加载技能）；Mac 下 Claude 插件上传与四个 Chat 技能已验证。尚未验证：桌面版 Code 中路径修复后的 MCP 启动、桌面端 **Add marketplace**、两个独立 `.mcpb` 扩展安装、WorkBuddy 应用内插件市场、CodeBuddy、macOS 版 ChatGPT 桌面端，以及在 ChatGPT 桌面端内执行 Codex 插件命令。
+
+</details>
 
 ### 2. 首次初始化
 
@@ -197,7 +203,7 @@ https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INS
 <details>
 <summary>其他 Agent 与手动安装</summary>
 
-前置要求：Git，以及包含 npm 的 Node.js ≥ 22.13。克隆仓库并运行一次构建脚本即可；首次检索会自动下载检索辅助组件，无需手动安装 `uv`。
+前置要求：Git，以及包含 npm 的 Node.js ≥ 22.13。克隆仓库并运行一次构建脚本即可。
 
 ```bash
 git clone https://github.com/Frankkk1912/ai4s-literature-workbench.git
@@ -205,9 +211,9 @@ cd ai4s-literature-workbench
 node scripts/bootstrap.mjs
 ```
 
-Windows 环境同样执行上述三条命令；请直接通过 `node` 运行脚本，切勿使用 `.ps1` 或 `.sh` 包装脚本。
+Windows 环境同样执行上述三条命令。
 
-**终端 Claude Code**（`/plugin` 安装命令仅在终端输入，切勿在桌面版 Code 标签页执行）
+**终端 Claude Code**
 
 ```bash
 claude plugin marketplace add Frankkk1912/ai4s-literature-workbench
@@ -221,9 +227,9 @@ codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-work
 codex plugin add ai4s-literature-workbench@ai4s-literature-workbench
 ```
 
-**ChatGPT 桌面版**：优先使用上方的安装指令。如需手动配置，已安装 `codex` CLI 时可直接执行上述 Codex 命令；否则请参照 [INSTALL.md](INSTALL.md) 配置 MCP 文件（仅连接工具，不加载技能）。已在 Windows 11 验证，macOS 尚未实测。
+**ChatGPT 桌面版**：优先使用上方的安装指令。如需手动配置，已安装 `codex` CLI 时可直接执行上述 Codex 命令；否则请参照 [INSTALL.md](INSTALL.md) 配置 MCP 文件。
 
-**CodeBuddy**（尚未在 CodeBuddy 上实测）：在应用内执行：
+**CodeBuddy**：在应用内执行：
 
 ```bash
 /plugin marketplace add Frankkk1912/ai4s-literature-workbench
@@ -236,6 +242,17 @@ codex plugin add ai4s-literature-workbench@ai4s-literature-workbench
 node scripts/install-host.mjs --host trae --target /path/to/project
 node scripts/install-host.mjs --host qoder --target /path/to/project
 ```
+
+<details>
+<summary>说明</summary>
+
+首次检索会自动下载检索辅助组件，无需手动安装 `uv`。请直接通过 `node` 运行构建脚本，切勿使用 `.ps1` 或 `.sh` 包装脚本。
+
+`/plugin` 安装命令仅在终端输入，切勿在桌面版 Code 标签页执行。
+
+ChatGPT 的 MCP 配置文件方式仅连接工具，不加载技能。ChatGPT 桌面版已在 Windows 11 验证，macOS 尚未实测。CodeBuddy 尚未在 CodeBuddy 上实测。
+
+</details>
 
 </details>
 

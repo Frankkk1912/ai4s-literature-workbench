@@ -159,19 +159,14 @@ Nothing else needs manual installation. On your first search, the workbench asks
 **Claude desktop Code tab:** Choose one method, then run `/reload-plugins` or start a new session.
 
 - **Upload release zip:** Download `ai4s-literature-workbench-<version>.zip` from [Latest Release](https://github.com/Frankkk1912/ai4s-literature-workbench/releases/latest), check `SHA256SUMS.txt`, and choose **Settings → Plugins → Add → Upload plugin**.
-- **Alternative (unverified):** Choose **Add → Add marketplace**, enter `Frankkk1912/ai4s-literature-workbench`, and build the source once.
-
-- *Notes:* In this tab, `/plugin` opens Plugins settings, not the terminal installer. Upload and recognition of four skills and two local servers were verified on Mac with v0.2.0, but that published zip has broken relative MCP paths; MCP startup with the path fix is not yet desktop-verified or in that published asset.
+- **Alternative:** Choose **Add → Add marketplace**, enter `Frankkk1912/ai4s-literature-workbench`, and build the source once.
 
 **Claude desktop Chat:**
-1. **Install skills (four skills only):** Upload the same zip via **Settings → Plugins → Add → Upload plugin** (verified on Mac with v0.2.0). Chat ignores plugin-local MCP servers, including plugin-declared `.mcpb` bundles; Code loads them.
+1. **Install skills:** Upload the same zip via **Settings → Plugins → Add → Upload plugin**.
 2. **Download tool extensions:** Separately download **both** `ai4s-literature-zotero-<version>.mcpb` and `ai4s-literature-fulltext-<version>.mcpb`, check each against `SHA256SUMS.txt`, and stop if either is missing or fails the check.
-3. **Install extensions:** Open each (`open <file>` on Mac, `start "" <file>` on Windows), or hand each to the user to double-click. For Zotero, leave both optional settings default and press **Install**; for fulltext, press **Install** (no required settings or keys). Nothing works until the user installs them.
+3. **Install extensions:** Open each (`open <file>` on Mac, `start "" <file>` on Windows), or hand each to the user to double-click. For Zotero, leave both optional settings default and press **Install**; for fulltext, press **Install** (no required settings or keys).
 
-- *Extension & runtime notes:* Fulltext provides OA-first fetch and PDF verification, not Zotero credentials or institutional login. Both extensions are CI-built/validated (not live-verified) and use Claude Desktop's bundled Node.js (version unverified; requires ≥ 22.13). Uploaded plugins sync across Chat, Cowork, and Code on the claude.ai account; tool support differs by entry point.
-- *Safety & fallback:* Never paste API keys into chat, and never ask an agent to edit files under `~/Library/Application Support/Claude/` (Mac protects that directory and agent access was denied). Manual config is a user-only last resort in [INSTALL.md](INSTALL.md).
-
-**Claude Code Terminal, ChatGPT desktop, WorkBuddy:** Paste the following prompt verbatim into your client (if prompted for permission to access GitHub or the network, select **Allow**):
+**Claude Code Terminal, ChatGPT desktop, WorkBuddy:** Paste the following prompt verbatim into your client:
 
 ```text
 Please install the plugin from
@@ -183,7 +178,18 @@ Do not add steps of your own. When it's done, tell me in plain language what wor
 
 **Others:** Follow **Other agents & manual install** below.
 
-> **Verification status:** Tested on Windows 11 via MCP configuration files for both WorkBuddy and ChatGPT desktop (the ChatGPT MCP file route connects tools without loading skills). Mac Claude plugin upload and four Chat skills are verified. Unverified: fixed MCP startup in desktop Code, desktop **Add marketplace**, both separate `.mcpb` installs, WorkBuddy's in-app marketplace, CodeBuddy, ChatGPT desktop on macOS, and the Codex plugin command inside ChatGPT desktop.
+<details>
+<summary>Notes</summary>
+
+**Claude desktop Code tab:** In this tab, `/plugin` opens Plugins settings, not the terminal installer. Upload and recognition of four skills and two local servers were verified on Mac with v0.2.0, but that published zip has broken relative MCP paths; MCP startup with the path fix is not yet desktop-verified or in that published asset. The **Add marketplace** route is unverified.
+
+**Claude desktop Chat:** The zip provides four skills only (verified on Mac with v0.2.0). Chat ignores plugin-local MCP servers, including plugin-declared `.mcpb` bundles; Code loads them. Nothing works until the user installs the two extensions. Fulltext provides OA-first fetch and PDF verification, not Zotero credentials or institutional login. Both extensions are CI-built/validated (not live-verified) and use Claude Desktop's bundled Node.js (version unverified; requires ≥ 22.13). Uploaded plugins sync across Chat, Cowork, and Code on the claude.ai account; tool support differs by entry point. Never paste API keys into chat, and never ask an agent to edit files under `~/Library/Application Support/Claude/` (Mac protects that directory and agent access was denied). Manual config is a user-only last resort in [INSTALL.md](INSTALL.md).
+
+If prompted for permission to access GitHub or the network, select **Allow**.
+
+**Verification status:** Tested on Windows 11 via MCP configuration files for both WorkBuddy and ChatGPT desktop (the ChatGPT MCP file route connects tools without loading skills). Mac Claude plugin upload and four Chat skills are verified. Unverified: fixed MCP startup in desktop Code, desktop **Add marketplace**, both separate `.mcpb` installs, WorkBuddy's in-app marketplace, CodeBuddy, ChatGPT desktop on macOS, and the Codex plugin command inside ChatGPT desktop.
+
+</details>
 
 ### 2. First Run
 
@@ -220,7 +226,7 @@ For a full walkthrough, see `docs/getting-started.md`.
 <details>
 <summary>Other agents & manual install</summary>
 
-Requires Git and Node.js ≥ 22.13 (with npm). Clone the repository and run the bootstrap script once. The first search automatically downloads the search helper—do not install `uv` manually.
+Requires Git and Node.js ≥ 22.13 (with npm). Clone the repository and run the bootstrap script once.
 
 ```bash
 git clone https://github.com/Frankkk1912/ai4s-literature-workbench.git
@@ -228,9 +234,9 @@ cd ai4s-literature-workbench
 node scripts/bootstrap.mjs
 ```
 
-Use the exact same three commands on Windows. Invoke the script directly via `node`; do not use `.ps1` or `.sh` wrappers.
+Use the exact same three commands on Windows.
 
-**Claude Code terminal** (type `/plugin` install commands only in the terminal, not the desktop Code tab)
+**Claude Code terminal**
 
 ```bash
 claude plugin marketplace add Frankkk1912/ai4s-literature-workbench
@@ -244,21 +250,32 @@ codex plugin marketplace add https://github.com/Frankkk1912/ai4s-literature-work
 codex plugin add ai4s-literature-workbench@ai4s-literature-workbench
 ```
 
-**ChatGPT desktop**: Prefer the installation prompt above. For manual setup, use the Codex commands above if the `codex` CLI is installed; otherwise follow the MCP configuration file route in [INSTALL.md](INSTALL.md) (connects tools without loading skills). Verified on Windows 11; not yet tested on macOS.
+**ChatGPT desktop:** Prefer the installation prompt above. For manual setup, use the Codex commands above if the `codex` CLI is installed; otherwise follow the MCP configuration file route in [INSTALL.md](INSTALL.md).
 
-**CodeBuddy** *(not yet tested on CodeBuddy)*: Run inside the application:
+**CodeBuddy:** Run inside the application:
 
 ```bash
 /plugin marketplace add Frankkk1912/ai4s-literature-workbench
 /plugin install ai4s-literature-workbench@ai4s-literature-workbench
 ```
 
-**Trae / Qoder**: Run from the repository root, replacing `/path/to/project` with your target workspace path:
+**Trae / Qoder:** Run from the repository root, replacing `/path/to/project` with your target workspace path:
 
 ```bash
 node scripts/install-host.mjs --host trae --target /path/to/project
 node scripts/install-host.mjs --host qoder --target /path/to/project
 ```
+
+<details>
+<summary>Notes</summary>
+
+The first search automatically downloads the search helper—do not install `uv` manually. Invoke the bootstrap script directly via `node`; do not use `.ps1` or `.sh` wrappers.
+
+Type `/plugin` install commands only in the terminal, not the desktop Code tab.
+
+The ChatGPT MCP file route connects tools without loading skills. ChatGPT desktop is verified on Windows 11; not yet tested on macOS. CodeBuddy has not yet been tested on CodeBuddy.
+
+</details>
 
 </details>
 
