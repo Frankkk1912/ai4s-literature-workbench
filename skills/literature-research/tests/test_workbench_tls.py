@@ -145,5 +145,94 @@ class TestClassificationAndSanitization(unittest.TestCase):
         workbench_tls._context_cache = None
 
 
+
+class FakeOpener:
+    def __init__(self, outcomes: list) -> None:
+        self.outcomes = outcomes
+
+    def open(self, request, timeout=None):  # noqa: ANN001 - test double
+        outcome = self.outcomes.pop(0)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+
+def eof_error() -> urllib.error.URLError:
+    return urllib.error.URLError(
+        ssl.SSLEOFError(8, "[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol")
+    )
+
+
+class TestHandshakeFallback(unittest.TestCase):
+    def setUp(self) -> None:
+        workbench_tls._context_cache = None
+        workbench_tls._opener_cache = None
+        workbench_tls._compat_level = None
+        self.contexts: list[ssl.SSLContext] = []
+
+    tearDown = setUp
+
+    def run_open(self, outcomes: list, env: dict | None = None):
+        shared = list(outcomes)
+        real_handler = urllib.request.HTTPSHandler
+
+        def fake_handler(context=None):  # noqa: ANN001 - test double
+            self.contexts.append(context)
+            return real_handler(context=context)
+
+        request = urllib.request.Request("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/einfo.fcgi")
+        with (
+            patch.object(workbench_tls.urllib.request, "HTTPSHandler", side_effect=fake_handler),
+            patch.object(workbench_tls.urllib.request, "build_opener", side_effect=lambda *_: FakeOpener(shared)),
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+        ):
+            try:
+                result = workbench_tls.open_url(request, timeout=5, env=env if env is not None else {})
+            except Exception as exc:  # noqa: BLE001
+                result = exc
+        return result, stderr.getvalue()
+
+    def test_eof_retries_with_smaller_handshake_and_keeps_verification(self) -> None:
+        result, stderr = self.run_open([eof_error(), "ok"])
+        self.assertEqual(result, "ok")
+        self.assertEqual(workbench_tls._compat_level, 1)
+        self.assertIn("UNEXPECTED_EOF", stderr)
+        self.assertEqual(len(self.contexts), 2)
+        for context in self.contexts:
+            self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+            self.assertTrue(context.check_hostname)
+
+    def test_second_eof_caps_at_tls12_then_gives_up(self) -> None:
+        result, _ = self.run_open([eof_error(), eof_error(), "ok"])
+        self.assertEqual(result, "ok")
+        self.assertEqual(self.contexts[-1].maximum_version, ssl.TLSVersion.TLSv1_2)
+        self.assertEqual(self.contexts[-1].verify_mode, ssl.CERT_REQUIRED)
+
+        self.setUp()
+        result, _ = self.run_open([eof_error(), eof_error(), eof_error()])
+        self.assertIsInstance(result, urllib.error.URLError)
+        error_class, description = workbench_tls.classify_network_error(result)
+        self.assertEqual(error_class, "tls-handshake")
+        self.assertIn("not a certificate problem", description)
+
+    def test_other_errors_are_not_retried(self) -> None:
+        refused = urllib.error.URLError(ConnectionRefusedError(61, "refused"))
+        result, stderr = self.run_open([refused, "ok"])
+        self.assertIs(result, refused)
+        self.assertEqual(len(self.contexts), 1)
+        self.assertEqual(stderr, "")
+
+    def test_certificate_errors_are_not_retried(self) -> None:
+        bad_cert = urllib.error.URLError(ssl.SSLCertVerificationError(1, "certificate verify failed"))
+        result, _ = self.run_open([bad_cert, "ok"])
+        self.assertIs(result, bad_cert)
+        self.assertEqual(len(self.contexts), 1)
+
+    def test_compat_env_starts_in_compat_mode(self) -> None:
+        result, _ = self.run_open(["ok"], env={workbench_tls.COMPAT_ENV: "1"})
+        self.assertEqual(result, "ok")
+        self.assertEqual(workbench_tls._compat_level, 1)
+        self.assertEqual(self.contexts[0].verify_mode, ssl.CERT_REQUIRED)
+
 if __name__ == "__main__":
     unittest.main()

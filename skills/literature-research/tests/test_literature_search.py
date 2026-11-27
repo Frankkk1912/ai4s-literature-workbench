@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import os
 import sys
@@ -823,6 +825,53 @@ class TestWorkflowPlanning(unittest.TestCase):
             self.assertTrue(plan["openalex_query"])
             self.assertEqual(plan["conditional_enrichment"]["citation_provider"], "crossref")
             self.assertTrue(plan["journal_filters"]["filter_to_matches"])
+
+    def test_review_falls_back_to_pubmed_when_openalex_is_rate_limited(self) -> None:
+        def pubmed(args: object) -> None:
+            ls.write_json(args.output, {"source": "pubmed", "count": 0, "records": []})
+
+        def rate_limited(args: object) -> None:
+            raise ls.RateLimitError("HTTP 429 rate limit from https://api.openalex.org/works")
+
+        with tempfile.TemporaryDirectory() as output_dir, patch.object(
+            ls, "command_search_pubmed", side_effect=pubmed
+        ), patch.object(ls, "command_search_openalex", side_effect=rate_limited) as openalex, patch.object(
+            ls, "command_merge_rank", wraps=ls.command_merge_rank
+        ) as merge, contextlib.redirect_stderr(io.StringIO()) as stderr:
+            args = type("Args", (), {
+                "question": "GPLD1 doxorubicin cardiotoxicity",
+                "pubmed_query": None,
+                "limit": 5,
+                "top_n": 5,
+                "output": output_dir,
+                "api_key": None,
+                "arxiv": False,
+                "wos_export": None,
+                "citation_provider": None,
+                "s2_api_key": None,
+                "citation_cache": None,
+                "journal_metrics": None,
+                "no_journal_metrics": True,
+                "cas_zones": None,
+                "jcr_zones": None,
+                "if_min": None,
+                "if_max": None,
+                "filter_journals": False,
+                "easyscholar": False,
+                "easyscholar_api_key": None,
+                "easyscholar_cache": None,
+                "easyscholar_min_interval": 1.0,
+                "no_openalex": False,
+                "openalex_query": None,
+            })()
+            ls.command_review(args)
+            openalex.assert_called_once()
+            self.assertEqual(len(merge.call_args.args[0].inputs), 1)
+            self.assertTrue((Path(output_dir) / "report.md").exists())
+            plan = ls.load_json(Path(output_dir) / "search_plan.json")
+            self.assertEqual(plan["source_routing"]["enabled"], ["pubmed"])
+            self.assertEqual(plan["source_routing"]["degraded"][0]["source"], "openalex")
+            self.assertIn("PubMed results only", stderr.getvalue())
 
     def test_review_rejects_journal_filters_when_default_metrics_are_disabled(self) -> None:
         with tempfile.TemporaryDirectory() as parent:

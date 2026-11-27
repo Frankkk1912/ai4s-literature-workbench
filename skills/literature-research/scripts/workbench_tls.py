@@ -16,6 +16,12 @@ module instead of keeping two copies of the logic. The rules, in order:
    `yes`, case-folded). When set, verification is disabled for this process
    and a loud warning goes to stderr. Everything else — including `no`,
    `off`, `0`, or an unset variable — keeps verification on.
+5. When the TLS handshake is cut off before it completes (`UNEXPECTED_EOF`,
+   seen behind middleboxes that drop the large post-quantum TLS 1.3
+   ClientHello of newer OpenSSL builds), `open_url` retries once with a
+   single classical key share (P-256), then once more capped at TLS 1.2.
+   Certificate verification stays exactly as configured above; only the
+   handshake shape changes. `AI4S_TLS_COMPAT=1` starts in that mode.
 """
 
 from __future__ import annotations
@@ -37,7 +43,14 @@ except ImportError:  # pragma: no cover - depends on the environment.
     truststore = None
 
 INSECURE_ENV = "LITERATURE_TLS_INSECURE"
+COMPAT_ENV = "AI4S_TLS_COMPAT"
 _TRUTHY = {"1", "true", "yes"}
+
+# Handshake fallbacks, mildest first. Level 0 is the normal context.
+# 1: TLS 1.3 kept, but only a P-256 key share (a small ClientHello).
+# 2: additionally capped at TLS 1.2.
+COMPAT_LEVELS = (1, 2)
+_COMPAT_CURVE = "prime256v1"
 
 CA_ENV_VARS = ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE")
 
@@ -110,6 +123,7 @@ def custom_ca_path(env: Mapping[str, str] | None = None) -> tuple[Path, str] | N
 _truststore_injected = False
 _context_cache: ssl.SSLContext | None = None
 _opener_cache: urllib.request.OpenerDirector | None = None
+_compat_level: int | None = None  # None: not decided yet (reads COMPAT_ENV)
 
 
 def build_ssl_context(
@@ -167,6 +181,51 @@ def get_ssl_context(env: Mapping[str, str] | None = None) -> ssl.SSLContext:
     return _context_cache
 
 
+def apply_compat_level(context: ssl.SSLContext, level: int) -> ssl.SSLContext:
+    """Shrink the handshake of an already-configured context.
+
+    Only the key-exchange groups and the protocol ceiling change; the trust
+    settings (`verify_mode`, `check_hostname`, CA files) are left untouched.
+    """
+    if level >= 1:
+        try:
+            context.set_ecdh_curve(_COMPAT_CURVE)
+        except (AttributeError, ValueError, ssl.SSLError):
+            pass  # e.g. a truststore context without this method; level 2 still applies
+    if level >= 2:
+        context.maximum_version = ssl.TLSVersion.TLSv1_2
+    return context
+
+
+def build_compat_ssl_context(level: int, env: Mapping[str, str] | None = None) -> ssl.SSLContext:
+    return apply_compat_level(build_ssl_context(env), level)
+
+
+def is_handshake_eof(exc: BaseException) -> bool:
+    """True when a connection attempt died mid-handshake with an EOF.
+
+    Only `URLError` counts: urllib raises it for failures while connecting,
+    before any request bytes are sent, so retrying cannot repeat a request.
+    """
+    if not isinstance(exc, urllib.error.URLError):
+        return False
+    reason = exc.reason
+    if isinstance(reason, ssl.SSLEOFError):
+        return True
+    if isinstance(reason, ssl.SSLError):
+        text = f"{getattr(reason, 'reason', '')} {reason}".upper()
+        return "UNEXPECTED_EOF" in text or "EOF OCCURRED IN VIOLATION OF PROTOCOL" in text
+    return False
+
+
+def _current_compat_level(env: Mapping[str, str] | None) -> int:
+    global _compat_level
+    if _compat_level is None:
+        source = os.environ if env is None else env
+        _compat_level = COMPAT_LEVELS[0] if is_explicit_truthy(source.get(COMPAT_ENV)) else 0
+    return _compat_level
+
+
 def _assert_http_url(full_url: str) -> None:
     """Only http(s) may be opened: the workbench scripts talk to web APIs."""
     if urllib.parse.urlsplit(full_url).scheme not in {"http", "https"}:
@@ -187,14 +246,31 @@ def open_url(
     can never be opened through this path.
     """
     _assert_http_url(request.full_url)
-    global _opener_cache
-    if _opener_cache is None:
-        # Same handler stack urlopen would use (proxy support included), with
-        # every HTTPS connection verified through the shared context above.
-        _opener_cache = urllib.request.build_opener(
-            urllib.request.HTTPSHandler(context=get_ssl_context(env))
-        )
-    return _opener_cache.open(request, timeout=timeout)
+    global _opener_cache, _compat_level
+    while True:
+        level = _current_compat_level(env)
+        if _opener_cache is None:
+            # Same handler stack urlopen would use (proxy support included), with
+            # every HTTPS connection verified through the shared context above.
+            context = get_ssl_context(env) if level == 0 else build_compat_ssl_context(level, env)
+            _opener_cache = urllib.request.build_opener(urllib.request.HTTPSHandler(context=context))
+        try:
+            return _opener_cache.open(request, timeout=timeout)
+        except urllib.error.URLError as exc:
+            next_levels = [candidate for candidate in COMPAT_LEVELS if candidate > level]
+            if not is_handshake_eof(exc) or not next_levels:
+                raise
+            host = urllib.parse.urlsplit(request.full_url).hostname or "the server"
+            shape = "a single P-256 key share" if next_levels[0] == 1 else "TLS 1.2"
+            print(
+                f"Note: the TLS handshake with {host} was cut off (UNEXPECTED_EOF), which usually "
+                f"means a firewall or proxy drops large TLS 1.3 handshakes. Retrying with {shape}; "
+                f"certificate verification is unchanged. Set {COMPAT_ENV}=1 to start this way.",
+                file=sys.stderr,
+            )
+            # The fallback stays in effect for the rest of this process.
+            _compat_level = next_levels[0]
+            _opener_cache = None
 
 
 def _cert_reason(exc: BaseException) -> str:
@@ -215,6 +291,13 @@ def classify_network_error(exc: BaseException) -> tuple[str, str]:
         return "tls", f"TLS certificate verification failed: {_cert_reason(exc)}. Behind a proxy or school/company gateway this usually means traffic is re-signed with a private root certificate. {TLS_GUIDANCE}"
     if isinstance(reason, ssl.SSLCertVerificationError):
         return "tls", f"TLS certificate verification failed: {_cert_reason(reason)}. Behind a proxy or school/company gateway this usually means traffic is re-signed with a private root certificate. {TLS_GUIDANCE}"
+    if is_handshake_eof(exc):
+        return "tls-handshake", (
+            "the TLS handshake was cut off before it completed (UNEXPECTED_EOF), even after retrying "
+            "with a smaller handshake. A firewall, proxy, or VPN on this network is dropping the "
+            "connection; this is not a certificate problem. Try another network, or ask the network "
+            "administrator to allow TLS 1.3 to this host."
+        )
     if isinstance(reason, socket.gaierror):
         return "dns", f"the host name could not be resolved ({reason}). Check the network or DNS settings; this is not a certificate problem."
     if isinstance(reason, TimeoutError):

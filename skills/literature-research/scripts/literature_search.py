@@ -2848,15 +2848,30 @@ def command_review(args: argparse.Namespace) -> None:
 
         if use_openalex:
             openalex_path = temporary_dir / "openalex.json"
-            command_search_openalex(
-                argparse.Namespace(
-                    query=openalex_query,
-                    limit=args.limit,
-                    output=str(openalex_path),
-                    publication_year=year_filter or None,
+            try:
+                command_search_openalex(
+                    argparse.Namespace(
+                        query=openalex_query,
+                        limit=args.limit,
+                        output=str(openalex_path),
+                        publication_year=year_filter or None,
+                    )
                 )
-            )
-            source_files.append(str(openalex_path))
+                source_files.append(str(openalex_path))
+            except (RateLimitError, RuntimeError, OSError, ValueError) as exc:
+                # OpenAlex is a supplementary source: a rate limit or outage must
+                # not throw away the PubMed results that already came back.
+                kind = "rate limit (HTTP 429)" if isinstance(exc, RateLimitError) else "error"
+                warning = (
+                    f"OpenAlex {kind}; continuing with PubMed results only. "
+                    "Re-run later, set a contact email (OPENALEX_MAILTO) for the polite pool, "
+                    "or pass --no-openalex to skip it."
+                )
+                print(f"WARNING: {warning} ({exc})", file=sys.stderr)
+                plan["source_routing"]["enabled"] = [s for s in plan["source_routing"]["enabled"] if s != "openalex"]
+                plan["source_routing"]["degraded"] = [{"source": "openalex", "reason": kind, "detail": str(exc)[:300]}]
+                plan.setdefault("screening_notes", []).append(warning)
+                write_json(search_plan_path, plan)
 
         if args.arxiv:
             arxiv_path = temporary_dir / "arxiv.json"

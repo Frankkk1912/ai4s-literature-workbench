@@ -16,6 +16,8 @@ export interface ProbeTarget {
   url: string;
   /** Optional endpoints never fail the overall verdict. */
   optional?: boolean;
+  /** Per-endpoint budget that overrides `timeoutMs` for a known-slow endpoint. */
+  timeoutMs?: number;
 }
 
 export interface ProbeResult {
@@ -43,12 +45,17 @@ export interface NetworkSummary {
 // The endpoints the workbench really calls. EasyScholar answers 4xx without a
 // key, which still proves TLS/DNS reach; OpenAlex is optional and its failure
 // never fails the verdict.
+export const EUROPE_PMC_TIMEOUT_MS = 15_000;
+
 export const PROBE_TARGETS: readonly ProbeTarget[] = [
   { name: 'Zotero Web API', url: 'https://api.zotero.org/schema' },
   { name: 'PubMed (NCBI E-utilities)', url: 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/einfo.fcgi' },
   {
     name: 'Europe PMC',
     url: 'https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=DOI%3A10.1038%2Fnature12373&format=json&pageSize=1',
+    // Europe PMC routinely takes 4-6 s to answer this query from Asia; a 6 s
+    // budget turned a healthy endpoint into a "needs you" verdict.
+    timeoutMs: EUROPE_PMC_TIMEOUT_MS,
   },
   { name: 'EasyScholar', url: 'https://www.easyscholar.cc/open/getPublicationRank' },
   { name: 'OpenAlex', url: 'https://api.openalex.org/works?per-page=1', optional: true },
@@ -57,9 +64,9 @@ export const PROBE_TARGETS: readonly ProbeTarget[] = [
 export interface ProbeOptions {
   fetchImpl?: FetchLike;
   logger?: Logger;
-  /** Per-endpoint budget, default 6 s. */
+  /** Per-endpoint budget for every endpoint; default 6 s, or the target's own `timeoutMs` (Europe PMC: 15 s). */
   timeoutMs?: number;
-  /** Total budget across all endpoints, default 30 s. */
+  /** Total budget across all endpoints, default 45 s. */
   overallMs?: number;
   /** Wait between endpoints, default 400 ms. */
   gapMs?: number;
@@ -84,8 +91,10 @@ export async function probeNetworkEndpoints(opts: ProbeOptions = {}): Promise<Ne
   const fetchImpl = opts.fetchImpl ?? (globalThis.fetch as FetchLike);
   const sleep = opts.sleep ?? sleepDefault;
   const now = opts.now ?? Date.now;
-  const timeoutMs = opts.timeoutMs ?? 6_000;
-  const overallMs = opts.overallMs ?? 30_000;
+  // An explicit caller budget applies to every endpoint; otherwise a target's
+  // own budget (Europe PMC) wins over the 6 s default.
+  const timeoutFor = (target: ProbeTarget): number => opts.timeoutMs ?? target.timeoutMs ?? 6_000;
+  const overallMs = opts.overallMs ?? 45_000;
   const gapMs = opts.gapMs ?? 400;
   const targets = opts.targets ?? PROBE_TARGETS;
 
@@ -93,7 +102,7 @@ export async function probeNetworkEndpoints(opts: ProbeOptions = {}): Promise<Ne
   const overallStart = now();
   for (const [index, target] of targets.entries()) {
     if (index > 0 && gapMs > 0) await sleep(gapMs);
-    const deadline = Math.max(0, Math.min(timeoutMs, overallMs - (now() - overallStart)));
+    const deadline = Math.max(0, Math.min(timeoutFor(target), overallMs - (now() - overallStart)));
     const started = now();
     let result: ProbeResult;
     if (deadline === 0) {

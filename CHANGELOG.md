@@ -8,6 +8,27 @@ Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Import plans with mixed-case tags (for example `JCR:Q1` next to
+  `import-run:...`) no longer fail the dry run with a hash mismatch: the
+  runtime and the Python `plan-import` helper now both order strings by code
+  point, normalize the same lists, and a cross-language test keeps them equal.
+  The mismatch error no longer prints the expected hash; it asks to regenerate
+  the plan instead.
+- Python search and Zotero helpers retry a TLS handshake that is cut off
+  (`UNEXPECTED_EOF`) with a smaller handshake and then TLS 1.2, keeping
+  certificate verification on. `AI4S_TLS_COMPAT=1` starts in that mode.
+- `review` keeps PubMed results and warns when OpenAlex is rate limited
+  (HTTP 429) or fails, instead of ending without a report.
+- `setup_status` gives Europe PMC a 15 s budget (others stay at 6 s), so a
+  slow but healthy endpoint is no longer reported as needing the user.
+
+### Changed
+
+- `plan-import --select-id` / `--selection-json` also accept a PMID, a bare DOI,
+  or a doi.org URL, and an unknown ID error lists example IDs from the file.
+
 ## [0.3.0] - 2026-11-27
 
 ### Added
