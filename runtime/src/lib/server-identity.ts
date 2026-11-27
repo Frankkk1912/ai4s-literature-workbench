@@ -9,7 +9,7 @@ export const SERVER_NAME = 'ai4s-literature-zotero';
 
 // Keep in step with the `version` in runtime/package.json and the release
 // manifests. No automatic bump: releasing is a separate, manual step.
-export const SERVER_VERSION = '0.2.1';
+export const SERVER_VERSION = '0.3.0';
 
 /** How this server was installed, when that can be told reliably. */
 export type InstallRoute =

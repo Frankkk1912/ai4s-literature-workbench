@@ -3,9 +3,9 @@
     "literature-metrics@frank-ai4s.local": {
       "updates": [
         {
-          "version": "0.2.1",
-          "update_link": "https://github.com/Frankkk1912/ai4s-literature-workbench/releases/download/v0.2.1/literature-metrics-0.2.1.xpi",
-          "update_hash": "sha256:dccebf30cf6b4efb9b3a40a0444988d2f0dfaa9c40e8540734d862d906334311",
+          "version": "0.3.0",
+          "update_link": "https://github.com/Frankkk1912/ai4s-literature-workbench/releases/download/v0.3.0/literature-metrics-0.3.0.xpi",
+          "update_hash": "sha256:476dbb14173a8356419061adf2d0ba1e27b290cb2ac4c2e14b9aa6799508f074",
           "applications": {
             "zotero": {
               "strict_min_version": "7.0",

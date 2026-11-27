@@ -40,7 +40,7 @@ test("negative controls: each broken feed is reported", () => {
 
 test("a link to a release newer than the one being built is refused", () => {
   assert.match(checkFeed({ manifest, feed, pluginVersion: "0.0.9" }).join(" "), /newer than the release/);
-  assert.deepEqual(checkFeed({ manifest, feed, pluginVersion: "0.2.1" }), []);
+  assert.deepEqual(checkFeed({ manifest, feed, pluginVersion: "0.3.0" }), []);
 });
 
 test("the manifest's update_url is the published feed of this repository", () => {
