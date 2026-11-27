@@ -38,6 +38,8 @@ Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
   workbench at 0.3.0. This release includes functional add-on work: the jobs
   channel, native merge, and the metrics backfill preview and confirm menu
   (PRs #38, #41, #42).
+- The README install sections were tightened, and earlier prose that had been
+  shortened in PR #45 was restored (PR #47).
 
 ### Fixed
 
