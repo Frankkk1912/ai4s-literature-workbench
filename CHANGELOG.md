@@ -8,6 +8,47 @@ Versioning follows [Semantic Versioning](https://semver.org/lang/zh-CN/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-27
+
+### Added
+
+- A file-based job channel between the Zotero add-on and the MCP runtime
+  (ping/ack), which later tools use to ask the add-on to do work (PR #38).
+- `zotero_dedupe_plan`, a dry-run tool that proposes a Zotero duplicate-merge
+  plan without writing (PR #39).
+- One-step MCP metrics backfill for items already in a collection (PR #40).
+- Native Zotero merge of a confirmed dedupe plan through the plugin jobs
+  channel (PR #41).
+- A metrics backfill preview menu in the Zotero add-on, and a confirm-and-apply
+  path so a reviewed preview can be written in Zotero (PR #42).
+- TLS trust fallback (system certificates, custom CA environment variables,
+  and an explicit-only insecure override) plus `setup_status` network probes
+  and a hidden-tool listing (PR #43).
+- Onboarding self-check notes, server identity fields on `setup_status` and
+  `zotero_whoami`, and guidance for the retired duplicate MCP (PR #44).
+- README GIF and screenshots of the metrics columns, a PubMed search record,
+  and the local setup page, with constrained image widths and tighter bilingual
+  prose (PR #45).
+
+### Changed
+
+- `zotero_get_item` defaults are more concise, and the skills are tighter
+  (PR #44).
+- The Zotero Desktop add-on (`literature-metrics`) is aligned with the
+  workbench at 0.3.0. This release includes functional add-on work: the jobs
+  channel, native merge, and the metrics backfill preview and confirm menu
+  (PRs #38, #41, #42).
+
+### Fixed
+
+- Project sync is idempotent and incremental: unchanged reuse is skipped,
+  historical bindings are kept, and shrinking a selection no longer drops
+  membership or items (PR #35).
+- After successful cloud writes, reads prefer the cloud until the local
+  library catches up; local metrics-plan versions are refreshed (PR #36).
+- `find_duplicates` applies its limit to the current batch and flags masters
+  that sit outside it (PR #37).
+
 ## [0.2.1] - 2026-11-21
 
 ### Added

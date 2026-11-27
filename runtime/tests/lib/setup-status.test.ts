@@ -269,7 +269,7 @@ describe('setup status network and hidden-tool sections', () => {
   });
   it('reports the server identity, profile, read-only switch, and write channel', () => {
     const identity: SetupIdentity = {
-      server: { name: 'ai4s-literature-zotero', version: '0.2.1', install: 'plugin' },
+      server: { name: 'ai4s-literature-zotero', version: '0.3.0', install: 'plugin' },
       profile: 'workbench',
       readOnly: true,
     };
@@ -278,7 +278,7 @@ describe('setup status network and hidden-tool sections', () => {
       zotero: { ...baseFacts().zotero, keyPresent: true, keyLoadedAtStart: true, cloudOk: true, write: true, localApi: true, localSave: true },
     };
     const status = buildSetupStatus(facts, { identity });
-    expect(status.server).toEqual({ name: 'ai4s-literature-zotero', version: '0.2.1', install: 'plugin' });
+    expect(status.server).toEqual({ name: 'ai4s-literature-zotero', version: '0.3.0', install: 'plugin' });
     expect(status.profile).toBe('workbench');
     expect(status.read_only).toBe(true);
     expect(status.write_channel).toEqual({ cloud_key: true, local_desktop: true, read_only: true });
