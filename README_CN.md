@@ -68,6 +68,10 @@
 
 去重优先按 DOI 合并，缺失 DOI 时按 PMID 合并。脚本会自动生成 `report.md` 作为检索日志，完整记录研究问题、日期、数据库、原始检索式、返回上限、命中/去重后篇数及入选文献列表；详细打分依据保存在 `ranked_all.json`。检索阶段只负责产出证据，正文撰写统一交由 `literature-writing` 完成。
 
+![示例检索记录：研究问题、PubMed 检索式、命中数量和入选文献](docs/assets/search-results.png)
+
+*一份示例 PubMed 检索记录（`report.md`）：研究问题、原始检索式、命中数量与入选文献列表。*
+
 相关性排序采用确定性规则计算，综合题名、摘要、MeSH 词及发表年份等维度，每一项得分均有据可查并记录在 `ranked_all.json`。**Priority（1–3）** 用于标示当前课题的阅读优先级：入选文献默认为 1；Agent 在复核相关性时，会将值得精读的文献（关键机制、方法学、重要综述或相反结论）标为 2，必读核心文献标为 3，并附带简短原因码。期刊影响因子独立显示在指标列中，不与阅读优先级混用。Priority 星级支持后续手动调整，且在下次同步导入时会保留已有标记。
 
 期刊指标默认使用仓库内置、经核验的 2025 年 JCR/IF 表，按 ISSN 匹配并作为元数据附着在条目上，不影响原始检索召回结果。中科院分区数据需通过 EasyScholar 查询，或导入你自行提供的指标表。
@@ -103,6 +107,10 @@
 插件会在条目列表中新增带颜色标记的 **IF / JCR / 中科院分区** 列、**Priority** 星级列（对应检索时的 1–3 级），以及 **Article Type**、**Agent Tags** 和一句话 **AI Summary** 列。点击星级、按快捷键 `1` / `2` / `3` 或右键 **Set Priority**，是该插件唯一会写入条目的操作（仅修改 Priority 相关标签）。
 
 列中展示的指标数据均读取自条目的 `Extra` 字段。安装完插件后，让 Agent 对目标分类执行一次同步或刷新，数据便会自动显示。指标查询由后台 MCP 工具负责，相关 API 密钥仅保存在本地设置页中。
+
+![Zotero 中的 literature-metrics 插件：IF、JCR、中科院分区列、Priority 星级及条目详情](docs/assets/metrics-columns.gif)
+
+*在 Zotero 中按影响因子和 Priority 排序，并在选中条目时更新右侧详情面板。*
 
 ## 🗣️ 使用示例
 
@@ -166,6 +174,10 @@ https://raw.githubusercontent.com/Frankkk1912/ai4s-literature-workbench/main/INS
 更多上手说明见 `docs/getting-started_CN.md`。
 
 ### 可选 API 密钥说明
+
+![本地配置页，展示 Zotero、PubMed 与 EasyScholar 的配置状态](docs/assets/onboarding.png)
+
+*演示环境中的本地配置页。EasyScholar 已配置；页面显示 “Zotero not found”，是因为插件安装在隔离的演示 profile 中，扫描默认路径时不会找到它。*
 
 - API 密钥均保存在本机私有配置文件中，不会暴露在对话上下文里。
 - PubMed 与 Zotero 的 API Key 均可通过各自免费账号直接申请；EasyScholar 密钥请参考其官网说明。

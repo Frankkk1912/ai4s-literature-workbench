@@ -68,6 +68,10 @@ Default searches query PubMed and OpenAlex in parallel. OpenAlex is free and req
 
 Deduplication merges records by DOI first, falling back to PMID. A script generates `report.md` as an immutable search log containing the research question, date, databases, exact query strings, caps, hit/dedup/selected counts, and the selected paper table. Detailed scoring breakdowns are stored in `ranked_all.json`. This stage strictly gathers and logs evidence—synthesis and prose drafting are deferred to `literature-writing`.
 
+![Example literature search record with the question, PubMed query, hit counts, and selected papers](docs/assets/search-results.png)
+
+*An example PubMed search record (`report.md`): the question, exact query, hit counts, and selected papers.*
+
 Relevance scores follow deterministic rules across title, abstract, MeSH terms, recency, and related signals, with every point explained in `ranked_all.json`. **Priority (1–3)** indicates reading order for the current topic: selected papers default to `1`; during the relevance pass, the agent upgrades papers worth close reading (key mechanisms, methods, reviews, or contrasting findings) to `2` and must-reads to `3`, each accompanied by a short reason code. Journal Impact Factor stays in its own metadata column rather than distorting reading priority. You can adjust Priority stars manually at any time, and subsequent imports preserve your existing Priority tags.
 
 Journal metrics default to a bundled, vetted 2025 JCR/IF table matched by ISSN and attached alongside each record without altering the search recall. CAS zones are populated via EasyScholar lookups or a custom metrics file you provide.
@@ -104,6 +108,10 @@ The add-on introduces color-coded **IF / JCR / CAS** columns, **Priority** stars
 
 Column values are read directly from each item's `Extra` field. After installing the add-on, ask your agent to sync or refresh a collection to populate the metrics. All lookups are handled by the MCP tools, while API keys stay isolated on the local setup page.
 
+![The literature-metrics add-on in Zotero, showing IF, JCR, and CAS columns, Priority stars, and the item details pane](docs/assets/metrics-columns.gif)
+
+*Sorting by Impact Factor and Priority in Zotero, with the item pane updating as rows are selected.*
+
 ### 🔑 Local-Only API Key Management
 
 All API keys are optional—searching, ranking, and drafting work out of the box without them.
@@ -115,6 +123,10 @@ When you choose to add a key, the agent calls `open_setup` to launch a local con
 - **EasyScholar API key**: enables additional journal ratings, including CAS zones.
 
 Direct registration links for each service are provided on the setup page.
+
+![The local setup page showing configuration status for Zotero, PubMed, and EasyScholar](docs/assets/onboarding.png)
+
+*The local setup page in a demo environment. EasyScholar is already present; the page reports “Zotero not found” because the add-on is installed in an isolated demo profile, not the default Zotero path.*
 
 ## 🗣️ Example Prompts
 
